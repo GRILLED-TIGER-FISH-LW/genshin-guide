@@ -314,11 +314,15 @@ function buildSVG(showGuides, forExport = false) {
       <feDropShadow dx="${cap.R * 0.18}" dy="${cap.R * 0.18}" stdDeviation="0" flood-color="#000000" flood-opacity="0.5"/>
     </filter>`;
 
+  /* 模糊 filter：
+     - edgeMode="duplicate" → 模糊边缘用边缘像素复制，不透明
+     - 因此不需要 pad 外扩隐藏暗边，图保持原尺寸 0,0,W,H
+     - filter 的 x/y/width/height 保留 pad，是给模糊留渲染空间，与图尺寸无关 */
   const blurPx = (Math.min(100, Math.max(0, Number(s.midBlur) || 0)) / 100) * BLUR_MAX_PX;
   const midPad = Math.max(1, blurPx * 3);
   const midFilter = `
     <filter id="midFilter" x="${-midPad}" y="${-midPad}" width="${SVG_W + midPad * 2}" height="${SVG_H + midPad * 2}" filterUnits="userSpaceOnUse">
-      <feGaussianBlur id="midBlurFe" stdDeviation="${blurPx}"/>
+      <feGaussianBlur id="midBlurFe" stdDeviation="${blurPx}" edgeMode="duplicate"/>
       <feComponentTransfer id="midBrightnessFe">
         <feFuncR type="linear" slope="${1 + s.midBrightness / 100}"/>
         <feFuncG type="linear" slope="${1 + s.midBrightness / 100}"/>
@@ -347,7 +351,7 @@ function buildSVG(showGuides, forExport = false) {
 
 ${s.bg ? `<image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>` : '<rect width="3840" height="2160" fill="#1c1c22"/>'}
 ${floatImages(lowerFloats)}
-${s.bg ? `<g mask="url(#midMaskUse)" filter="url(#midFilter)"><image id="midBlurImage" href="${s.bg}" x="${-midPad}" y="${-midPad}" width="${SVG_W + midPad * 2}" height="${SVG_H + midPad * 2}" preserveAspectRatio="none"/></g>` : ''}
+${s.bg ? `<g mask="url(#midMaskUse)" filter="url(#midFilter)"><image id="midBlurImage" href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/></g>` : ''}
 ${floatImages(upperFloats)}
 <g filter="url(#capShadow)">
   <path id="capCapsulePath" d="${capPath}" fill="#ffffff"/>
@@ -416,7 +420,6 @@ function collectFloats() {
         w: state.characterArt.w,
         h: state.characterArt.h,
         x: state.characterX, scale: 1, rounded: 0,
-        /* 立绘放在中层之下，左侧会被模糊层盖住 */
         underMiddle: true
       }];
     }
@@ -689,7 +692,6 @@ function addFloat() {
           url: reader.result,
           w: img.width, h: img.height,
           x: SVG_W * 0.75, scale: 1, rounded: 0,
-          /* 新加的素材默认也在中层之下 */
           underMiddle: true
         });
         renderFloatList();
@@ -1276,6 +1278,9 @@ window.App = App;
  * 【JS 模块 18】初始化
  * ========================================================================= */
 (async function init() {
+  /* 等资源加载器完成 */
+  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
   injectIcons();
   await loadDataFiles();
   await loadFontList();
@@ -1321,6 +1326,9 @@ window.App = App;
   bindEvents();
   mountPreview();
   injectIcons();
+
+  /* 一切就绪，揭开启动遮罩 */
+  document.body.classList.add('ready');
 })();
 
 /* =========================================================================
