@@ -4,21 +4,72 @@
      原神攻略工具集 · index.html
      =========================================================================
      HTML 模块导航：
-       【HTML 模块 1】 head / 资源引用 / 全局样式
+       【HTML 模块 0】 head / 资源加载器
+       【HTML 模块 1】 全局样式
        【HTML 模块 2】 顶部导航栏
        【HTML 模块 3】 侧边菜单抽屉
        【HTML 模块 4】 iframe 容器 + loading
        【HTML 模块 5】 JS 引用
      ========================================================================= -->
 <head>
-<!-- 【HTML 模块 1】head / 资源引用 / 全局样式 -->
+<!-- 【HTML 模块 0】head / 资源加载器 -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F2EFEA">
 <title>原神攻略工具集</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="favicon.ico">
-<link rel="stylesheet" href="shared/theme.css">
+
+<script>
+/* =========================================================================
+ * 资源加载器
+ * =========================================================================
+ * 目的：绕过浏览器缓存，每次打开都拉最新版。
+ * 做法：给所有 CSS / JS 的 URL 追加 ?t=<时间戳>。
+ *
+ * - theme.css  插到第一个 <style> 之前，保持"外部 CSS → 内联样式"的覆盖顺序
+ * - ui-icons.js 加载完后，主逻辑（文件末尾）通过 await __bootPromise 继续
+ * - 时间戳暴露到 window.__pageLoadTs，主逻辑里给 iframe 的 src 也用同一个
+ * ========================================================================= */
+(function () {
+  var ts = Date.now();
+  window.__pageLoadTs = ts;
+
+  function withTs(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
+  }
+
+  function loadStyle(href) {
+    return new Promise(function (resolve, reject) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = withTs(href);
+      l.onload = resolve;
+      l.onerror = function () { reject(new Error('加载失败：' + href)); };
+      var firstStyle = document.head.querySelector('style');
+      if (firstStyle) document.head.insertBefore(l, firstStyle);
+      else document.head.appendChild(l);
+    });
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = withTs(src);
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('加载失败：' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  window.__bootPromise = Promise.all([
+    loadStyle('shared/theme.css'),
+    loadScript('shared/ui-icons.js')
+  ]);
+})();
+</script>
+
+<!-- 【HTML 模块 1】全局样式 -->
 <style>
 /* ---------- 全局重置 ---------- */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -339,7 +390,6 @@ html.theme-switching *::after {
 </main>
 
 <!-- 【HTML 模块 5】JS 引用 -->
-<script src="shared/ui-icons.js"></script>
 <script>
 /* =========================================================================
  * 主页逻辑
@@ -578,7 +628,9 @@ function ensureFrame(tool, sub) {
   const key = cacheKeyOf(tool, sub);
   if (frameCache.has(key)) return frameCache.get(key);
 
-  const src = srcOf(tool, sub);
+  const baseSrc = srcOf(tool, sub);
+  const ts = window.__pageLoadTs || Date.now();
+  const src = baseSrc + (baseSrc.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
 
   const view = document.createElement('div');
   view.className = 'frame-view';
@@ -731,7 +783,10 @@ window.addEventListener('hashchange', () => {
 });
 
 /* 【JS 模块 11】初始化 */
-(function init() {
+(async function init() {
+  /* 等资源加载器完成（theme.css + ui-icons.js） */
+  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
   btnMenu.innerHTML  = ICONS.app.hamburger;
   btnClose.innerHTML = ICONS.app.close;
 
