@@ -7,19 +7,20 @@
  *   【JS 模块 3】 数据字典
  *   【JS 模块 4】 工具函数
  *   【JS 模块 5】 图标注入
- *   【JS 模块 6】 SVG 生成
- *   【JS 模块 7】 浮动图层收集
- *   【JS 模块 8】 预览挂载 + 增量更新
- *   【JS 模块 9】 模式切换
- *   【JS 模块 10】副标题输入处理（角色名 / BOSS 名）
- *   【JS 模块 11】浮动素材
- *   【JS 模块 12】字体 (内存直读终极版)
- *   【JS 模块 13】IndexedDB 持久化
- *   【JS 模块 14】导出 / 导入 / 清空
- *   【JS 模块 15】UI 同步
- *   【JS 模块 16】事件绑定
- *   【JS 模块 17】App 接口
- *   【JS 模块 18】初始化
+ *   【JS 模块 6】 背景模糊图生成（canvas 预生成）
+ *   【JS 模块 7】 SVG 生成
+ *   【JS 模块 8】 浮动图层收集
+ *   【JS 模块 9】 预览挂载 + 增量更新
+ *   【JS 模块 10】模式切换
+ *   【JS 模块 11】副标题输入处理（角色名 / BOSS 名）
+ *   【JS 模块 12】浮动素材
+ *   【JS 模块 13】字体
+ *   【JS 模块 14】IndexedDB 持久化
+ *   【JS 模块 15】导出 / 导入 / 清空
+ *   【JS 模块 16】UI 同步
+ *   【JS 模块 17】事件绑定
+ *   【JS 模块 18】App 接口
+ *   【JS 模块 19】初始化
  * ========================================================================= */
 'use strict';
 
@@ -74,6 +75,15 @@ const state = {
   characterX: 2650,
   floatImg: []
 };
+
+/* 背景相关的运行时缓存（不持久化）：
+ *   cachedBgImage       —— 已 load 好的原图 Image 对象
+ *   cachedBlurredBg     —— canvas 预生成的模糊图 dataURL
+ *   cachedBlurredBgKey  —— 缓存 key（原图 src + blur + brightness） */
+let cachedBgImage = null;
+let cachedBlurredBg = '';
+let cachedBlurredBgKey = '';
+let cachedBgSrc = null;
 
 /* =========================================================================
  * 【JS 模块 3】数据字典
@@ -225,7 +235,118 @@ function injectIcons() {
 }
 
 /* =========================================================================
- * 【JS 模块 6】SVG 生成
+ * 【JS 模块 6】背景模糊图生成（canvas 预生成）
+ * =========================================================================
+ * 为什么用 canvas：
+ *   SVG 的 feGaussianBlur 的 edgeMode="duplicate" 在部分浏览器不生效，
+ *   模糊后边缘会变透明 → 露出底层 → 出现"暗→亮"硬边。
+ *   canvas 的 ctx.filter = 'blur()' 天然是 clamp to edge，边缘不透明。
+ *
+ * 流程：
+ *   1. 原图"覆盖缩放"铺满 W×H → 得到基准图 A（尺寸 = 原图显示尺寸，不放大）
+ *   2. 建外扩 pad 的画布 B，A 放中心，pad 区域用 A 的边缘像素拉伸填充
+ *   3. 对整个 B 应用 blur，画到主 canvas 的 (-pad, -pad) 起点
+ *      → 主 canvas 的 (0,0)-(W,H) 就是"裁掉 pad 的中心区域"
+ *   4. 最后叠一层亮度（黑/白 fillRect）
+ *
+ * 缓存 key：原图 src + blur + brightness。三者不变 → 直接用缓存。
+ * ========================================================================= */
+
+/** 加载背景图（state.bg 变化时调用）。同 src 秒返回。 */
+async function loadBgImage() {
+  if (state.bg === cachedBgSrc) return;
+  cachedBgSrc = state.bg;
+
+  cachedBgImage = null;
+  cachedBlurredBg = '';
+  cachedBlurredBgKey = '';
+
+  if (!state.bg) return;
+  try {
+    cachedBgImage = await loadImage(state.bg);
+  } catch (e) {
+    cachedBgImage = null;
+  }
+}
+
+/** 同步生成（或命中缓存）当前状态下的模糊背景图 dataURL。 */
+function generateBlurredBgSync() {
+  if (!cachedBgImage) return '';
+
+  const key = cachedBgImage.src + '|' + state.midBlur + '|' + state.midBrightness;
+  if (cachedBlurredBgKey === key && cachedBlurredBg) return cachedBlurredBg;
+
+  const W = SVG_W, H = SVG_H;
+  const img = cachedBgImage;
+  const blurPx = (Math.min(100, Math.max(0, Number(state.midBlur) || 0)) / 100) * BLUR_MAX_PX;
+  const slope = 1 + Number(state.midBrightness || 0) / 100;
+
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  if (blurPx > 0) {
+    /* 步骤 1：铺满 W×H 到 tmp1（cover 缩放） */
+    const coverScale = Math.max(W / img.width, H / img.height);
+    const coverW = img.width * coverScale;
+    const coverH = img.height * coverScale;
+    const coverX = (W - coverW) / 2;
+    const coverY = (H - coverH) / 2;
+
+    const tmp1 = document.createElement('canvas');
+    tmp1.width = W; tmp1.height = H;
+    tmp1.getContext('2d').drawImage(img, coverX, coverY, coverW, coverH);
+
+    /* 步骤 2：外扩 pad 的 tmp2，A 放中心，pad 用边缘像素拉伸 */
+    const pad = Math.ceil(blurPx * 3) + 20;
+    const BW = W + pad * 2, BH = H + pad * 2;
+    const tmp2 = document.createElement('canvas');
+    tmp2.width = BW; tmp2.height = BH;
+    const t2 = tmp2.getContext('2d');
+    t2.drawImage(tmp1, pad, pad);
+    t2.drawImage(tmp1, 0, 0,     W, 1, pad,     0,     W,   pad);   // 上
+    t2.drawImage(tmp1, 0, H - 1, W, 1, pad,     pad+H, W,   pad);   // 下
+    t2.drawImage(tmp1, 0, 0,     1, H, 0,       pad,   pad, H);     // 左
+    t2.drawImage(tmp1, W-1, 0,   1, H, pad+W,   pad,   pad, H);     // 右
+    t2.drawImage(tmp1, 0, 0,     1, 1, 0,       0,     pad, pad);   // 左上
+    t2.drawImage(tmp1, W-1, 0,   1, 1, pad+W,   0,     pad, pad);   // 右上
+    t2.drawImage(tmp1, 0, H-1,   1, 1, 0,       pad+H, pad, pad);   // 左下
+    t2.drawImage(tmp1, W-1, H-1, 1, 1, pad+W,   pad+H, pad, pad);   // 右下
+
+    /* 步骤 3：对整张 tmp2 应用 blur，画到主 canvas（起点 -pad,-pad）
+       主 canvas (0,0)-(W,H) 对应 tmp2 的中心 W×H */
+    ctx.filter = `blur(${blurPx}px)`;
+    ctx.drawImage(tmp2, -pad, -pad);
+    ctx.filter = 'none';
+  } else {
+    /* 不模糊，直接 cover 铺满 */
+    const coverScale = Math.max(W / img.width, H / img.height);
+    const coverW = img.width * coverScale;
+    const coverH = img.height * coverScale;
+    const coverX = (W - coverW) / 2;
+    const coverY = (H - coverH) / 2;
+    ctx.drawImage(img, coverX, coverY, coverW, coverH);
+  }
+
+  /* 步骤 4：亮度 */
+  if (slope < 1) {
+    /* 压暗：黑色 source-over，alpha = 1 - slope */
+    ctx.fillStyle = `rgba(0,0,0,${1 - slope})`;
+    ctx.fillRect(0, 0, W, H);
+  } else if (slope > 1) {
+    /* 提亮：白色 source-over，alpha = slope - 1（上限 1） */
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, slope - 1)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const dataURL = c.toDataURL('image/png');
+  cachedBlurredBg = dataURL;
+  cachedBlurredBgKey = key;
+  return dataURL;
+}
+
+/* =========================================================================
+ * 【JS 模块 7】SVG 生成
  * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d');
 function getFontFamily() {
@@ -314,24 +435,11 @@ function buildSVG(showGuides, forExport = false) {
       <feDropShadow dx="${cap.R * 0.18}" dy="${cap.R * 0.18}" stdDeviation="0" flood-color="#000000" flood-opacity="0.5"/>
     </filter>`;
 
-  /* 模糊 filter：
-     - edgeMode="duplicate" → 模糊边缘用边缘像素复制，不透明
-     - 因此不需要 pad 外扩隐藏暗边，图保持原尺寸 0,0,W,H
-     - filter 的 x/y/width/height 保留 pad，是给模糊留渲染空间，与图尺寸无关 */
-  const blurPx = (Math.min(100, Math.max(0, Number(s.midBlur) || 0)) / 100) * BLUR_MAX_PX;
-  const midPad = Math.max(1, blurPx * 3);
-  const midFilter = `
-    <filter id="midFilter" x="${-midPad}" y="${-midPad}" width="${SVG_W + midPad * 2}" height="${SVG_H + midPad * 2}" filterUnits="userSpaceOnUse">
-      <feGaussianBlur id="midBlurFe" stdDeviation="${blurPx}" edgeMode="duplicate"/>
-      <feComponentTransfer id="midBrightnessFe">
-        <feFuncR type="linear" slope="${1 + s.midBrightness / 100}"/>
-        <feFuncG type="linear" slope="${1 + s.midBrightness / 100}"/>
-        <feFuncB type="linear" slope="${1 + s.midBrightness / 100}"/>
-      </feComponentTransfer>
-    </filter>`;
-
   const usePattern = !!(s.bg && s.capText);
   const capTextFill = usePattern ? 'url(#capTextPattern)' : '#1a1a1a';
+
+  /* 模糊图（canvas 预生成的 dataURL，可能是空字符串） */
+  const blurredBgUrl = cachedBgImage ? generateBlurredBgSync() : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
 <defs>
@@ -342,7 +450,7 @@ function buildSVG(showGuides, forExport = false) {
   </linearGradient>
   <mask id="midMaskUse"><rect x="0" y="0" width="${SVG_W}" height="${SVG_H}" fill="url(#midMask)"/></mask>
   ${s.capLogo ? `<clipPath id="logoClip"><rect x="${logoX}" y="${logoY}" width="${LOGO_SIZE_FIXED}" height="${LOGO_SIZE_FIXED}" rx="${LOGO_ROUNDED_FIXED}" ry="${LOGO_ROUNDED_FIXED}"/></clipPath>` : ''}
-  ${capShadowFilter}${midFilter}
+  ${capShadowFilter}
   ${usePattern ? `<pattern id="capTextPattern" patternUnits="userSpaceOnUse" x="0" y="0" width="${SVG_W}" height="${SVG_H}">
     <image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>
   </pattern>` : ''}
@@ -351,7 +459,7 @@ function buildSVG(showGuides, forExport = false) {
 
 ${s.bg ? `<image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>` : '<rect width="3840" height="2160" fill="#1c1c22"/>'}
 ${floatImages(lowerFloats)}
-${s.bg ? `<g mask="url(#midMaskUse)" filter="url(#midFilter)"><image id="midBlurImage" href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/></g>` : ''}
+${blurredBgUrl ? `<g mask="url(#midMaskUse)"><image id="midBlurImage" href="${blurredBgUrl}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/></g>` : ''}
 ${floatImages(upperFloats)}
 <g filter="url(#capShadow)">
   <path id="capCapsulePath" d="${capPath}" fill="#ffffff"/>
@@ -390,7 +498,7 @@ ${floatImages(upperFloats)}
 }
 
 /* =========================================================================
- * 【JS 模块 7】浮动图层收集
+ * 【JS 模块 8】浮动图层收集
  * ========================================================================= */
 function collectFloats() {
   if (state.guideType === 'boss') {
@@ -429,7 +537,7 @@ function collectFloats() {
 }
 
 /* =========================================================================
- * 【JS 模块 8】预览挂载 + 增量更新
+ * 【JS 模块 9】预览挂载 + 增量更新
  * ========================================================================= */
 let previewSvgEl = null;
 
@@ -459,7 +567,7 @@ function updateFieldText(field, text) {
 }
 
 /* =========================================================================
- * 【JS 模块 9】模式切换
+ * 【JS 模块 10】模式切换
  * ========================================================================= */
 function applyModeUI() {
   const type = state.guideType;
@@ -502,7 +610,7 @@ function applyModeUI() {
   }
 }
 
-function setGuideType(type) {
+async function setGuideType(type) {
   state.guideType = type;
 
   if (type === 'character' || type === 'boss') {
@@ -552,12 +660,13 @@ function setGuideType(type) {
   if (s2) s2.value = String(state.sub2Size);
 
   applyModeUI();
+  await loadBgImage();
   mountPreview();
   persist();
 }
 
 /* =========================================================================
- * 【JS 模块 10】副标题输入处理
+ * 【JS 模块 11】副标题输入处理
  * ========================================================================= */
 function onSub1Input(v) {
   if (state.guideType === 'character') return;
@@ -594,6 +703,7 @@ async function matchCharacterName(name) {
     if (sub1Input) sub1Input.value = '';
     const bgNameEl = document.getElementById('bgFileName');
     if (bgNameEl) bgNameEl.textContent = '未选择文件';
+    await loadBgImage();
     mountPreview(); persist();
     return;
   }
@@ -635,6 +745,7 @@ async function matchCharacterName(name) {
     if (bgNameEl) bgNameEl.textContent = '未选择文件';
   }
 
+  await loadBgImage();
   mountPreview();
   persist();
 }
@@ -675,7 +786,7 @@ async function matchBossName(name) {
 }
 
 /* =========================================================================
- * 【JS 模块 11】浮动素材
+ * 【JS 模块 12】浮动素材
  * ========================================================================= */
 function addFloat() {
   const input = document.createElement('input');
@@ -758,7 +869,7 @@ function renderFloatList() {
 }
 
 /* =========================================================================
- * 【JS 模块 12】字体
+ * 【JS 模块 13】字体
  * ========================================================================= */
 async function loadFontList() {
   try {
@@ -930,7 +1041,7 @@ async function selectFont(index) {
 }
 
 /* =========================================================================
- * 【JS 模块 13】IndexedDB 持久化
+ * 【JS 模块 14】IndexedDB 持久化
  * ========================================================================= */
 const IDB_NAME = 'video_cover_db';
 const IDB_STORE = 'state';
@@ -970,7 +1081,7 @@ async function loadPersist() {
 }
 
 /* =========================================================================
- * 【JS 模块 14】导出 / 导入 / 清空
+ * 【JS 模块 15】导出 / 导入 / 清空
  * ========================================================================= */
 function getExportBaseName() {
   const s2 = (state.sub2 || '').trim();
@@ -1046,7 +1157,7 @@ function exportConfig() {
   );
 }
 
-function importConfig(input) {
+async function importConfig(input) {
   const f = input.files[0];
   if (!f) return;
   const reader = new FileReader();
@@ -1056,6 +1167,7 @@ function importConfig(input) {
       syncInputsFromState();
       applyModeUI();
       if (state.fontData) await installFont();
+      await loadBgImage();
       renderFloatList();
       mountPreview();
       persist();
@@ -1080,7 +1192,7 @@ async function clearAll() {
 }
 
 /* =========================================================================
- * 【JS 模块 15】UI 同步
+ * 【JS 模块 16】UI 同步
  * ========================================================================= */
 function syncInputsFromState() {
   const map = {
@@ -1120,7 +1232,7 @@ function syncInputsFromState() {
 }
 
 /* =========================================================================
- * 【JS 模块 16】事件绑定
+ * 【JS 模块 17】事件绑定
  * ========================================================================= */
 function bindEvents() {
   document.querySelectorAll('#guideTypeSeg .seg-btn').forEach(btn => {
@@ -1134,8 +1246,9 @@ function bindEvents() {
     const nameEl = picker && picker.querySelector('.file-picker-name');
     if (nameEl) nameEl.textContent = f.name;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       state.bg = reader.result;
+      await loadBgImage();
       mountPreview();
       persist();
     };
@@ -1187,7 +1300,7 @@ function bindEvents() {
 }
 
 /* =========================================================================
- * 【JS 模块 17】App 接口
+ * 【JS 模块 18】App 接口
  * ========================================================================= */
 const App = {
   set(key, value) {
@@ -1275,7 +1388,7 @@ const App = {
 window.App = App;
 
 /* =========================================================================
- * 【JS 模块 18】初始化
+ * 【JS 模块 19】初始化
  * ========================================================================= */
 (async function init() {
   /* 等资源加载器完成 */
@@ -1292,6 +1405,9 @@ window.App = App;
   }
 
   try { await installFont(); } catch(e) {}
+
+  /* 加载背景图（用于 canvas 生成模糊图） */
+  await loadBgImage();
 
   const logoSelect = document.getElementById('logoSelect');
   if (logoSelect) {
