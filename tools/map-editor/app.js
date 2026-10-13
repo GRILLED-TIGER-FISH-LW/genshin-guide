@@ -10,7 +10,7 @@
  *   【JS 模块 6】 查找辅助（字典 ↔ 编号）
  *   【JS 模块 7】 本地存储
  *   【JS 模块 8】 工具函数
- *   【JS 模块 9】 条目列表渲染
+ *   【JS 模块 9】 条目列表渲染（含搜索筛选）
  *   【JS 模块 10】粘贴 URL 解析
  *   【JS 模块 11】从 Amber 同步（生成完整字典）
  *   【JS 模块 12】清空当前分类
@@ -58,6 +58,8 @@
   var statusBar     = document.getElementById("status");
   var modalBackdrop = document.getElementById("modalBackdrop");
   var pasteArea     = document.getElementById("pasteArea");
+  var searchInput   = document.getElementById("searchInput");
+  var searchClear   = document.getElementById("searchClear");
 
   /* ---------------------------------------------------------------------
    * 【JS 模块 3】全局状态
@@ -65,6 +67,7 @@
   var config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   var editorData = { characters: [], artifacts: [], weapons: [], monsters: [] };
   var currentTab = "characters";
+  var searchQuery = "";   /* 当前搜索词（小写），空 = 不过滤 */
 
   var amberCache   = { characters: null, weapons: null, artifacts: null, monsters: null };
   var amberLoading = {};
@@ -231,13 +234,6 @@
     return "#" + rr.toString(16).padStart(2, "0") + gg.toString(16).padStart(2, "0") + bb.toString(16).padStart(2, "0");
   }
 
-  function detectMode(key) {
-    if (!key) return "id";
-    if (/^https?:\/\//i.test(key)) return "url";
-    if (/\.(webp|png|jpe?g|gif|svg)$/i.test(key)) return "local";
-    return "id";
-  }
-
   /**
    * 解析条目最终 URL。优先级：
    *   1. local: true   → 仓库本地文件（LOCAL_IMG_BASE + key）
@@ -270,8 +266,19 @@
     return String(s || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   }
 
+  /**
+   * 判断某条记录是否匹配当前搜索词。
+   * 规则：搜索词小写后，若为空则匹配；否则 name 或 key 任一包含即匹配。
+   */
+  function rowMatches(row) {
+    if (!searchQuery) return true;
+    var name = String(row.name || "").toLowerCase();
+    var key = String(row.key || "").toLowerCase();
+    return name.indexOf(searchQuery) >= 0 || key.indexOf(searchQuery) >= 0;
+  }
+
   /* ---------------------------------------------------------------------
-   * 【JS 模块 9】条目列表渲染
+   * 【JS 模块 9】条目列表渲染（含搜索筛选）
    * ------------------------------------------------------------------- */
   function render() {
     var list = editorData[currentTab] || [];
@@ -281,11 +288,33 @@
       return ao - bo;
     });
 
+    /* 过滤 */
+    var filtered = sorted.filter(rowMatches);
+
+    /* 状态栏：显示筛选计数 */
+    if (searchQuery) {
+      setStatus("已筛选 " + filtered.length + " / 共 " + sorted.length + " 条");
+    } else {
+      setStatus("共 " + sorted.length + " 条 · 编辑自动保存");
+    }
+
     entriesEl.innerHTML = "";
-    if (!sorted.length) { emptyTip.style.display = "block"; return; }
+
+    /* 原列表非空但筛选后为空 → 显示"无匹配" */
+    if (sorted.length && !filtered.length) {
+      emptyTip.style.display = "block";
+      emptyTip.innerHTML = '<span class="big-icon">🔍</span>没有找到匹配的条目<br>试试其他关键词';
+      return;
+    }
+    /* 原列表就空 → 显示默认空状态 */
+    if (!sorted.length) {
+      emptyTip.style.display = "block";
+      emptyTip.innerHTML = '<span class="big-icon">📭</span>当前分类还没有条目<br>点上方按钮开始';
+      return;
+    }
     emptyTip.style.display = "none";
 
-    sorted.forEach(function (row) {
+    filtered.forEach(function (row) {
       var card = document.createElement("div");
       card.className = "item-card";
 
@@ -351,7 +380,7 @@
         row.name = name;
         if (currentTab === "characters") {
           if (name) {
-            var autoOrder = findNameByOrder && findOrderByName(name, row);
+            var autoOrder = findOrderByName(name, row);
             if (autoOrder) row.order = autoOrder;
           } else {
             row.order = 0;
@@ -734,13 +763,39 @@
    * 【JS 模块 17】事件绑定
    * ------------------------------------------------------------------- */
   function bindEvents() {
+    /* Tab 切换：清空搜索 */
     document.querySelectorAll(".tab-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         currentTab = btn.dataset.tab;
         document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.toggle("active", b === btn); });
+
+        /* 清空搜索框 */
+        searchQuery = "";
+        if (searchInput) searchInput.value = "";
+        if (searchClear) searchClear.classList.remove("show");
+
         render();
       });
     });
+
+    /* 搜索输入 */
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        searchQuery = (searchInput.value || "").trim().toLowerCase();
+        if (searchClear) searchClear.classList.toggle("show", searchQuery !== "");
+        render();
+      });
+    }
+
+    /* 清除搜索 */
+    if (searchClear) {
+      searchClear.addEventListener("click", function () {
+        searchQuery = "";
+        if (searchInput) { searchInput.value = ""; searchInput.focus(); }
+        searchClear.classList.remove("show");
+        render();
+      });
+    }
 
     document.getElementById("btnSync").addEventListener("click", syncFromAmber);
     document.getElementById("btnPaste").addEventListener("click", openPasteModal);
@@ -768,12 +823,17 @@
    * 【JS 模块 19】初始化
    * ------------------------------------------------------------------- */
   (async function init() {
+    /* 等资源加载器完成 */
+    try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
     injectIcons();
     await loadCharOrderTxt();
     loadLocal();
     bindEvents();
     render();
-    setStatus("就绪 · 编辑自动保存");
+
+    /* 一切就绪，揭开启动遮罩 */
+    document.body.classList.add("ready");
   })();
 
 })();
