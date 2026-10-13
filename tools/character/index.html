@@ -4,69 +4,150 @@
      原神一图流生成器 · index.html
      =========================================================================
      HTML 模块导航（搜索 "【HTML 模块 N】" 快速跳转）：
-       【HTML 模块 1】 head / 资源引用
-       【HTML 模块 2】 主容器 app-container
-       【HTML 模块 3】 预览区（工具栏 + 实时视口）
-       【HTML 模块 4】 编辑区 / 横向 Tab 栏
-       【HTML 模块 5】 Tab 内容容器
-         · 5.1 外观样式（角色信息 / 样式图 / 元素色 / 字体）
-         · 5.2 立绘区（立绘 / 元素图 / 大背景）
-         · 5.3 武器区
-         · 5.4 圣遗物区
-         · 5.5 天赋区
-         · 5.6 词条区
-         · 5.7 面板区
-         · 5.8 命座区
-         · 5.9 配队区
-       【HTML 模块 6】 移动端底部导出按钮
-       【HTML 模块 7】 Toast / Modal / Font Sheet
-       【HTML 模块 8】 JS 引用
+       【HTML 模块 0】 资源加载器
+       【HTML 模块 1】 主容器 app-container
+       【HTML 模块 2】 预览区（工具栏 + 实时视口）
+       【HTML 模块 3】 编辑区 / 横向 Tab 栏
+       【HTML 模块 4】 Tab 内容容器
+         · 4.1 外观样式（角色信息 / 样式图 / 元素色 / 字体）
+         · 4.2 立绘区（立绘 / 元素图 / 大背景）
+         · 4.3 武器区
+         · 4.4 圣遗物区
+         · 4.5 天赋区
+         · 4.6 词条区
+         · 4.7 面板区
+         · 4.8 命座区
+         · 4.9 配队区
+       【HTML 模块 5】 移动端底部导出按钮
+       【HTML 模块 6】 Toast / Modal / Font Sheet
      ========================================================================= -->
 <head>
-<!-- 【HTML 模块 1】head / 资源引用 -->
+<!-- 【HTML 模块 0】资源加载器 -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>原神一图流生成器</title>
-<link rel="stylesheet" href="../../shared/theme.css">
-<link rel="stylesheet" href="style.css">
+
+<script>
+/* =========================================================================
+ * 资源加载器
+ * =========================================================================
+ * 目的：绕过浏览器缓存，每次打开都拉最新版。
+ * 加载顺序（分 4 批保证依赖）：
+ *   1. ui-icons.js + theme.css + style.css
+ *   2. icon-loader.js + icon-dict.js + consts.js
+ *   3. svg.js
+ *   4. app.js
+ * ========================================================================= */
+(function () {
+  var ts = Date.now();
+
+  function withTs(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
+  }
+
+  function loadStyle(href) {
+    return new Promise(function (resolve, reject) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = withTs(href);
+      l.onload = resolve;
+      l.onerror = function () { reject(new Error('加载失败：' + href)); };
+      document.head.appendChild(l);
+    });
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = withTs(src);
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('加载失败：' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  window.__bootPromise = (async function () {
+    /* 1. 基础：图标库 + 主题 CSS（顺序很重要：theme 先于 style） */
+    await Promise.all([
+      loadScript('../../shared/ui-icons.js'),
+      loadStyle('../../shared/theme.css'),
+      loadStyle('style.css')
+    ]);
+    /* 2. 依赖 ui-icons 的：图标加载器 / 字典 / 常量 */
+    await Promise.all([
+      loadScript('../../shared/gi-icons/icon-loader.js'),
+      loadScript('../../shared/gi-icons/icon-dict.js'),
+      loadScript('consts.js')
+    ]);
+    /* 3. 依赖 consts 的：SVG 绘制 */
+    await loadScript('svg.js');
+    /* 4. 入口：依赖上面全部 */
+    await loadScript('app.js');
+  })();
+})();
+</script>
+
+<!-- 启动遮罩：加载完成前隐藏页面 -->
+<style>
+  body { visibility: hidden; }
+  body.ready { visibility: visible; }
+  .boot-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F2EFEA;
+    color: #9C958A;
+    font-size: 13px;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    visibility: visible;
+  }
+  html[data-theme="dark"] .boot-loading { background: #121212; color: #8A8279; }
+  body.ready .boot-loading { display: none; }
+</style>
 </head>
 
 <body>
 
-<!-- 【HTML 模块 2】主容器 -->
+<!-- 启动遮罩 -->
+<div class="boot-loading">正在载入角色一图流…</div>
+
+<!-- 【HTML 模块 1】主容器 -->
 <main class="app-container">
 
-  <!-- 【HTML 模块 3】预览区 -->
+  <!-- 【HTML 模块 2】预览区 -->
   <section class="preview-pane">
     <div class="preview-card">
-      <!-- 3.1 浮动工具栏 -->
+      <!-- 2.1 浮动工具栏 -->
       <div class="float-toolbar" id="floatToolbar">
         <button type="button" class="float-btn" id="floatExportBtn" onclick="App.exportConfig()" title="导出配置"></button>
         <button type="button" class="float-btn" id="floatImportBtn" onclick="document.getElementById('importJsonInput').click()" title="导入配置"></button>
         <button type="button" class="float-btn float-btn-danger" id="floatClearBtn" onclick="App.clearAllData()" title="清空全部数据"></button>
         <input type="file" id="importJsonInput" accept=".json" onchange="App.importConfig(this)" style="display:none" />
       </div>
-      <!-- 3.2 预览标题 + 桌面端导出按钮 -->
+      <!-- 2.2 预览标题 + 桌面端导出按钮 -->
       <div class="preview-header">
         <span class="preview-title">实时卡片渲染视口</span>
         <button class="ios-btn-fill btn-sm" onclick="App.exportPNG()" id="exportDesktopBtn">导出 4K PNG</button>
       </div>
-      <!-- 3.3 SVG 挂载点 -->
+      <!-- 2.3 SVG 挂载点 -->
       <div class="preview-frame" id="previewFrame">
         <div id="svgPreviewHost"></div>
       </div>
     </div>
   </section>
 
-  <!-- 【HTML 模块 4】编辑区 / 横向 Tab 栏 -->
+  <!-- 【HTML 模块 3】编辑区 / 横向 Tab 栏 -->
   <section class="inspector-pane">
-    <!-- 4.1 横向 Tab 栏（手机端横向滚动） -->
+    <!-- 3.1 横向 Tab 栏（手机端横向滚动） -->
     <div class="tab-bar" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
 
-    <!-- 【HTML 模块 5】Tab 内容容器 -->
+    <!-- 【HTML 模块 4】Tab 内容容器 -->
     <div class="tabs-content">
 
-      <!-- 5.1 外观样式 -->
+      <!-- 4.1 外观样式 -->
       <div class="tab-panel active" id="tab-style">
         <!-- 角色信息 -->
         <div>
@@ -117,7 +198,7 @@
         </div>
       </div>
 
-      <!-- 5.2 立绘区 -->
+      <!-- 4.2 立绘区 -->
       <div class="tab-panel" id="tab-base">
         <div>
           <div class="ios-section-header">图片素材（点击缩略图更换）</div>
@@ -175,7 +256,7 @@
         </div>
       </div>
 
-      <!-- 5.3 武器区 -->
+      <!-- 4.3 武器区 -->
       <div class="tab-panel" id="tab-weapon">
         <div>
           <div class="ios-section-header">武器推荐</div>
@@ -183,7 +264,7 @@
         </div>
       </div>
 
-      <!-- 5.4 圣遗物区 -->
+      <!-- 4.4 圣遗物区 -->
       <div class="tab-panel" id="tab-artifact">
         <div>
           <div class="ios-section-header" id="artifactSectionHead"></div>
@@ -191,7 +272,7 @@
         </div>
       </div>
 
-      <!-- 5.5 天赋区 -->
+      <!-- 4.5 天赋区 -->
       <div class="tab-panel" id="tab-talent">
         <div>
           <div class="ios-section-header">天赋加点优先级</div>
@@ -205,7 +286,7 @@
         </div>
       </div>
 
-      <!-- 5.6 词条区 -->
+      <!-- 4.6 词条区 -->
       <div class="tab-panel" id="tab-stats">
         <div>
           <div class="ios-section-header">主副词条推荐</div>
@@ -222,7 +303,7 @@
         </div>
       </div>
 
-      <!-- 5.7 面板区 -->
+      <!-- 4.7 面板区 -->
       <div class="tab-panel" id="tab-panel">
         <div>
           <div class="ios-section-header">主属性（三选一）</div>
@@ -254,7 +335,7 @@
         </div>
       </div>
 
-      <!-- 5.8 命座区 -->
+      <!-- 4.8 命座区 -->
       <div class="tab-panel" id="tab-cons">
         <div>
           <div class="ios-section-header">核心命座说明（点击圆圈点亮）</div>
@@ -264,7 +345,7 @@
         </div>
       </div>
 
-      <!-- 5.9 配队区 -->
+      <!-- 4.9 配队区 -->
       <div class="tab-panel" id="tab-team">
         <!-- 1 号位主角色头像 -->
         <div>
@@ -301,16 +382,14 @@
 
 </main>
 
-<!-- 【HTML 模块 6】移动端底部导出按钮 -->
+<!-- 【HTML 模块 5】移动端底部导出按钮 -->
 <div class="bottom-dock">
   <button class="export-btn-main" onclick="App.exportPNG()" id="exportMobileBtn">生成并导出 4K PNG</button>
 </div>
 
-<!-- 【HTML 模块 7】Toast / Modal / Font Sheet -->
-<!-- 7.1 Toast 容器 -->
+<!-- 【HTML 模块 6】Toast / Modal / Font Sheet -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- 7.2 确认弹窗 -->
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal-box">
     <div class="modal-title" id="modalTitle">提示</div>
@@ -322,7 +401,6 @@
   </div>
 </div>
 
-<!-- 7.3 字体选择底部抽屉 -->
 <div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
 <div class="tab-sheet" id="fontSheet" role="dialog" aria-modal="true">
   <div class="tab-sheet-handle" aria-hidden="true"></div>
@@ -330,12 +408,5 @@
   <div class="tab-sheet-list" id="fontSheetList"></div>
 </div>
 
-<!-- 【HTML 模块 8】JS 引用 -->
-<script src="../../shared/ui-icons.js"></script>
-<script src="../../shared/gi-icons/icon-loader.js"></script>
-<script src="../../shared/gi-icons/icon-dict.js"></script>
-<script src="consts.js"></script>
-<script src="svg.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
