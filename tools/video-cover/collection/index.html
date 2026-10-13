@@ -1,15 +1,96 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
+<!-- =========================================================================
+     合集封面 · index.html
+     =========================================================================
+     HTML 模块导航：
+       【HTML 模块 0】 资源加载器 + 启动遮罩
+       【HTML 模块 1】 预览区（含浮动工具栏）
+       【HTML 模块 2】 编辑表单
+       【HTML 模块 3】 底部导出按钮
+       【HTML 模块 4】 字体弹层
+     ========================================================================= -->
 <head>
+<!-- 【HTML 模块 0】资源加载器 + 启动遮罩 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#F2EFEA">
 <title>合集封面</title>
-<link rel="stylesheet" href="../../../shared/theme.css">
-<link rel="stylesheet" href="style.css">
+
+<script>
+/* =========================================================================
+ * 资源加载器
+ * 目的：绕过浏览器缓存，每次打开都拉最新版。
+ * 加载顺序：
+ *   1. ui-icons.js + theme.css + style.css
+ *   2. app.js
+ * ========================================================================= */
+(function () {
+  var ts = Date.now();
+
+  function withTs(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
+  }
+
+  function loadStyle(href) {
+    return new Promise(function (resolve, reject) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = withTs(href);
+      l.onload = resolve;
+      l.onerror = function () { reject(new Error('加载失败：' + href)); };
+      document.head.appendChild(l);
+    });
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = withTs(src);
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('加载失败：' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  window.__bootPromise = (async function () {
+    await Promise.all([
+      loadScript('../../../shared/ui-icons.js'),
+      loadStyle('../../../shared/theme.css'),
+      loadStyle('style.css')
+    ]);
+    await loadScript('app.js');
+  })();
+})();
+</script>
+
+<style>
+  /* 启动遮罩 */
+  body { visibility: hidden; }
+  body.ready { visibility: visible; }
+  .boot-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F2EFEA;
+    color: #9C958A;
+    font-size: 13px;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    visibility: visible;
+  }
+  html[data-theme="dark"] .boot-loading { background: #121212; color: #8A8279; }
+  body.ready .boot-loading { display: none; }
+</style>
 </head>
 <body>
 
+<!-- 启动遮罩 -->
+<div class="boot-loading">正在载入合集封面…</div>
+
+<!-- 【HTML 模块 1】预览区（含浮动工具栏） -->
 <div class="preview-sticky">
   <div class="preview-frame" id="previewFrame">
     <div id="collectionPreview"></div>
@@ -19,6 +100,7 @@
   </div>
 </div>
 
+<!-- 【HTML 模块 2】编辑表单 -->
 <main class="grid">
   <!-- 画布 -->
   <section>
@@ -60,11 +142,12 @@
   </section>
 </main>
 
+<!-- 【HTML 模块 3】底部导出按钮 -->
 <div class="bottom-dock">
   <button class="export-btn-main" onclick="App.exportCollection()">导出合集封面 PNG</button>
 </div>
 
-<!-- 字体弹层 -->
+<!-- 【HTML 模块 4】字体弹层 -->
 <div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
 <div class="tab-sheet" id="fontSheet">
   <div class="tab-sheet-handle"></div>
@@ -72,7 +155,5 @@
   <div class="tab-sheet-list" id="fontSheetList"></div>
 </div>
 
-<script src="../../../shared/ui-icons.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
