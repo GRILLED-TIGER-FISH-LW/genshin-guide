@@ -13,7 +13,7 @@
 **里程碑**：
 - 已拆工具页（主页 + character + map-editor + video-cover/video + video-cover/collection）加资源加载器：所有 CSS / JS 走时间戳 URL，加载前显示启动遮罩，解决"改动后要清缓存才生效"
 - 主页 iframe 的 src 加时间戳
-- 视频封面 / 合集封面：背景模糊机制重写，模糊不再放大图片
+- 视频封面 / 合集封面：背景模糊机制重写。模糊图改用 canvas 预生成（原图 cover 缩放 + 边缘像素拉伸 pad + blur + 亮度），解决"模糊后边缘透明露底图"和"模糊会放大图片"
 - 图标字典编辑器：新增搜索框，按中文名 / key 实时筛选
 
 ---
@@ -121,6 +121,7 @@
 - **字体**：慢是 GitHub Pages 问题，靠 IndexedDB 缓存
 - **角色名匹配**：立绘 / 名片 / 1 号位严格；2/3/4 号位 / 备选两级回退（`·` 分隔）
 - **视频封面图层**：底层 → `underMiddle=true` 素材 → 模糊层 → `underMiddle=false` 素材 → 胶囊 → 文字
+- **视频封面模糊**：用 canvas 预生成（不用 SVG `feGaussianBlur`，浏览器对 `edgeMode` 支持不稳，会导致边缘透明）
 - **缓存**：所有工具页都有资源加载器，CSS/JS 走时间戳 URL
 
 ### 4. 界面规范
