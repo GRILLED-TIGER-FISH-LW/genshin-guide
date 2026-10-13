@@ -812,20 +812,10 @@ function isValidCharName(name) {
   return !!CHAR_NAME_TO_ORDER[t];
 }
 
-/**
- * 剥掉「·」及其之后的内容。
- * 例："旅行者·冰" → "旅行者"；"旅行者" → "旅行者"。
- */
 function stripElementSuffix(name) {
   return String(name || '').split('·')[0].trim();
 }
 
-/**
- * 配队区用的角色名解析（两级回退）：
- *   1. 原名合法 → 用原名
- *   2. 剥 · 后合法 → 用剥完的
- *   3. 都不合法 → 空字符串
- */
 function resolveCharName(input) {
   const t = String(input || '').trim();
   if (!t) return '';
@@ -877,15 +867,7 @@ async function loadArtDict() {
 
 /* =========================================================================
  * 【JS 模块 8】样式图匹配 + 在线存档
- * =========================================================================
- * 匹配规则：
- *   - 先校验 charName 是否为合法角色名（原名，严格匹配，不剥后缀）
- *   - 合法：
- *       立绘：先查"名字·元素"，无则回退查"名字"
- *       名片：查"名字"
- *       元素图：只看 theme，与 charName 无关
- *   - 非法：立绘、名片、头像 全部跳过；元素图照常显示
- * ------------------------------------------------------------------------- */
+ * ========================================================================= */
 async function matchStyleImages(onlyEmpty) {
   const name = (State.data.charName || '').trim();
   if (!name) { if (!onlyEmpty) showToast('请先填写角色名', 'error'); return; }
@@ -1031,12 +1013,7 @@ async function loadSaveFromRepo() {
 
 /* =========================================================================
  * 【JS 模块 9】图标库匹配
- * =========================================================================
- * 匹配完成后只更新对应的缩略图 src，不重建编辑器 DOM。
- * 目的：避免打断用户在其他输入框里的编辑。
  * ========================================================================= */
-
-/** 用 data-img-target 找缩略图并更新 src */
 function updateImgTarget(targetId, src) {
   const el = document.querySelector('[data-img-target="' + targetId + '"]');
   if (el) el.src = src || placeholder('');
@@ -1292,12 +1269,6 @@ function normalizeState(data = {}) {
 
 /* ---- 图片洗 dataURL（导出 PNG 前用）------------------------------------ */
 
-/**
- * 单张图片转 dataURL。
- *   - 已是 data: 开头 → 原样返回
- *   - 否则 fetch（CORS）+ blob + FileReader
- *   - 失败 → 降级保留原 URL（不阻塞其他图）
- */
 async function urlToDataURL(url) {
   if (!url) return '';
   if (/^data:/i.test(url)) return url;
@@ -1317,11 +1288,6 @@ async function urlToDataURL(url) {
   }
 }
 
-/**
- * 深拷贝 State.data，把所有图片字段洗成 dataURL。
- * 用于导出 PNG 时绕过 CORS 与相对路径问题。
- * 手动上传的图（imgManual=true）已经是 dataURL，会被原样返回。
- */
 async function bakeImagesToDataURL() {
   const data = JSON.parse(JSON.stringify(State.data));
   const tasks = [];
@@ -1407,7 +1373,6 @@ async function exportPNG() {
   try {
     if (document.fonts) await document.fonts.ready;
 
-    /* 1. 洗图：临时把 State.data 换成所有图片都是 dataURL 的副本 */
     const baked = await bakeImagesToDataURL();
     const original = State.data;
     let svg;
@@ -1418,7 +1383,6 @@ async function exportPNG() {
       State.data = original;
     }
 
-    /* 2. SVG → PNG */
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     try {
@@ -1528,7 +1492,6 @@ async function autoRematchAll() {
     }
   });
 
-  /* 配队：2/3/4 号位 + 备选 走两级回退 */
   (d.teamData || []).forEach(function (team) {
     (team.chars || []).forEach(function (c, ci) {
       if (ci === 0) return;
@@ -1830,6 +1793,9 @@ function bindPreviewTapToggle() {
   });
 }
 async function init() {
+  /* 等资源加载器完成（ui-icons / theme / style / icon-loader / icon-dict / consts / svg / app） */
+  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
   injectFloatIcons();
   tightenAllIconViewBoxes();
   const saved = await loadStateFromIDB();
@@ -1848,8 +1814,15 @@ async function init() {
   mountPreview();
   selectTab(currentTab);
   bindPreviewTapToggle();
+
+  /* 一切就绪，揭开启动遮罩 */
+  document.body.classList.add('ready');
 }
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 window.addEventListener('message', function (e) {
   if (e.data && e.data.type === 'theme') {
