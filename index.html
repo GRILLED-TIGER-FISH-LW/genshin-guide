@@ -6,10 +6,11 @@
      HTML 模块导航：
        【HTML 模块 0】 head / 资源加载器
        【HTML 模块 1】 全局样式
-       【HTML 模块 2】 顶部导航栏
-       【HTML 模块 3】 侧边菜单抽屉
-       【HTML 模块 4】 iframe 容器 + loading
-       【HTML 模块 5】 JS 引用
+       【HTML 模块 2】 启动遮罩
+       【HTML 模块 3】 顶部导航栏
+       【HTML 模块 4】 侧边菜单抽屉
+       【HTML 模块 5】 iframe 容器 + loading
+       【HTML 模块 6】 JS 引用
      ========================================================================= -->
 <head>
 <!-- 【HTML 模块 0】head / 资源加载器 -->
@@ -83,6 +84,23 @@ body {
   flex-direction: column;
   letter-spacing: -0.2px;
 }
+
+/* ---------- 启动遮罩：加载完成前隐藏内容 ---------- */
+body { visibility: hidden; }
+body.ready { visibility: visible; }
+.boot-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  color: var(--text-tertiary);
+  font-size: 13px;
+  visibility: visible;
+}
+body.ready .boot-loading { display: none; }
 
 /* ---------- 主题切换瞬间：禁用所有过渡 / 动画 ---------- */
 html.theme-switching,
@@ -361,7 +379,10 @@ html.theme-switching *::after {
 </head>
 <body>
 
-<!-- 【HTML 模块 2】顶部导航栏 -->
+<!-- 【HTML 模块 2】启动遮罩 -->
+<div class="boot-loading">正在载入工具集…</div>
+
+<!-- 【HTML 模块 3】顶部导航栏 -->
 <header class="app-navbar">
   <button type="button" class="nav-btn" id="btnMenu" aria-label="打开菜单"></button>
   <div class="nav-title">
@@ -371,7 +392,7 @@ html.theme-switching *::after {
   <button type="button" class="nav-btn" id="btnTheme" aria-label="切换主题"></button>
 </header>
 
-<!-- 【HTML 模块 3】侧边菜单抽屉 -->
+<!-- 【HTML 模块 4】侧边菜单抽屉 -->
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <aside class="sidebar-drawer" id="sidebarDrawer">
   <div class="sidebar-header">
@@ -381,7 +402,7 @@ html.theme-switching *::after {
   <nav class="sidebar-menu" id="sidebarMenu"></nav>
 </aside>
 
-<!-- 【HTML 模块 4】iframe 容器 + loading -->
+<!-- 【HTML 模块 5】iframe 容器 + loading -->
 <main class="frame-container" id="frameContainer">
   <div class="loading-mask" id="loadingMask">
     <div class="spinner"></div>
@@ -389,7 +410,7 @@ html.theme-switching *::after {
   </div>
 </main>
 
-<!-- 【HTML 模块 5】JS 引用 -->
+<!-- 【HTML 模块 6】JS 引用 -->
 <script>
 /* =========================================================================
  * 主页逻辑
@@ -807,6 +828,9 @@ window.addEventListener('hashchange', () => {
   } else {
     selectTool(tool.key, { silent: true });
   }
+
+  /* 一切就绪，揭开遮罩 */
+  document.body.classList.add('ready');
 })();
 </script>
 </body>
