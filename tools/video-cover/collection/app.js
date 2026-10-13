@@ -84,21 +84,7 @@ async function drawCollectionCanvas(canvas) {
       if (img) collectionState.bgLoadedImg = img;
     }
     if (img) {
-      const blurPx = Math.max(12, Math.round(W * 0.015));
-      const pad = Math.ceil(blurPx * 3) + 20;
-      const off = document.createElement('canvas');
-      off.width = W + pad * 2; off.height = H + pad * 2;
-      const offCtx = off.getContext('2d');
-      offCtx.fillStyle = '#000';
-      offCtx.fillRect(0, 0, off.width, off.height);
-      const scale = Math.max(off.width / img.width, off.height / img.height);
-      const iw = img.width * scale, ih = img.height * scale;
-      const ix = (off.width - iw) / 2, iy = (off.height - ih) / 2;
-      offCtx.save();
-      offCtx.filter = `blur(${blurPx}px)`;
-      offCtx.drawImage(img, ix, iy, iw, ih);
-      offCtx.restore();
-      ctx.drawImage(off, pad, pad, W, H, 0, 0, W, H);
+      drawBlurredBackground(ctx, img, W, H);
     } else {
       ctx.fillStyle = '#111'; ctx.fillRect(0, 0, W, H);
     }
@@ -107,6 +93,64 @@ async function drawCollectionCanvas(canvas) {
   }
 
   drawCollectionText(ctx);
+}
+
+/**
+ * 画模糊背景。
+ * 核心：显示区域尺寸、裁切范围跟"不模糊"时**完全一致**，只糊不放大。
+ *
+ * 思路：
+ *   1. 把原图按 Math.max(W/img.w, H/img.h) 铺满 W×H 画布 → 得到"基准图 A"
+ *   2. 建一个外扩 pad 的画布 B，把 A 放中间
+ *   3. B 的 pad 区域用 A 的边缘像素拉伸填充（不是缩放原图）→ 模糊后边缘不透明
+ *   4. 对 B 应用高斯模糊
+ *   5. 从 B 的中心裁 W×H 贴到主画布
+ */
+function drawBlurredBackground(ctx, img, W, H) {
+  const blurPx = Math.max(12, Math.round(W * 0.015));
+  const pad = Math.ceil(blurPx * 3) + 20;
+
+  /* 步骤 1：按"覆盖 W×H"的尺度铺满到基准画布 A */
+  const fillScale = Math.max(W / img.width, H / img.height);
+  const fillW = img.width * fillScale;
+  const fillH = img.height * fillScale;
+  const fillX = (W - fillW) / 2;
+  const fillY = (H - fillH) / 2;
+
+  const a = document.createElement('canvas');
+  a.width = W; a.height = H;
+  const actx = a.getContext('2d');
+  actx.drawImage(img, fillX, fillY, fillW, fillH);
+
+  /* 步骤 2：建外扩画布 B，中心放 A */
+  const BW = W + pad * 2, BH = H + pad * 2;
+  const b = document.createElement('canvas');
+  b.width = BW; b.height = BH;
+  const bctx = b.getContext('2d');
+  bctx.drawImage(a, pad, pad);
+
+  /* 步骤 3：pad 区域用 A 的**边缘像素**拉伸填充（不是缩放 A） */
+  /* 四条边：从 A 取 1 像素宽的条，拉伸到 pad 尺寸 */
+  bctx.drawImage(a, 0,     0,     W, 1,  pad,     0,     W, pad);       // 上边
+  bctx.drawImage(a, 0,     H - 1, W, 1,  pad,     pad + H, W, pad);     // 下边
+  bctx.drawImage(a, 0,     0,     1, H,  0,       pad,   pad, H);       // 左边
+  bctx.drawImage(a, W - 1, 0,     1, H,  pad + W, pad,   pad, H);       // 右边
+  /* 四个角：从 A 取 1 像素的点，拉伸到 pad×pad */
+  bctx.drawImage(a, 0,     0,     1, 1,  0,      0,     pad, pad);     // 左上
+  bctx.drawImage(a, W - 1, 0,     1, 1,  pad + W, 0,     pad, pad);     // 右上
+  bctx.drawImage(a, 0,     H - 1, 1, 1,  0,      pad+H, pad, pad);     // 左下
+  bctx.drawImage(a, W - 1, H - 1, 1, 1,  pad + W, pad+H, pad, pad);     // 右下
+
+  /* 步骤 4：对 B 应用高斯模糊 */
+  const c = document.createElement('canvas');
+  c.width = BW; c.height = BH;
+  const cctx = c.getContext('2d');
+  cctx.filter = `blur(${blurPx}px)`;
+  cctx.drawImage(b, 0, 0);
+  cctx.filter = 'none';
+
+  /* 步骤 5：从 B 的中心裁 W×H 贴到主画布 */
+  ctx.drawImage(c, pad, pad, W, H, 0, 0, W, H);
 }
 
 function drawCollectionText(ctx) {
@@ -397,6 +441,9 @@ window.App = App;
  * 【JS 模块 11】初始化
  * ========================================================================= */
 (async function init() {
+  /* 等资源加载器完成 */
+  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
   injectIcons();
   await loadFontList();
   await loadPersist();
@@ -411,6 +458,9 @@ window.App = App;
   bindEvents();
   renderCollection();
   injectIcons();
+
+  /* 一切就绪，揭开启动遮罩 */
+  document.body.classList.add('ready');
 })();
 
 /* =========================================================================
