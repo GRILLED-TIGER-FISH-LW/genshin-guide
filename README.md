@@ -4,7 +4,7 @@
 
 > 个人自用的原神攻略图制作工具集 · 纯前端 · 本地处理 · 不收集任何数据
 
-[![在线访问](https://img.shields.io/badge/在线访问-打开网站-4C8BF5?style=flat-square&logo=linktree&logoColor=white)](https://grilled-tiger-fish-lw.github.io/genshin-guide/)
+[![在线访问](https://img.shields.io/badge/在线访问-打开网站-4C8BF5?style=flat-square&logo=googlechrome&logoColor=white)](https://grilled-tiger-fish-lw.github.io/genshin-guide/)
 [![最后更新](https://img.shields.io/github/last-commit/grilled-tiger-fish-lw/genshin-guide?style=flat-square&label=最后更新&color=4C8BF5&logo=github&logoColor=white)](https://github.com/grilled-tiger-fish-lw/genshin-guide/commits)
 
 [工具列表](#tools) · [仓库结构](#structure) · [本地运行](#local) · [角色一图流](#character-tool) · [封面制作](#cover-tool) · [主题系统](#theme) · [更新记录](./CHANGELOG.md)
