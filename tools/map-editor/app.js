@@ -1,17 +1,9 @@
 /* =========================================================================
  * 图标字典编辑器 · app.js (2026 现代扁平版)
- * =========================================================================
- * 核心改动：
- * 1. 彻底移除 JS 内联样式（如星空渐变计算），交由 CSS 类名控制。
- * 2. 状态栏改为悬浮胶囊显示，带消失动画。
- * 3. 清理多余工具函数，代码更精简。
  * ========================================================================= */
 (function () {
   "use strict";
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 1】常量配置
-   * ------------------------------------------------------------------- */
   var STORAGE_KEY = "icon_dict_editor_v4";
 
   var DEFAULT_CONFIG = {
@@ -32,9 +24,6 @@
   var ALL_TYPES = ["characters", "artifacts", "weapons", "monsters"];
   var TYPE_LABELS = { characters: "角色", artifacts: "圣遗物", weapons: "武器", monsters: "怪物" };
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 2】DOM 引用
-   * ------------------------------------------------------------------- */
   var entriesEl     = document.getElementById("entries");
   var emptyTip      = document.getElementById("emptyTip");
   var statusBar     = document.getElementById("status");
@@ -43,9 +32,6 @@
   var searchInput   = document.getElementById("searchInput");
   var searchClear   = document.getElementById("searchClear");
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 3】全局状态
-   * ------------------------------------------------------------------- */
   var config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   var editorData = { characters: [], artifacts: [], weapons: [], monsters: [] };
   var currentTab = "characters";
@@ -57,9 +43,6 @@
   var CHAR_NAME_TO_ORDER = {};
   var statusTimer = null;
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 4】Amber 数据加载 + 查询
-   * ------------------------------------------------------------------- */
   function stripAmberPrefix(icon) {
     if (!icon) return "";
     return String(icon)
@@ -115,9 +98,6 @@
     }
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 5】characters.txt 加载
-   * ------------------------------------------------------------------- */
   async function loadCharOrderTxt() {
     try {
       var res = await fetch("../../shared/data/characters.txt?t=" + Date.now());
@@ -139,9 +119,6 @@
     } catch (e) { console.warn("characters.txt 加载失败", e); }
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 6】查找辅助
-   * ------------------------------------------------------------------- */
   function findOrderByName(name, excludeRow) {
     if (!name) return 0;
     var list = editorData.characters || [];
@@ -164,9 +141,6 @@
     return "";
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 7】本地存储
-   * ------------------------------------------------------------------- */
   function saveLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: editorData, config: config }));
@@ -186,14 +160,10 @@
     } catch (e) {}
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 8】工具函数
-   * ------------------------------------------------------------------- */
   function setStatus(msg, type) {
     statusBar.textContent = msg;
     statusBar.className = "status-bar show" + (type ? " " + type : "");
     
-    // 自动隐藏（如果没错误，3秒后隐藏）
     if (statusTimer) clearTimeout(statusTimer);
     if (type !== "err") {
       statusTimer = setTimeout(function() {
@@ -230,9 +200,25 @@
     return name.indexOf(searchQuery) >= 0 || key.indexOf(searchQuery) >= 0;
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 9】条目列表渲染（含搜索筛选）
-   * ------------------------------------------------------------------- */
+  // 获取星空色
+  function starColor(s) {
+    var lib = window.ICON_LIB;
+    return (lib && lib.starColors && lib.starColors[s]) || "#939393";
+  }
+  function darkenHex(hex, amt) {
+    if (!hex || typeof hex !== "string") return "#333333";
+    var h = hex.charAt(0) === "#" ? hex.slice(1) : hex;
+    if (h.length !== 6) return "#333333";
+    var r = parseInt(h.slice(0, 2), 16);
+    var g = parseInt(h.slice(2, 4), 16);
+    var b = parseInt(h.slice(4, 6), 16);
+    if ([r, g, b].some(function (v) { return isNaN(v); })) return "#333333";
+    var rr = Math.max(0, r - amt);
+    var gg = Math.max(0, g - amt);
+    var bb = Math.max(0, b - amt);
+    return "#" + rr.toString(16).padStart(2, "0") + gg.toString(16).padStart(2, "0") + bb.toString(16).padStart(2, "0");
+  }
+
   function render() {
     var list = editorData[currentTab] || [];
     var sorted = list.slice().sort(function (a, b) {
@@ -298,15 +284,18 @@
       });
       line.appendChild(inpOrder);
 
-      // 2. 缩略图 (带星空背景)
+      // 2. 缩略图 (动态注入星空渐变变量)
       var thumb = document.createElement("div");
-      // 应用星级类名
-      if (row.star != null) {
-        thumb.className = "entry-thumb star-" + row.star;
-      } else {
-        thumb.className = "entry-thumb";
-      }
+      thumb.className = "entry-thumb";
       
+      if (row.star != null) {
+        var c = starColor(row.star);
+        var edge = darkenHex(c, 50);
+        // 动态设置 CSS 变量给背景使用
+        thumb.style.setProperty('--star-color', c);
+        thumb.style.setProperty('--star-edge', edge);
+      }
+
       var thumbImg = document.createElement("img");
       thumbImg.alt = "";
       thumbImg.loading = "lazy";
@@ -339,7 +328,7 @@
       });
       line.appendChild(inpName);
 
-      // 4. 星级 (怪物不显示)
+      // 4. 星级
       if (currentTab !== "monsters") {
         var selStar = document.createElement("select");
         selStar.className = "star-select";
@@ -372,9 +361,6 @@
     });
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 10】粘贴 URL 解析
-   * ------------------------------------------------------------------- */
   async function parsePastedUrls(text) {
     var lines = String(text || "").split(/\r?\n/);
     var urls = lines.map(function (l) { return l.trim(); }).filter(function (l) { return /^https?:\/\//i.test(l); });
@@ -442,9 +428,6 @@
   }
   function closePasteModal() { modalBackdrop.classList.remove("show"); }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 11】从 Amber 同步
-   * ------------------------------------------------------------------- */
   async function fetchAmberItems(type) {
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 20000);
@@ -576,9 +559,6 @@
     setStatus("同步完成 · " + summary, "ok");
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 12】清空当前分类
-   * ------------------------------------------------------------------- */
   function clearCurrent() {
     var label = TYPE_LABELS[currentTab];
     if (!confirm("确定清空「" + label + "」的所有条目吗？")) return;
@@ -586,9 +566,6 @@
     saveLocal(); render(); setStatus("已清空", "ok");
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 13】从仓库载入
-   * ------------------------------------------------------------------- */
   function loadFromRepo() {
     setStatus("正在从仓库载入…");
     fetch("../../shared/gi-icons/icon-dict.js?t=" + Date.now())
@@ -615,9 +592,6 @@
       .catch(function (e) { setStatus("载入失败：" + e.message, "err"); });
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 14】导出 icon-dict.js
-   * ------------------------------------------------------------------- */
   function buildDictJS() {
     var lines = [];
     lines.push("window.ICON_DICT = {");
@@ -668,16 +642,10 @@
     setStatus("已导出，上传到 shared/gi-icons/ 覆盖", "ok");
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 15】主题 (父页面控制)
-   * ------------------------------------------------------------------- */
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 16】图标注入
-   * ------------------------------------------------------------------- */
   function injectIcons() {
     var iconMap = {
       "btnSync":   ICONS.ui.import,
@@ -692,9 +660,6 @@
     });
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 17】事件绑定
-   * ------------------------------------------------------------------- */
   function bindEvents() {
     document.querySelectorAll(".tab-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -739,18 +704,12 @@
     document.getElementById("btnExport").addEventListener("click", exportJS);
   }
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 18】跨 iframe 通信
-   * ------------------------------------------------------------------- */
   window.addEventListener("message", function (e) {
     if (e.data && e.data.type === "theme") {
       applyTheme(e.data.theme);
     }
   });
 
-  /* ---------------------------------------------------------------------
-   * 【JS 模块 19】初始化
-   * ------------------------------------------------------------------- */
   (async function init() {
     try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
