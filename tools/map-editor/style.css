@@ -1,130 +1,117 @@
 /* =========================================================================
- * 图标字典编辑器 · style.css
+ * 图标字典编辑器 · style.css (2026 现代扁平重构版)
  * =========================================================================
- * 通用控件（按钮 / 输入框 / 下拉 / 缩略图 / 弹窗 / 图标 / iOS 容器）已抽到
- * shared/theme.css
- * 本文件只保留：
- *   【CSS 模块 1】 页面级布局
- *   【CSS 模块 2】 sticky 头部 + 操作按钮组
- *   【CSS 模块 3】 搜索框
- *   【CSS 模块 4】 条目行
- *   【CSS 模块 5】 空状态
- *   【CSS 模块 6】 粘贴弹窗（特化）
- *   【CSS 模块 7】 状态栏
+ * 核心优化：
+ * 1. 悬浮毛玻璃头部，按钮紧凑排列（手机上自动横向滑动）。
+ * 2. 搜索框彻底去边框化，内嵌极简。
+ * 3. 列表行重新分配宽度，防止“名字”输入框被严重挤压。
+ * 4. 星空渐变完全由 CSS 类名接管。
+ * 5. 状态栏改为悬浮胶囊。
  * ========================================================================= */
 
 /* =========================================================================
  * 【CSS 模块 1】页面级布局
  * ========================================================================= */
-body { padding: 0 0 60px; min-height: 100vh; }
+body { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100vh; 
+  height: 100dvh; 
+  margin: 0; 
+  overflow: hidden; 
+}
 
 /* =========================================================================
- * 【CSS 模块 2】sticky 头部 + 操作按钮组
+ * 【CSS 模块 2】sticky 头部 + 操作按钮组 (毛玻璃化)
  * ========================================================================= */
 .sticky-head {
   position: sticky; top: 0; z-index: 40;
-  background: var(--bg-base);
+  background: rgba(244, 241, 234, 0.85);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 10px 12px;
 }
-.sticky-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+[data-theme="dark"] .sticky-head { background: rgba(26, 24, 22, 0.85); }
 
-.actions-group {
-  background: var(--bg-surface); border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md); padding: 8px;
-  display: flex; flex-direction: column; gap: 6px;
+.sticky-inner { 
+  max-width: 800px; margin: 0 auto; 
+  padding: 12px 16px; 
+  display: flex; flex-direction: column; gap: 10px; 
 }
-.actions-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.actions-row > button { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* 按钮组：横向滑动，紧凑 */
+.actions-group {
+  display: flex; gap: 8px; 
+  overflow-x: auto; padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.actions-group::-webkit-scrollbar { display: none; }
+.actions-group > button { flex-shrink: 0; }
+.actions-group .ios-btn-fill { flex-shrink: 0; }
 
 /* =========================================================================
- * 【CSS 模块 3】搜索框
- *   覆盖 theme.css 里 input[type="text"] 的默认外观（无边框、透明背景），
- *   改为放在 .search-wrap 里的"内嵌式"输入框。
+ * 【CSS 模块 3】搜索框 (极简去边框)
  * ========================================================================= */
 .search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 10px;
+  display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
   background: var(--bg-sunken);
-  border: 1px solid var(--border-default);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: border-color .15s, background .15s, box-shadow .15s;
+  transition: all 0.2s var(--ease-spring);
 }
 .search-wrap:focus-within {
-  border-color: var(--accent);
   background: var(--bg-surface);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--border-default);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
 }
-.search-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-.search-icon svg { display: block; }
+.search-icon { display: inline-flex; color: var(--text-tertiary); }
+.search-icon svg { width: 16px; height: 16px; }
 
 input.search-input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  box-shadow: none;
+  flex: 1; min-width: 0; height: 100%;
+  padding: 0; border: none; background: transparent;
+  color: var(--text-primary); font-size: 13px;
+  outline: none; box-shadow: none;
 }
-input.search-input:focus {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
+input.search-input:focus { border: none; background: transparent; box-shadow: none; }
 input.search-input::placeholder { color: var(--text-tertiary); }
 
 .search-clear {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--border-default);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background .15s, color .15s, transform .1s;
+  display: none; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+  background: var(--border-default); color: var(--text-secondary);
+  cursor: pointer; flex-shrink: 0;
+  transition: all 0.15s var(--ease-spring);
 }
 .search-clear:hover { background: var(--border-strong); color: var(--text-primary); }
-.search-clear:active { transform: scale(.9); }
-.search-clear svg { display: block; }
+.search-clear:active { transform: scale(0.9); }
+.search-clear svg { width: 12px; height: 12px; }
 .search-clear.show { display: inline-flex; }
 
 /* =========================================================================
- * 【CSS 模块 4】条目行
+ * 【CSS 模块 4】条目列表 (极致紧凑)
  * ========================================================================= */
-.main { max-width: 760px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.main { 
+  flex: 1; overflow-y: auto; 
+  max-width: 800px; margin: 0 auto; width: 100%;
+  padding: 12px 16px calc(80px + env(safe-area-inset-bottom)); 
+  display: flex; flex-direction: column; gap: 8px; 
+}
 .entries { display: flex; flex-direction: column; gap: 8px; }
 
-/* 单条行：所有元素挤一行 */
-.entry-row { display: flex; align-items: center; gap: 6px; }
+.item-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 8px 10px; }
+.entry-row { display: flex; align-items: center; gap: 8px; }
 
-/* 序号：窄 + 居中 */
+/* 序号：极窄 */
 input.entry-order {
-  width: 48px; flex-shrink: 0; text-align: center;
-  padding: 0 2px; font-weight: 600;
+  width: 40px; flex-shrink: 0; text-align: center;
+  padding: 0 4px; font-weight: 600; font-size: 12px;
   -moz-appearance: textfield;
 }
 input.entry-order::-webkit-outer-spin-button,
 input.entry-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* 缩略图：固定 36×36，支持星级渐变背景 */
+/* 缩略图：固定 36×36 + CSS 星空底 */
 .entry-thumb {
   width: 36px; height: 36px; border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
@@ -133,51 +120,64 @@ input.entry-order::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 }
 .entry-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
-/* 名字：自适应占满 */
+/* 接管星空渐变 */
+.entry-thumb.star-5 { background: radial-gradient(circle, #B8964A, #654D20); border-color: #B8964A; }
+.entry-thumb.star-4 { background: radial-gradient(circle, #9D76CD, #503972); border-color: #9D76CD; }
+.entry-thumb.star-3 { background: radial-gradient(circle, #599BCF, #2B5072); border-color: #599BCF; }
+.entry-thumb.star-2 { background: radial-gradient(circle, #6C9E7D, #34503E); border-color: #6C9E7D; }
+.entry-thumb.star-1 { background: radial-gradient(circle, #A6A6A6, #595959); border-color: #A6A6A6; }
+
+/* 名字：占满剩余空间 */
 input.entry-name { flex: 1; min-width: 0; }
 
-/* 星级：窄 + 收箭头间距 */
+/* 星级下拉：极窄且统一样式 */
 select.star-select {
-  width: 66px; flex-shrink: 0;
-  padding: 0 22px 0 8px;
+  width: 60px; flex-shrink: 0;
+  padding: 0 20px 0 8px;
   background-position: right 6px center;
-  background-size: 9px 6px;
+  background-size: 8px 5px;
+  font-size: 12px;
 }
 
-/* 删除：正方形 */
-.entry-del { width: 34px; height: 34px; padding: 0; flex-shrink: 0; }
+/* 删除：纯图标正方形 */
+.entry-del { width: 32px; height: 32px; padding: 0; flex-shrink: 0; }
 
 /* =========================================================================
  * 【CSS 模块 5】空状态
  * ========================================================================= */
-.empty-tip { padding: 50px 20px; text-align: center; color: var(--text-tertiary); font-size: 13px; line-height: 1.7; }
+.empty-tip { 
+  display: none; padding: 60px 20px; text-align: center; 
+  color: var(--text-tertiary); font-size: 13px; line-height: 1.7; 
+}
+.empty-tip.show { display: block; }
 .empty-tip .big-icon { font-size: 36px; opacity: 0.4; margin-bottom: 8px; display: block; }
 
 /* =========================================================================
- * 【CSS 模块 6】粘贴弹窗（特化）
- *   基础样式从 theme.css 模块 21 拿（.modal-backdrop / .modal-box / .modal-title /
- *   .modal-hint / .modal-actions），这里只做 map-editor 的特化
+ * 【CSS 模块 6】粘贴弹窗特化
  * ========================================================================= */
-.modal-box {
-  background: var(--bg-base);
-  padding: 16px;
-}
 .modal-box textarea {
-  width: 100%; height: 180px; padding: 10px;
+  width: 100%; height: 140px; padding: 10px;
   border: 1px solid var(--border-default); border-radius: var(--radius-sm);
   background: var(--bg-sunken); color: var(--text-primary);
   font-family: inherit; font-size: 12px;
-  resize: vertical; outline: none; line-height: 1.6;
+  resize: none; outline: none; line-height: 1.6;
 }
 
 /* =========================================================================
- * 【CSS 模块 7】状态栏
+ * 【CSS 模块 7】悬浮状态胶囊 (去底边黑条)
  * ========================================================================= */
 .status-bar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  background: var(--bg-base); border-top: 1px solid var(--border-subtle);
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
-  font-size: 12px; color: var(--text-secondary); text-align: center;
+  position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: rgba(35, 35, 40, 0.85); 
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: #ffffff; font-size: 12px; font-weight: 500;
+  padding: 8px 20px; border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s var(--ease-spring), transform 0.3s var(--ease-spring);
 }
-.status-bar.ok { color: var(--accent); }
-.status-bar.err { color: var(--danger); }
+.status-bar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.status-bar.ok { color: #82A79A; }
+.status-bar.err { color: #DE8075; }
