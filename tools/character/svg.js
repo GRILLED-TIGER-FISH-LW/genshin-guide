@@ -1,5 +1,5 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (一级30%黑 + 二级10%白)
+ * 原神一图流生成器 · svg.js (磨砂颗粒感版)
  * ========================================================================= */
 
 /* =========================================================================
@@ -204,8 +204,11 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  // 一级面板：30% 的黑
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.3)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
+  // 一级面板：30%黑底 + 磨砂噪点颗粒层 + 极细高光边
+  return `
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.3)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="transparent" filter="url(#noiseFilter)" opacity="0.6" style="mix-blend-mode: overlay;"/>
+  `;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -525,6 +528,13 @@ function buildSVG(scale = 1, forExport = false) {
         <stop offset="50%" stop-color="#fff" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
       </linearGradient>
+      
+      <!-- 新增：磨砂噪点滤镜 -->
+      <filter id="noiseFilter" x="0%" y="0%" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.12 0"/>
+      </filter>
+
       <clipPath id="leftClip"><rect x="${leftX}" y="${leftY}" width="${leftW}" height="${leftH}" rx="${LAYOUT.radius.panel}"/></clipPath>
     </defs>
     
