@@ -1,81 +1,60 @@
 /* =========================================================================
- * 视频封面 · style.css
- * =========================================================================
- * 通用控件（按钮 / 输入框 / 下拉 / 滑块 / iOS 容器 / 缩略图 / 条目卡片 /
- *          浮动按钮 / 浮动工具栏 / 横向 Tab / 预览卡片 / 文件选择器 /
- *          只读文本 / 底部 Dock / Toast / 确认弹窗 / 字体抽屉 / 分段控件 /
- *          图标 / 图标插槽）已全部抽到 shared/theme.css
- * 本文件只保留 video 专属布局
+ * 视频封面 · style.css (2026 现代扁平重构版)
  * ========================================================================= */
 
-/* 【CSS 模块 1】页面基础 */
 body {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* 【CSS 模块 2】预览区（sticky） */
+/* 【模块 1】通用辅助类 (用来替代 HTML 里的内联 padding) */
+.hidden { display: none !important; }
+.form-pad { padding: 10px; }
+.form-pad-t { padding: 10px 10px 0 10px; }
+.form-pad-b { padding: 0 10px 10px 10px; }
+
+/* 【模块 2】预览区（毛玻璃悬浮） */
 .preview-sticky {
   position: sticky; top: 0; z-index: 35;
-  background: var(--bg-base);
+  background: rgba(244, 241, 234, 0.85);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle);
 }
-
-/* 预览卡片：max-width 900 + 上下留白 */
-.preview-card {
-  max-width: 900px;
-  margin: 0 auto;
+[data-theme="dark"] .preview-sticky {
+  background: rgba(26, 24, 22, 0.85);
 }
+.preview-card { max-width: 900px; margin: 0 auto; }
+.preview-frame { width: 100%; height: auto; }
+#svgPreviewHost { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+#svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
-/* 预览框：video 里是 16:9 自适应高度 */
-.preview-frame {
-  width: 100%;
-  height: auto;
-}
-
-/* SVG 挂载点 */
-#svgPreviewHost {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-}
-
-/* 关键：约束内嵌 SVG 缩放到容器大小
-   否则 SVG 会按自身的 width=3840 height=2160 撑爆容器，只看到左上角 */
-#svgPreviewHost > svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* 【CSS 模块 3】表单布局 */
+/* 【模块 3】表单布局 */
 .grid {
   display: flex; flex-direction: column; gap: 14px;
   padding: 14px; max-width: 900px; margin: 0 auto; width: 100%;
 }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } }
-
 .hint { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
-
 .font-label {
   flex: 1; min-width: 0; font-size: 13px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* 【模块 4】浮动素材卡片 (去除死板边框) */
 .custom-head {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 0 10px 8px 10px;
 }
 .custom-head-label { font-size: 12px; color: var(--text-secondary); }
-.float-list { display: flex; flex-direction: column; gap: 8px; }
+.float-list { display: flex; flex-direction: column; gap: 10px; }
 
-/* 【CSS 模块 4】浮动素材卡片 */
 .float-item {
-  background: var(--bg-surface-2); border: 1px solid var(--border-subtle);
-  border-radius: 10px; padding: 10px;
-  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg-surface); border-radius: var(--radius-md);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s var(--ease-spring);
 }
 .float-item-head {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -85,8 +64,14 @@ body {
   width: 44px; height: 32px; object-fit: cover;
   border-radius: 6px; border: 1px solid var(--border-subtle);
 }
-.float-item-head-actions { display: flex; gap: 3px; }
+.float-thumb-meta { font-size: 11px; color: var(--text-secondary); }
+.float-item-head-actions { display: flex; gap: 4px; }
+.float-item-head-actions label { cursor: pointer; }
+
 .float-item label.under-middle-row {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--text-secondary);
 }
+
+/* 针对分段控件的微调，去除原内联 flex:1 */
+.seg-control .seg-btn { flex: 1; }
