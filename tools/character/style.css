@@ -1,14 +1,31 @@
 /* =========================================================================
- * 原神一图流生成器 · style.css
+ * 原神一图流生成器 · style.css (2026 现代扁平重构版)
  * =========================================================================
- * 通用控件（按钮 / 输入框 / 下拉 / 滑块 / iOS 容器 / 缩略图 / 条目卡片 /
- *          浮动按钮 / 浮动工具栏 / 横向 Tab / 预览卡片 / 只读文本 /
- *          底部 Dock / Toast / 确认弹窗 / 字体抽屉 / 图标）已全部抽到
- *          shared/theme.css
- * 本文件只保留：布局 / 预览区 / Tab 内容 / 命座网格 / 色彩选择 / 展开收起动画
+ * 只保留：布局 / 预览区 / Tab 内容 / 命座网格 / 色彩选择 / 展开收起动画
+ * 控件样式已全部下沉至 shared/theme.css
  * ========================================================================= */
 
-/* 【CSS 模块 1】主容器布局 */
+/* 【CSS 模块 1】通用辅助类 */
+.flex-1 { flex: 1; min-width: 0; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.action-row { display: flex; gap: 8px; padding: 10px; }
+.action-row .btn-sm { height: 38px !important; } /* 统一操作区高度 */
+
+.upload-row { cursor: pointer; transition: background 0.2s var(--ease-spring); }
+.upload-row:hover { background: var(--bg-hover); }
+.upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+.slider-wrap { padding: 10px; }
+.sub-stats-wrap { padding: 0 10px 10px 10px; }
+
+.panel-primary-row { gap: 10px; flex-wrap: wrap; }
+.panel-primary-row .ios-field { min-width: 130px; }
+
+/* 动态生成列表的容器 */
+.editor-list { display: flex; flex-direction: column; gap: 8px; }
+.editor-list-large { display: flex; flex-direction: column; gap: 10px; }
+
+/* 【CSS 模块 2】主容器布局 */
 .app-container {
   max-width: 1400px; margin: 0 auto; padding: 12px 14px;
   display: grid; grid-template-columns: 1fr; gap: 14px;
@@ -29,7 +46,7 @@
   }
 }
 
-/* 【CSS 模块 2】预览区 */
+/* 【CSS 模块 3】预览区 */
 .preview-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 @media (max-width: 1023px) {
   .preview-pane {
@@ -42,11 +59,9 @@
   .preview-pane { position: sticky; top: 16px; height: 100%; overflow-y: auto; padding-right: 6px; }
 }
 
-/* 预览卡片：比 theme 的默认更宽松（有 header + frame） */
+/* 预览卡片：依赖 theme.css，此处只管布局间距 */
 .preview-card {
-  border-radius: var(--radius-lg);
-  padding: 10px;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
 }
 @media (max-width: 1023px) {
   .preview-card {
@@ -60,36 +75,34 @@
 .preview-header { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
 .preview-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 
-/* 预览框：比 theme 的默认更圆 + 有 outline */
+/* 预览框：扁平化处理，去掉外轮廓 */
 .preview-frame {
   border-radius: var(--radius-md);
-  outline: 1px solid var(--border-default);
-  outline-offset: -1px;
+  /* outline 在扁平设计中太丑，直接用背景和边框控制 */
+  border: 1px solid var(--border-subtle);
+  background: #121212;
 }
 @media (max-width: 1023px) {
   .preview-frame {
-    max-height: 32vh;
-    width: auto; max-width: 100%;
+    max-height: 32vh; width: auto; max-width: 100%;
     align-self: center; margin: 0 auto;
-    background: transparent;
-    outline: 0;
+    background: transparent; border: 0;
   }
 }
 
 #svgPreviewHost { width: 100%; height: 100%; }
 #svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
-/* 【CSS 模块 3】编辑区容器 */
+/* 【CSS 模块 4】编辑区容器 */
 .inspector-pane { display: flex; flex-direction: column; gap: 12px; overflow: hidden; min-width: 0; }
 @media (min-width: 1024px) { .inspector-pane { height: 100%; } }
 @media (max-width: 1023px) {
   .inspector-pane { overflow: hidden; padding-top: 5px; gap: 5px; min-height: 0; }
 }
 
-/* 【CSS 模块 4】Tab 内容与面板显示 */
+/* 【CSS 模块 5】Tab 内容与面板显示 */
 .tabs-content {
-  overflow-y: auto; flex: 1;
-  display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;
   padding-bottom: 8px; min-height: 0;
 }
 @media (max-width: 1023px) {
@@ -102,64 +115,51 @@
 .tab-panel { display: none; flex-direction: column; gap: 12px; }
 .tab-panel.active { display: flex; }
 
-/* 【CSS 模块 5】命座网格 */
-.cons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }
+/* 【CSS 模块 6】命座网格 (现代化扁平选中状态) */
+.cons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; }
 @media (max-width: 600px) { .cons-grid { grid-template-columns: 1fr; } }
 .cons-item {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--bg-surface-2); border-radius: var(--radius-sm); padding: 6px 8px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-surface-2); border-radius: var(--radius-sm); padding: 8px;
   border: 1px solid var(--border-subtle);
+  transition: all 0.2s var(--ease-spring);
 }
 .cons-item.active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
   background: var(--accent-soft);
 }
 .cons-badge {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 600;
   background: var(--bg-sunken); border: 1px solid var(--border-default);
   color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  transition: all 0.2s var(--ease-spring);
 }
 .cons-item.active .cons-badge { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* 【CSS 模块 6】元素主题色选择 */
-.color-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+/* 【CSS 模块 7】元素主题色选择 (去阴影，纯边框控制) */
+.color-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
 .swatch-btn {
-  display: flex; align-items: center; justify-content: center; gap: 5px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   background: var(--bg-surface-2); border-radius: var(--radius-sm);
   height: var(--ctl-h); cursor: pointer; font-size: 12px; font-weight: 500;
   color: var(--text-secondary); border: 1px solid var(--border-subtle);
+  transition: all 0.2s var(--ease-spring);
 }
 .swatch-btn:hover { background: var(--bg-hover); }
-.swatch-btn.active { border-color: currentColor; box-shadow: 0 0 0 1.5px currentColor; background: var(--bg-surface); }
-.swatch-icon { width: 1em; height: 1em; fill: currentColor; flex-shrink: 0; display: block; }
+/* 扁平选中：用颜色本身的 Border，不加外扩阴影 */
+.swatch-btn.active { 
+  border-color: var(--accent); 
+  background: var(--bg-surface); 
+  color: var(--accent);
+}
+.swatch-icon { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; display: block; }
 
-/* 【CSS 模块 7】立绘偏移滑块（兼容旧版 .slider-box，等改 HTML 后切到 .slider-row） */
-.slider-box {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 10px 10px 10px;
-}
-.slider-box > span:first-child {
-  font-size: 11px; color: var(--text-secondary);
-  flex: 1; min-width: 0;
-}
-.slider-box input[type="range"] { flex: 1; }
-.slider-box input[type="number"] {
-  width: 82px; height: 32px; text-align: center;
-  padding: 0 6px; font-size: 12px; border-radius: var(--radius-sm);
-}
-
-/* 【CSS 模块 8】展开 / 收起按钮：箭头旋转动画
- *   展开中（无 .collapsed）→ 箭头朝上（点击收起）
- *   已收起（.collapsed）  → 箭头朝下（点击展开）
- * ------------------------------------------------------------ */
+/* 【CSS 模块 8】展开 / 收起按钮：箭头旋转动画 */
 .collapse-toggle .collapse-icon {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  transition: transform 0.25s var(--ease-spring) !important;
   transform: rotate(0deg);
 }
 .collapse-toggle:not(.collapsed) .collapse-icon {
