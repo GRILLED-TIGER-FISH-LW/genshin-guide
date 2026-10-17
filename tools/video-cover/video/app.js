@@ -1,5 +1,5 @@
 /* =========================================================================
- * 视频封面 · app.js (2026 现代扁平修复版)
+ * 视频封面 · app.js (2026 现代扁平终极版)
  * ========================================================================= */
 'use strict';
 
@@ -594,7 +594,6 @@ async function setGuideType(type) {
   const sub2Input = document.getElementById('sub2Input');
   if (sub2Input) sub2Input.value = '';
 
-  // 清空背景预览
   const bgNameEl = document.getElementById('bgFileName');
   if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
   const bgThumb = document.getElementById('bgThumb');
@@ -772,13 +771,14 @@ function renderFloatList() {
     <div class="float-item">
       <div class="float-item-head">
         <div class="float-item-head-thumb">
-          <img class="float-thumb" src="${o.url}" alt="">
+          <!-- 改为点击图片触发上传 -->
+          <img class="float-thumb" src="${o.url}" alt="" onclick="App.triggerReplaceFloat('${o.id}')" title="点击更换图片">
           <span class="float-thumb-meta">${o.w}×${o.h}</span>
         </div>
         <div class="float-item-head-actions">
           <button class="btn-xs" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
           <button class="btn-xs" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
-          <label class="btn-xs"><span class="icon-slot" data-icon="import"></span><input type="file" accept="image/*" class="hidden" onchange="App.replaceFloat('${o.id}', this)"></label>
+          <!-- 删除了多余的 label 按钮 -->
           <button class="btn-xs btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
         </div>
       </div>
@@ -1163,7 +1163,6 @@ function syncInputsFromState() {
   const t = document.getElementById('logoThumb');
   if (t && state.capLogo) t.src = state.capLogo;
 
-  // 同步画布背景的预览图
   const bgThumb = document.getElementById('bgThumb');
   const bgNameEl = document.getElementById('bgFileName');
   if (state.bg) {
@@ -1292,23 +1291,28 @@ const App = {
     state.floatImg = state.floatImg.filter(o => o.id !== id);
     renderFloatList(); mountPreview(); persist();
   },
-  replaceFloat(id, input) {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    const o = state.floatImg.find(x => x.id === id);
-    if (!o) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        o.url = reader.result;
-        o.w = img.width; o.h = img.height;
-        renderFloatList(); mountPreview(); persist();
+  triggerReplaceFloat(id) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const o = state.floatImg.find(x => x.id === id);
+      if (!o) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          o.url = reader.result;
+          o.w = img.width; o.h = img.height;
+          renderFloatList(); mountPreview(); persist();
+        };
+        img.src = reader.result;
       };
-      img.src = reader.result;
+      reader.readAsDataURL(file);
     };
-    reader.readAsDataURL(file);
-    input.value = '';
+    input.click();
   },
 
   openFontPicker,
@@ -1368,7 +1372,7 @@ window.App = App;
   syncInputsFromState();
   applyModeUI();
   renderFloatList();
-  bindEvents(); // 确保事件绑定
+  bindEvents();
   mountPreview();
   injectIcons();
 
