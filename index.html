@@ -116,6 +116,9 @@ html.theme-switching *::before, html.theme-switching *::after {
 }
 .nav-title-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--accent); }
 .nav-title-icon svg { width: 100%; height: 100%; display: block; }
+/* 关键：如果图标为空，则隐藏它，让标题完美左对齐 */
+.nav-title-icon:empty { display: none; }
+
 .nav-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-title-sep { color: var(--text-tertiary); font-weight: 400; margin: 0 2px; }
 
@@ -502,8 +505,9 @@ function renderHome() {
   TOOLS.forEach(tool => {
     const card = document.createElement('div');
     card.className = 'dash-card';
+    // 【关键调整】这里使用默认的 tool.icon（线框），而不是 tool.iconBold
     card.innerHTML = 
-      `<div class="dash-card-icon">${ICONS.nav[tool.iconBold] || ''}</div>
+      `<div class="dash-card-icon">${ICONS.nav[tool.icon] || ''}</div>
        <div>
          <div class="dash-card-title">${tool.label}</div>
          ${tool.subtools ? `<div class="dash-card-sub">${tool.subtools.length} 个子工具</div>` : ''}
@@ -561,6 +565,7 @@ function goHome() {
   homeView.classList.remove('hidden');
   loadingMask.classList.remove('show');
   
+  // 清空图标，配合 CSS 的 :empty 规则，标题会完美左对齐
   navIcon.innerHTML = '';
   navText.textContent = '原神攻略工具集';
   
@@ -633,6 +638,7 @@ function updateNavTitle() {
   const tool = TOOLS.find(t => t.key === activeTool);
   if (!tool) return;
 
+  // 激活工具时，顶部导航栏使用 iconBold
   navIcon.innerHTML = (ICONS.nav && ICONS.nav[tool.iconBold]) || '';
   const subs = tool.subtools || [];
   const sub = subs.find(s => s.key === activeSubtool);
@@ -687,13 +693,13 @@ window.addEventListener('hashchange', () => {
   try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
   applyTheme(savedTheme);
 
-  renderHome(); // 必须先渲染首页结构
+  renderHome(); 
 
   const hashKey = (location.hash || '').replace(/^#/, '');
   if (hashKey && TOOLS.some(t => t.key === hashKey)) {
     selectTool(hashKey, { silent: true });
   } else {
-    goHome(); // 默认停在首页，速度起飞
+    goHome(); 
   }
 
   document.body.classList.add('ready');
