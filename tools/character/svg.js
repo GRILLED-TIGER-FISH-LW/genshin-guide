@@ -1,20 +1,11 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js
+ * 原神一图流生成器 · svg.js (2026 现代扁平视觉版)
  * =========================================================================
- * 存放内容（几乎不变的部分）：
- *   【S1】图标 viewBox 收紧
- *   【S2】文本测量与自动排版
- *   【S3】SVG 绘制原语（text / rect / image / slot 等）
- *   【S4】图层构建（武器 / 圣遗物 / 词条 / 天赋 / 面板 / 命座 / 配队）
- *   【S5】总入口 buildSVG
- * =========================================================================
- * 依赖 consts.js 中声明的：
- *   State / LAYOUT / MID_CONTENT_Y / SVG_W / SVG_H
- *   FONT_FAMILY_DEFAULT / FONT_FAMILY_CUSTOM
- *   WEAPON_ORDER / WEAPON_LABELS / WEAPON_MAX
- *   PANEL_PRIMARY_LABELS / PANEL_EMPTY_TEXT / EMPTY_FILL
- *   ELEMENT_ICONS / ARTIFACT_ICON_PATHS / PLUS_ICON_PATH
- *   esc / placeholder
+ * 修改说明：
+ *   1. 彻底移除了所有 filter="url(#glowTheme)" 的霓虹发光效果。
+ *   2. 面板材质改用半透明玻璃态（无粗边框，极细高光）。
+ *   3. 删除了 SVG 中的 glow 滤镜定义，提升渲染性能。
+ *   4. 角色名阴影减弱，主文字颜色调整为更柔和的暖白。
  * ========================================================================= */
 
 /* =========================================================================
@@ -133,7 +124,7 @@ function wrappedLeftText(x, areaTop, areaW, areaH, content, maxW, base, min, fil
  * 【S3】SVG 绘制原语
  * ========================================================================= */
 function text(x, y, content, size, opts = {}) {
-  const fill = opts.fill || '#fff';
+  const fill = opts.fill || '#F2F1EA';
   const anchor = opts.anchor || 'start';
   const weight = opts.weight || '400';
   const opacity = opts.opacity == null ? 1 : opts.opacity;
@@ -163,7 +154,8 @@ function image(href, x, y, w, h, fit = 'xMidYMid slice', extra = '') {
 function sectionTitle(x, y, title) {
   const fs = LAYOUT.title.fs, dotR = LAYOUT.title.dotR, dotGap = LAYOUT.title.dotGap;
   const textX = x + dotR * 2 + dotGap;
-  return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${State.data.theme || '#939393'}" filter="url(#glowTheme)"/>${text(textX, y, title, fs, { weight: 500 })}`;
+  // 去除发光，小圆点直接使用主题色，文字加粗
+  return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${State.data.theme || '#939393'}"/>${text(textX, y, title, fs, { weight: 600 })}`;
 }
 function slot(x, y, size, img, name, key, field) {
   const cp = `clip_${key}`;
@@ -183,7 +175,7 @@ function slot(x, y, size, img, name, key, field) {
   const bg = showLabel ? `<rect x="${x}" y="${y + size - labelH}" width="${size}" height="${labelH}" fill="url(#slotBottomGrad)" clip-path="url(#${cp})"/>` : '';
   return `
     <clipPath id="${cp}"><rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${radius}"/></clipPath>
-    ${rect(x, y, size, size, 'rgba(0,0,0,.5)', '', 0, radius)}
+    ${rect(x, y, size, size, 'rgba(0,0,0,.4)', '', 0, radius)}
     ${image(img || placeholder(''), x, y, size, size, 'xMidYMid slice', `clip-path="url(#${cp})"`)}
     ${bg}${labelEl}`;
 }
@@ -208,8 +200,8 @@ function doubleArtifact(x, y, size, a, key) {
   return `
     <clipPath id="${cpL}"><path d="M${x + radius} ${y}H${x + size}V${y + size}H${x + radius}Q${x} ${y + size} ${x} ${y + size - radius}V${y + radius}Q${x} ${y} ${x + radius} ${y}Z"/></clipPath>
     <clipPath id="${cpR}"><path d="M${x + size + gap} ${y}H${x + size + gap + size - radius}Q${x + size + gap + size} ${y} ${x + size + gap + size} ${y + radius}V${y + size - radius}Q${x + size + gap + size} ${y + size} ${x + size + gap + size - radius} ${y + size}H${x + size + gap}Z"/></clipPath>
-    <rect x="${x}" y="${y}" width="${size}" height="${size}" fill="rgba(0,0,0,.5)" clip-path="url(#${cpL})"/>
-    <rect x="${x + size + gap}" y="${y}" width="${size}" height="${size}" fill="rgba(0,0,0,.5)" clip-path="url(#${cpR})"/>
+    <rect x="${x}" y="${y}" width="${size}" height="${size}" fill="rgba(0,0,0,.4)" clip-path="url(#${cpL})"/>
+    <rect x="${x + size + gap}" y="${y}" width="${size}" height="${size}" fill="rgba(0,0,0,.4)" clip-path="url(#${cpR})"/>
     ${image(a.img1 || placeholder(''), x, y, size, size, 'xMidYMid slice', `clip-path="url(#${cpL})"`)}
     ${image(a.img2 || placeholder(''), x + size + gap, y, size, size, 'xMidYMid slice', `clip-path="url(#${cpR})"`)}
     ${bg}${labelEl}`;
@@ -219,8 +211,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  const theme = State.data.theme || '#939393';
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0,0,0,.5)" stroke="${theme}" stroke-width="2" filter="url(#glowTheme)"/>`;
+  // 玻璃拟态面板：极低不透明度白底 + 1px 微弱高光边，去除粗边框和发光
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255, 255, 255, 0.04)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -275,7 +267,8 @@ function renderArtifactIcon(iconKey, cx, cy, size) {
   const scale = size / 1024;
   const iconX = cx - size / 2, iconY = cy - size / 2;
   const pathsStr = paths.map(d => `<path d="${d}"/>`).join('');
-  return `<g transform="translate(${iconX}, ${iconY}) scale(${scale})" fill="${State.data.theme}" filter="url(#glowThemeSmall)">${pathsStr}</g>`;
+  // 去除了发光滤镜
+  return `<g transform="translate(${iconX}, ${iconY}) scale(${scale})" fill="${State.data.theme}">${pathsStr}</g>`;
 }
 
 /* ---- 词条 ---- */
@@ -402,11 +395,13 @@ function buildConstellations() {
     const descRightLimit = x + boxW - 5;
     const descAreaW = descRightLimit - descX;
     const descText = c.desc ? wrappedLeftText(descX, y + 2, descAreaW, boxH - 4, c.desc, descAreaW, LAYOUT.cons.descFs, 6, '#fff') : '';
-    const badgeFill = active ? theme : 'rgba(0,0,0,.35)';
+    const badgeFill = active ? theme : 'rgba(0,0,0,.4)';
+    
     if (active) {
-      return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${theme}" fill-opacity="0.15" stroke="${theme}" stroke-width="2" stroke-opacity="0.75"/>
-        <circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${badgeFill}" filter="url(#glowTheme)"/>
-        ${text(badgeCx, badgeCy + 0.5, i + 1, LAYOUT.cons.seqFs, { fill: '#fff', anchor: 'middle', weight: 500 })}
+      // 现代化激活态：微弱的主题色底，取消粗边框
+      return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${theme}" fill-opacity="0.15" stroke="${theme}" stroke-opacity="0.3" stroke-width="1"/>
+        <circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${badgeFill}"/>
+        ${text(badgeCx, badgeCy + 0.5, i + 1, LAYOUT.cons.seqFs, { fill: '#fff', anchor: 'middle', weight: 600 })}
         ${descText}`;
     }
     return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${LAYOUT.innerBoxFill}"/>
@@ -485,8 +480,6 @@ function buildTeams() {
 function buildSVG(scale = 1, forExport = false) {
   const d = State.data;
   const W = SVG_W * scale, H = SVG_H * scale;
-  /* 字体：仅导出时把 @font-face 内嵌进 SVG（用 dataURL）
-   * 预览时不放 @font-face，让 SVG 里的 text 直接走 document 字体（已在 document 注册） */
   const fontFace = (forExport && d.fontData)
     ? `@font-face{font-family:CardCustomFont;src:url("${d.fontData}");font-display:block}`
     : '';
@@ -527,6 +520,7 @@ function buildSVG(scale = 1, forExport = false) {
     info += text(ix, iy, `${r[0]} ${r[1]}`, infoFs, { fill: '#ffffff', stroke: '#000000', strokeWidth: 1.2, field: r[2] });
   });
   const row2Y = LAYOUT.layers.row2.y, row2H = LAYOUT.layers.row2.h;
+  
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
     <defs>
       <style>${fontFace} text { font-family: ${fontFamily}; paint-order: stroke fill; }</style>
@@ -537,46 +531,45 @@ function buildSVG(scale = 1, forExport = false) {
       </linearGradient>
       <linearGradient id="sepGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
-        <stop offset="50%" stop-color="#fff" stop-opacity="0.8"/>
+        <stop offset="50%" stop-color="#fff" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
       </linearGradient>
-      <filter id="glowTheme" x="-200%" y="-200%" width="500%" height="500%">
-        <feComponentTransfer in="SourceAlpha" result="alphaFull"><feFuncA type="linear" slope="2" intercept="0"/></feComponentTransfer>
-        <feGaussianBlur in="alphaFull" stdDeviation="1.8" result="blur"/>
-        <feComposite in="blur" in2="alphaFull" operator="out" result="outer"/>
-        <feFlood flood-color="#ffffff" flood-opacity="1" result="white"/>
-        <feComposite in="white" in2="outer" operator="in" result="glow"/>
-        <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <filter id="glowThemeSmall" x="-100%" y="-100%" width="300%" height="300%">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="100" result="blur"/>
-        <feComposite in="blur" in2="SourceAlpha" operator="out" result="outer"/>
-        <feFlood flood-color="#ffffff" flood-opacity="1" result="white"/>
-        <feComposite in="white" in2="outer" operator="in" result="glow"/>
-        <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
       <clipPath id="leftClip"><rect x="${leftX}" y="${leftY}" width="${leftW}" height="${leftH}" rx="${LAYOUT.radius.panel}"/></clipPath>
     </defs>
-    <rect width="${SVG_W}" height="${SVG_H}" fill="#000"/>
+    
+    <!-- 背景：深炭灰 -->
+    <rect width="${SVG_W}" height="${SVG_H}" fill="#141312"/>
+    
     ${d.bgImg ? image(d.bgImg, 0, 0, SVG_W, SVG_H) : ''}
-    <rect width="${SVG_W}" height="${SVG_H}" fill="rgba(0,0,0,0.25)"/>
-    ${rect(leftX, leftY, leftW, leftH, 'rgba(0,0,0,.5)', '', 0, LAYOUT.radius.panel)}
+    
+    <!-- 遮罩：确保文字可读性 -->
+    <rect width="${SVG_W}" height="${SVG_H}" fill="rgba(0,0,0,0.4)"/>
+    
+    <!-- 左侧立绘面板 -->
+    ${panelRect(leftX, leftY, leftW, leftH, LAYOUT.radius.panel)}
+    
     ${d.charImg ? image(d.charImg, charDrawX, charDrawY, charDrawW, charDrawH, 'xMidYMid meet', 'clip-path="url(#leftClip)" id="charImgEl"') : ''}
     ${info}
     ${d.nameBgImg ? image(d.nameBgImg, elemBgX, elemBgY, elemBgW, elemBgH, 'xMidYMid meet', 'opacity="0.75"') : ''}
-    ${text(nameElemCenterX, nameElemCenterY, d.charName, nameFs, { anchor: 'middle', weight: 400, field: 'charName', fit: { maxW: 280, base: 50, min: 18 }, extra: 'filter="drop-shadow(0 3px 5px rgba(0,0,0,.9))"' })}
+    
+    ${text(nameElemCenterX, nameElemCenterY, d.charName, nameFs, { anchor: 'middle', weight: 400, field: 'charName', fit: { maxW: 280, base: 50, min: 18 }, extra: 'filter="drop-shadow(0 2px 8px rgba(0,0,0,.6))"' })}
+    
     ${panelRect(LAYOUT.right.x, LAYOUT.layers.weapon.y, LAYOUT.right.w, LAYOUT.layers.weapon.h, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.right.x + LAYOUT.title.offX, LAYOUT.layers.weapon.y + LAYOUT.title.offY, '武器推荐')}
     ${buildWeapons()}
+    
     ${panelRect(LAYOUT.layers.artifact.x, row2Y, LAYOUT.layers.artifact.w, row2H, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.layers.artifact.x + LAYOUT.title.offX, row2Y + LAYOUT.title.offY, '圣遗物推荐')}
     ${buildArtifacts()}
+    
     ${panelRect(LAYOUT.layers.talent.x, row2Y, LAYOUT.layers.talent.w, row2H, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.layers.talent.x + LAYOUT.title.offX, row2Y + LAYOUT.title.offY, '天赋加点')}
     ${buildTalents()}
+    
     ${midSection(LAYOUT.layers.mid.stat, '词条推荐', buildStats())}
     ${midSection(LAYOUT.layers.mid.panel, '面板参考', buildPanel())}
     ${midSection(LAYOUT.layers.mid.cons, '核心命座', buildConstellations())}
+    
     ${panelRect(LAYOUT.right.x, LAYOUT.layers.team.y, LAYOUT.right.w, LAYOUT.layers.team.h, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.right.x + LAYOUT.title.offX, LAYOUT.layers.team.y + LAYOUT.title.offY, '配队参考')}
     ${buildTeams()}
