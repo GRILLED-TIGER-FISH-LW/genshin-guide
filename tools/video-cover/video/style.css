@@ -7,18 +7,12 @@ body {
   overflow-x: hidden;
 }
 
-/* =========================================================================
- * 【通用间距规范】统一所有表单内部的边距，告别挤压
- * ========================================================================= */
 .hidden { display: none !important; }
 .pad-10 { padding: 10px; }
 .pad-t-10 { padding-top: 10px; }
 .flex-1 { flex: 1; min-width: 0; }
 .upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 
-/* =========================================================================
- * 【模块 1】预览区（毛玻璃悬浮）
- * ========================================================================= */
 .preview-sticky {
   position: sticky; top: 0; z-index: 35;
   background: rgba(244, 241, 234, 0.85);
@@ -33,9 +27,6 @@ body {
 #svgPreviewHost { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
 #svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
-/* =========================================================================
- * 【模块 2】表单主容器
- * ========================================================================= */
 .grid {
   display: flex; flex-direction: column; gap: 14px;
   padding: 14px; max-width: 900px; margin: 0 auto; width: 100%;
@@ -45,18 +36,12 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* =========================================================================
- * 【模块 3】攻略模式特化
- * ========================================================================= */
 #guideTypeSeg {
-  background: var(--bg-hover); /* 去黑化，更通透 */
+  background: var(--bg-hover);
   border-color: var(--border-subtle);
 }
 .seg-control .seg-btn { flex: 1; }
 
-/* =========================================================================
- * 【模块 4】浮动素材卡片
- * ========================================================================= */
 .custom-head {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 0 10px 8px 10px;
@@ -77,10 +62,12 @@ body {
 .float-thumb {
   width: 44px; height: 32px; object-fit: cover;
   border-radius: 6px; border: 1px solid var(--border-subtle);
+  cursor: pointer; /* 新增：提示可点击 */
+  transition: opacity 0.2s;
 }
+.float-thumb:hover { opacity: 0.8; }
 .float-thumb-meta { font-size: 11px; color: var(--text-secondary); }
 .float-item-head-actions { display: flex; gap: 4px; }
-.float-item-head-actions label { cursor: pointer; }
 
 .float-item label.under-middle-row {
   display: flex; align-items: center; gap: 6px;
