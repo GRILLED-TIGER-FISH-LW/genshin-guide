@@ -1,5 +1,5 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (标签恢复淡黄色 + 图标加白边)
+ * 原神一图流生成器 · svg.js (一级30%黑 + 二级10%白)
  * ========================================================================= */
 
 /* =========================================================================
@@ -148,7 +148,6 @@ function image(href, x, y, w, h, fit = 'xMidYMid slice', extra = '') {
 function sectionTitle(x, y, title) {
   const fs = LAYOUT.title.fs, dotR = LAYOUT.title.dotR, dotGap = LAYOUT.title.dotGap;
   const textX = x + dotR * 2 + dotGap;
-  // 大标题取消加粗
   return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${State.data.theme || '#939393'}"/>${text(textX, y, title, fs, { weight: 400, fill: '#FFFFFF' })}`;
 }
 function slot(x, y, size, img, name, key, field) {
@@ -205,7 +204,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.25)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
+  // 一级面板：30% 的黑
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.3)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -260,7 +260,6 @@ function renderArtifactIcon(iconKey, cx, cy, size) {
   const scale = size / 1024;
   const iconX = cx - size / 2, iconY = cy - size / 2;
   const pathsStr = paths.map(d => `<path d="${d}"/>`).join('');
-  // 圣遗物图标加白色描边
   return `<g transform="translate(${iconX}, ${iconY}) scale(${scale})" fill="${State.data.theme}" stroke="#FFFFFF" stroke-width="12" stroke-linejoin="round" stroke-linecap="round">${pathsStr}</g>`;
 }
 
