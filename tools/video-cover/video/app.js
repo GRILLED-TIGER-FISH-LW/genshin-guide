@@ -1,26 +1,11 @@
 /* =========================================================================
- * 视频封面 · app.js
+ * 视频封面 · app.js (2026 现代扁平重构版)
  * =========================================================================
- * 模块导航（搜索 "【JS 模块 N】" 快速跳转）：
- *   【JS 模块 1】 常量
- *   【JS 模块 2】 状态
- *   【JS 模块 3】 数据字典
- *   【JS 模块 4】 工具函数
- *   【JS 模块 5】 图标注入
- *   【JS 模块 6】 背景模糊图生成（canvas 预生成）
- *   【JS 模块 7】 SVG 生成
- *   【JS 模块 8】 浮动图层收集
- *   【JS 模块 9】 预览挂载 + 增量更新
- *   【JS 模块 10】模式切换
- *   【JS 模块 11】副标题输入处理（角色名 / BOSS 名）
- *   【JS 模块 12】浮动素材
- *   【JS 模块 13】字体
- *   【JS 模块 14】IndexedDB 持久化
- *   【JS 模块 15】导出 / 导入 / 清空
- *   【JS 模块 16】UI 同步
- *   【JS 模块 17】事件绑定
- *   【JS 模块 18】App 接口
- *   【JS 模块 19】初始化
+ * 核心改动：
+ * 1. 彻底移除原生 alert / confirm，改用 Toast 和自定义 Modal。
+ * 2. 彻底清除了 renderFloatList 生成 HTML 时的所有内联样式。
+ * 3. 修复了 injectIcons 里的内联 rotate，改用全局 CSS 类。
+ * 4. 显隐控制全部改用 .hidden 类。
  * ========================================================================= */
 'use strict';
 
@@ -76,10 +61,6 @@ const state = {
   floatImg: []
 };
 
-/* 背景相关的运行时缓存（不持久化）：
- *   cachedBgImage       —— 已 load 好的原图 Image 对象
- *   cachedBlurredBg     —— canvas 预生成的模糊图 dataURL
- *   cachedBlurredBgKey  —— 缓存 key（原图 src + blur + brightness） */
 let cachedBgImage = null;
 let cachedBlurredBg = '';
 let cachedBlurredBgKey = '';
@@ -163,7 +144,7 @@ async function loadDataFiles() {
 }
 
 /* =========================================================================
- * 【JS 模块 4】工具函数
+ * 【JS 模块 4】工具函数与 Toast/Modal
  * ========================================================================= */
 function esc(s) {
   return String(s == null ? '' : s)
@@ -213,6 +194,42 @@ async function urlToDataURL(url) {
   }
 }
 
+/* 替代原生 Alert 和 Confirm */
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (type === 'error' ? ' toast-error' : type === 'success' ? ' toast-success' : '');
+  el.textContent = message;
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2400);
+}
+
+function showConfirm(title, message) {
+  return new Promise(resolve => {
+    const backdrop = document.getElementById('modalBackdrop');
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMessage').textContent = message;
+    const cancelBtn = document.getElementById('modalCancel');
+    const confirmBtn = document.getElementById('modalConfirm');
+    const cleanup = (result) => {
+      backdrop.classList.remove('show');
+      cancelBtn.onclick = null;
+      confirmBtn.onclick = null;
+      backdrop.onclick = null;
+      resolve(result);
+    };
+    cancelBtn.onclick = () => cleanup(false);
+    confirmBtn.onclick = () => cleanup(true);
+    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(false); };
+    backdrop.classList.add('show');
+  });
+}
+
 /* =========================================================================
  * 【JS 模块 5】图标注入
  * ========================================================================= */
@@ -224,7 +241,7 @@ function injectIcons() {
     trash: ICONS.ui.trash || '',
     plus: ICONS.ui.plus || '',
     up: upIcon,
-    down: '<span style="display:inline-flex; transform:rotate(180deg);">' + upIcon + '</span>',
+    down: '<span class="icon-flip-y">' + upIcon + '</span>',
     font: ICONS.ui.import || '',
     guides: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/></svg>'
   };
@@ -235,44 +252,20 @@ function injectIcons() {
 }
 
 /* =========================================================================
- * 【JS 模块 6】背景模糊图生成（canvas 预生成）
- * =========================================================================
- * 为什么用 canvas：
- *   SVG 的 feGaussianBlur 的 edgeMode="duplicate" 在部分浏览器不生效，
- *   模糊后边缘会变透明 → 露出底层 → 出现"暗→亮"硬边。
- *   canvas 的 ctx.filter = 'blur()' 天然是 clamp to edge，边缘不透明。
- *
- * 流程：
- *   1. 原图"覆盖缩放"铺满 W×H → 得到基准图 A（尺寸 = 原图显示尺寸，不放大）
- *   2. 建外扩 pad 的画布 B，A 放中心，pad 区域用 A 的边缘像素拉伸填充
- *   3. 对整个 B 应用 blur，画到主 canvas 的 (-pad, -pad) 起点
- *      → 主 canvas 的 (0,0)-(W,H) 就是"裁掉 pad 的中心区域"
- *   4. 最后叠一层亮度（黑/白 fillRect）
- *
- * 缓存 key：原图 src + blur + brightness。三者不变 → 直接用缓存。
+ * 【JS 模块 6】背景模糊图生成
  * ========================================================================= */
-
-/** 加载背景图（state.bg 变化时调用）。同 src 秒返回。 */
 async function loadBgImage() {
   if (state.bg === cachedBgSrc) return;
   cachedBgSrc = state.bg;
-
   cachedBgImage = null;
   cachedBlurredBg = '';
   cachedBlurredBgKey = '';
-
   if (!state.bg) return;
-  try {
-    cachedBgImage = await loadImage(state.bg);
-  } catch (e) {
-    cachedBgImage = null;
-  }
+  try { cachedBgImage = await loadImage(state.bg); } catch (e) { cachedBgImage = null; }
 }
 
-/** 同步生成（或命中缓存）当前状态下的模糊背景图 dataURL。 */
 function generateBlurredBgSync() {
   if (!cachedBgImage) return '';
-
   const key = cachedBgImage.src + '|' + state.midBlur + '|' + state.midBrightness;
   if (cachedBlurredBgKey === key && cachedBlurredBg) return cachedBlurredBg;
 
@@ -286,7 +279,6 @@ function generateBlurredBgSync() {
   const ctx = c.getContext('2d');
 
   if (blurPx > 0) {
-    /* 步骤 1：铺满 W×H 到 tmp1（cover 缩放） */
     const coverScale = Math.max(W / img.width, H / img.height);
     const coverW = img.width * coverScale;
     const coverH = img.height * coverScale;
@@ -297,29 +289,25 @@ function generateBlurredBgSync() {
     tmp1.width = W; tmp1.height = H;
     tmp1.getContext('2d').drawImage(img, coverX, coverY, coverW, coverH);
 
-    /* 步骤 2：外扩 pad 的 tmp2，A 放中心，pad 用边缘像素拉伸 */
     const pad = Math.ceil(blurPx * 3) + 20;
     const BW = W + pad * 2, BH = H + pad * 2;
     const tmp2 = document.createElement('canvas');
     tmp2.width = BW; tmp2.height = BH;
     const t2 = tmp2.getContext('2d');
     t2.drawImage(tmp1, pad, pad);
-    t2.drawImage(tmp1, 0, 0,     W, 1, pad,     0,     W,   pad);   // 上
-    t2.drawImage(tmp1, 0, H - 1, W, 1, pad,     pad+H, W,   pad);   // 下
-    t2.drawImage(tmp1, 0, 0,     1, H, 0,       pad,   pad, H);     // 左
-    t2.drawImage(tmp1, W-1, 0,   1, H, pad+W,   pad,   pad, H);     // 右
-    t2.drawImage(tmp1, 0, 0,     1, 1, 0,       0,     pad, pad);   // 左上
-    t2.drawImage(tmp1, W-1, 0,   1, 1, pad+W,   0,     pad, pad);   // 右上
-    t2.drawImage(tmp1, 0, H-1,   1, 1, 0,       pad+H, pad, pad);   // 左下
-    t2.drawImage(tmp1, W-1, H-1, 1, 1, pad+W,   pad+H, pad, pad);   // 右下
+    t2.drawImage(tmp1, 0, 0, W, 1, pad, 0, W, pad);
+    t2.drawImage(tmp1, 0, H - 1, W, 1, pad, pad+H, W, pad);
+    t2.drawImage(tmp1, 0, 0, 1, H, 0, pad, pad, H);
+    t2.drawImage(tmp1, W-1, 0, 1, H, pad+W, pad, pad, H);
+    t2.drawImage(tmp1, 0, 0, 1, 1, 0, 0, pad, pad);
+    t2.drawImage(tmp1, W-1, 0, 1, 1, pad+W, 0, pad, pad);
+    t2.drawImage(tmp1, 0, H-1, 1, 1, 0, pad+H, pad, pad);
+    t2.drawImage(tmp1, W-1, H-1, 1, 1, pad+W, pad+H, pad, pad);
 
-    /* 步骤 3：对整张 tmp2 应用 blur，画到主 canvas（起点 -pad,-pad）
-       主 canvas (0,0)-(W,H) 对应 tmp2 的中心 W×H */
     ctx.filter = `blur(${blurPx}px)`;
     ctx.drawImage(tmp2, -pad, -pad);
     ctx.filter = 'none';
   } else {
-    /* 不模糊，直接 cover 铺满 */
     const coverScale = Math.max(W / img.width, H / img.height);
     const coverW = img.width * coverScale;
     const coverH = img.height * coverScale;
@@ -328,13 +316,10 @@ function generateBlurredBgSync() {
     ctx.drawImage(img, coverX, coverY, coverW, coverH);
   }
 
-  /* 步骤 4：亮度 */
   if (slope < 1) {
-    /* 压暗：黑色 source-over，alpha = 1 - slope */
     ctx.fillStyle = `rgba(0,0,0,${1 - slope})`;
     ctx.fillRect(0, 0, W, H);
   } else if (slope > 1) {
-    /* 提亮：白色 source-over，alpha = slope - 1（上限 1） */
     ctx.fillStyle = `rgba(255,255,255,${Math.min(1, slope - 1)})`;
     ctx.fillRect(0, 0, W, H);
   }
@@ -349,9 +334,7 @@ function generateBlurredBgSync() {
  * 【JS 模块 7】SVG 生成
  * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d');
-function getFontFamily() {
-  return state.fontName ? `'${state.fontName}'` : 'system-ui, sans-serif';
-}
+function getFontFamily() { return state.fontName ? `'${state.fontName}'` : 'system-ui, sans-serif'; }
 function measureTextWidth(text, size, font) {
   measureCtx.font = `${size}px ${font || getFontFamily()}`;
   return measureCtx.measureText(String(text)).width;
@@ -437,8 +420,6 @@ function buildSVG(showGuides, forExport = false) {
 
   const usePattern = !!(s.bg && s.capText);
   const capTextFill = usePattern ? 'url(#capTextPattern)' : '#1a1a1a';
-
-  /* 模糊图（canvas 预生成的 dataURL，可能是空字符串） */
   const blurredBgUrl = cachedBgImage ? generateBlurredBgSync() : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
@@ -572,8 +553,8 @@ function updateFieldText(field, text) {
 function applyModeUI() {
   const type = state.guideType;
 
-  document.getElementById('characterPanel').style.display = type === 'character' ? 'block' : 'none';
-  document.getElementById('customPanel').style.display = type === 'custom' ? 'block' : 'none';
+  document.getElementById('characterPanel').classList.toggle('hidden', type !== 'character');
+  document.getElementById('customPanel').classList.toggle('hidden', type !== 'custom');
 
   document.querySelectorAll('#guideTypeSeg .seg-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.type === type);
@@ -581,13 +562,13 @@ function applyModeUI() {
 
   const sub1SizeRow = document.getElementById('sub1SizeRow');
   const sub2SizeRow = document.getElementById('sub2SizeRow');
-  if (sub1SizeRow) sub1SizeRow.style.display = type === 'custom' ? '' : 'none';
-  if (sub2SizeRow) sub2SizeRow.style.display = type === 'custom' ? '' : 'none';
+  if (sub1SizeRow) sub1SizeRow.classList.toggle('hidden', type !== 'custom');
+  if (sub2SizeRow) sub2SizeRow.classList.toggle('hidden', type !== 'custom');
 
-  const mainSection = document.getElementById('mainTextInput')?.closest('section');
-  const capSection = document.getElementById('capTextInput')?.closest('section');
-  if (mainSection) mainSection.style.display = type === 'custom' ? '' : 'none';
-  if (capSection) capSection.style.display = type === 'custom' ? '' : 'none';
+  const mainSection = document.getElementById('mainSection');
+  const capSection = document.getElementById('capSection');
+  if (mainSection) mainSection.classList.toggle('hidden', type !== 'custom');
+  if (capSection) capSection.classList.toggle('hidden', type !== 'custom');
 
   const sub1Label = document.getElementById('sub1Label');
   const sub2Label = document.getElementById('sub2Label');
@@ -725,7 +706,7 @@ async function matchCharacterName(name) {
       state.characterArt = { url: artUrl, w: img.width, h: img.height };
     } catch (e) {
       state.characterArt = null;
-      alert('立绘加载失败：' + artUrl);
+      showToast('立绘加载失败：' + artUrl, 'error');
     }
   } else {
     state.characterArt = null;
@@ -763,7 +744,7 @@ async function matchBossName(name) {
   }
 
   if (!window.ICON_LIB || !window.ICON_LIB.fromName) {
-    alert('图标库未加载');
+    showToast('图标库未加载', 'error');
     return;
   }
 
@@ -774,11 +755,11 @@ async function matchBossName(name) {
       state.bossAvatar = { url: r.dataURL, w: img.width, h: img.height };
     } else {
       state.bossAvatar = null;
-      alert('未找到「' + name + '」的怪物图标');
+      showToast('未找到「' + name + '」的怪物图标', 'error');
     }
   } catch (e) {
     state.bossAvatar = null;
-    alert('图标加载失败：' + (e.message || e));
+    showToast('图标加载失败：' + (e.message || e), 'error');
   }
 
   mountPreview();
@@ -820,7 +801,7 @@ function renderFloatList() {
   const el = document.getElementById('floatList');
   if (!el) return;
   if (!state.floatImg.length) {
-    el.innerHTML = '<div class="hint" style="padding:4px 0;">暂无素材</div>';
+    el.innerHTML = '<div class="hint">暂无素材</div>';
     injectIcons();
     return;
   }
@@ -829,12 +810,12 @@ function renderFloatList() {
       <div class="float-item-head">
         <div class="float-item-head-thumb">
           <img class="float-thumb" src="${o.url}" alt="">
-          <span style="font-size:11px; color:var(--text-secondary);">${o.w}×${o.h}</span>
+          <span class="float-thumb-meta">${o.w}×${o.h}</span>
         </div>
         <div class="float-item-head-actions">
           <button class="btn-xs" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
           <button class="btn-xs" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
-          <label class="btn-xs" style="cursor:pointer;"><span class="icon-slot" data-icon="import"></span><input type="file" accept="image/*" style="display:none;" onchange="App.replaceFloat('${o.id}', this)"></label>
+          <label class="btn-xs"><span class="icon-slot" data-icon="import"></span><input type="file" accept="image/*" class="hidden" onchange="App.replaceFloat('${o.id}', this)"></label>
           <button class="btn-xs btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
         </div>
       </div>
@@ -1031,7 +1012,7 @@ async function selectFont(index) {
   } catch (err) {
     console.error(`[字体加载失败] ${f.name}:`, err);
     if (labelEl) labelEl.textContent = `异常卡住: ${err.message}`;
-    alert(`字体 [${f.name}] 加载失败: ${err.message}`);
+    showToast(`字体 [${f.name}] 加载失败: ${err.message}`, 'error');
 
     state.fontData = '';
     state.fontFileName = '';
@@ -1146,7 +1127,7 @@ async function exportPNG() {
     if (document.fonts) await document.fonts.ready;
     await bakeAndExport();
   } catch (e) {
-    alert('导出失败：' + e.message);
+    showToast('导出失败：' + e.message, 'error');
   }
 }
 
@@ -1171,14 +1152,15 @@ async function importConfig(input) {
       renderFloatList();
       mountPreview();
       persist();
-    } catch (err) { alert('导入失败'); }
+    } catch (err) { showToast('导入失败', 'error'); }
   };
   reader.readAsText(f);
   input.value = '';
 }
 
 async function clearAll() {
-  if (!confirm('确定清空视频封面所有配置吗？')) return;
+  const ok = await showConfirm('清空配置', '确定清空视频封面所有配置吗？');
+  if (!ok) return;
   try {
     if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
     const db = await openIDB();
@@ -1391,7 +1373,6 @@ window.App = App;
  * 【JS 模块 19】初始化
  * ========================================================================= */
 (async function init() {
-  /* 等资源加载器完成 */
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   injectIcons();
@@ -1406,7 +1387,6 @@ window.App = App;
 
   try { await installFont(); } catch(e) {}
 
-  /* 加载背景图（用于 canvas 生成模糊图） */
   await loadBgImage();
 
   const logoSelect = document.getElementById('logoSelect');
@@ -1443,13 +1423,9 @@ window.App = App;
   mountPreview();
   injectIcons();
 
-  /* 一切就绪，揭开启动遮罩 */
   document.body.classList.add('ready');
 })();
 
-/* =========================================================================
- * 主题同步
- * ========================================================================= */
 window.addEventListener('message', function (e) {
   if (e.data && e.data.theme) {
     const html = document.documentElement;
