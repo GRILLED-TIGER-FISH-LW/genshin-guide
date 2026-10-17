@@ -78,7 +78,6 @@
 /* 预览框：扁平化处理，去掉外轮廓 */
 .preview-frame {
   border-radius: var(--radius-md);
-  /* outline 在扁平设计中太丑，直接用背景和边框控制 */
   border: 1px solid var(--border-subtle);
   background: #121212;
 }
@@ -148,7 +147,6 @@
   transition: all 0.2s var(--ease-spring);
 }
 .swatch-btn:hover { background: var(--bg-hover); }
-/* 扁平选中：用颜色本身的 Border，不加外扩阴影 */
 .swatch-btn.active { 
   border-color: var(--accent); 
   background: var(--bg-surface); 
@@ -165,3 +163,79 @@
 .collapse-toggle:not(.collapsed) .collapse-icon {
   transform: rotate(180deg) !important;
 }
+
+/* ============================================================
+ * 新增：修复 app.js 生成的复杂头部布局
+ * ============================================================ */
+
+/* 通用间距与布局 */
+.flex-col { display: flex; flex-direction: column; gap: 8px; }
+.ml-auto { margin-left: auto; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-8 { margin-bottom: 8px; }
+.text-accent { color: var(--accent); }
+.empty-tip { font-size: 12px; color: var(--text-tertiary); padding: 8px 4px; }
+
+/* 大组卡片（武器、配队） */
+.group-card { padding: 12px; }
+.group-header { 
+  display: flex; align-items: flex-start; justify-content: space-between; 
+  gap: 8px; flex-wrap: wrap; 
+}
+.group-title { 
+  flex: 1 1 100%; /* 手机端默认标题占满整行 */
+  font-size: 13px; font-weight: 600; color: var(--accent); 
+  margin-bottom: 4px;
+}
+.group-actions { 
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; 
+  margin-left: auto; justify-content: flex-end; width: 100%;
+}
+.group-content { margin-top: 10px; }
+
+@media (min-width: 768px) {
+  .group-title { flex: 1 1 auto; margin-bottom: 0; }
+  .group-actions { width: auto; }
+}
+
+/* 子项卡片标题行 */
+.item-header { 
+  display: flex; align-items: flex-start; justify-content: space-between; 
+  gap: 8px; flex-wrap: wrap; margin-bottom: 8px; 
+}
+.item-subtitle { 
+  flex: 1 1 100%; 
+  font-size: 12px; font-weight: 500; color: var(--text-secondary); 
+  margin-bottom: 4px;
+}
+.item-actions { 
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-left: auto; justify-content: flex-end; width: 100%;
+}
+@media (min-width: 768px) {
+  .item-subtitle { flex: 1 1 auto; margin-bottom: 0; }
+  .item-actions { width: auto; }
+}
+
+/* 移动端把按钮压扁一点，防溢出 */
+.btn-xs { padding: 0 6px !important; }
+
+/* 圣遗物散搭左右排版 */
+.artifact-dual-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.artifact-dual-item { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
+
+/* 配队备选列表容器 */
+.alt-list-wrap { 
+  margin-left: 8px; padding-left: 8px; 
+  border-left: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 8px; margin-top: 12px; 
+}
+.alt-header { display: flex; align-items: center; gap: 8px; }
+.alt-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+
+/* 备选角色的轻量卡片 */
+.sub-card { background: var(--bg-sunken); border: 1px solid transparent; padding: 8px; }
+
+/* 主题色选择器的 inner wrapper */
+.swatch-icon-wrap { display: inline-flex; width: 16px; height: 16px; }
+.swatch-name { color: var(--text-secondary); }
