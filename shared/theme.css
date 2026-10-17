@@ -125,7 +125,6 @@ body {
 }
 button, input[type="button"], input[type="submit"] { -webkit-appearance: none; appearance: none; }
 
-/* 极简现代滚动条 (PC端生效) */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
@@ -174,7 +173,6 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:foc
   border-color: var(--accent);
 }
 
-/* 隐藏数字输入框的上下微调箭头 */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -182,7 +180,6 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] { -moz-appearance: textfield; }
 
-/* 下拉框重写 */
 select {
   -webkit-appearance: none; appearance: none;
   background-image: var(--select-arrow);
@@ -192,7 +189,6 @@ select {
   padding-right: 32px;
 }
 
-/* 自定义 Checkbox 与 Radio */
 input[type="checkbox"], input[type="radio"] {
   -webkit-appearance: none;
   appearance: none;
@@ -217,7 +213,6 @@ input[type="checkbox"]:checked, input[type="radio"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
-/* 勾 */
 input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
@@ -227,7 +222,6 @@ input[type="checkbox"]:checked::after {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-/* 圆点 */
 input[type="radio"]:checked::after {
   content: "";
   position: absolute;
@@ -237,7 +231,6 @@ input[type="radio"]:checked::after {
   background: #fff;
 }
 
-/* 美化 Range 滑块 */
 input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
@@ -260,7 +253,6 @@ input[type="range"]::-moz-range-progress { background: var(--accent); height: 4p
 input[type="range"]::-moz-range-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--accent); border: none; transition: transform 0.15s var(--ease-spring); }
 input[type="range"]:active::-moz-range-thumb { transform: scale(1.2); }
 
-/* Details 折叠面板去原生三角 */
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
 
@@ -481,26 +473,42 @@ label.ios-field { display: flex; flex-direction: column; gap: 4px; font-size: 12
 }
 
 /* ============================================================
- * 【CSS 模块 19】底部 Dock (扁平半透明)
+ * 【CSS 模块 19】底部悬浮胶囊 (修复版)
  * ============================================================ */
 .bottom-dock {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-  background: rgba(244, 241, 234, 0.9) !important;
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border-default);
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  position: fixed; 
+  left: 50%; 
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom)); 
+  z-index: 40;
+  background: transparent !important;
+  padding: 0;
   display: flex; align-items: center; justify-content: center;
+  pointer-events: none; /* 防止遮挡背后内容的点击 */
 }
-[data-theme="dark"] .bottom-dock { background: rgba(26, 24, 22, 0.9) !important; }
 @media (min-width: 1024px) { .bottom-dock { display: none; } }
+
 .export-btn-main {
-  width: 100% !important; max-width: 480px !important; height: 44px !important;
-  font-size: 15px !important; font-weight: 600 !important;
-  background: var(--text-primary) !important; color: var(--bg-base) !important;
-  border: 1px solid var(--text-primary) !important; border-radius: var(--radius-pill) !important;
-  cursor: pointer; font-family: inherit;
+  pointer-events: auto;
+  width: auto !important; 
+  padding: 0 32px !important;
+  height: 44px !important; 
+  font-size: 15px !important; 
+  font-weight: 600 !important;
+  background: var(--accent) !important; 
+  color: #ffffff !important;
+  border: none !important; 
+  border-radius: var(--radius-pill) !important;
+  box-shadow: 0 8px 24px rgba(158, 108, 71, 0.3);
+  backdrop-filter: blur(10px);
+  cursor: pointer; 
+  font-family: inherit;
+  transition: all 0.2s var(--ease-spring);
 }
-.export-btn-main:active:not(:disabled) { background: var(--accent) !important; border-color: var(--accent) !important; }
+.export-btn-main:active:not(:disabled) { 
+  transform: scale(0.95); 
+  background: var(--accent-dark) !important; 
+}
 
 /* ============================================================
  * 【CSS 模块 20】Toast
