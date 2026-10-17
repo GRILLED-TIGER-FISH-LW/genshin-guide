@@ -1,18 +1,13 @@
 /* =========================================================================
- * 原神一图流生成器 · consts.js
+ * 原神一图流生成器 · consts.js (2026 现代扁平视觉版)
  * =========================================================================
- * 存放内容（几乎不变的部分）：
- *   【C1】图标常量（依赖 shared/ui-icons.js 已加载）
- *   【C2】基础常量（尺寸 / 导出倍率 / IndexedDB key）
- *   【C3】LAYOUT 布局参数
- *   【C4】元素色 / 字体 / 标签等杂项常量
- *   【C5】Tab 定义 + 运行期全局变量
- *   【C6】State 全局状态 + IndexedDB 持久化
- *   【C7】纯工具函数（esc / darken / moveItem / loadImageMeta 等）
+ * 修改说明：
+ *   仅调整了视觉相关的色值和圆角（LAYOUT.innerBoxFill / labelColor / radius），
+ *   排版坐标与核心数据结构 100% 保持不变。
  * ========================================================================= */
 
 /* =========================================================================
- * 【C1】图标常量
+ * 【C1】图标常量（依赖 shared/ui-icons.js 已加载）
  * ========================================================================= */
 const SHARED = window.ICONS || { ui: {}, element: {}, artifact: {}, nav: {}, app: {} };
 
@@ -73,9 +68,11 @@ const LAYOUT = {
   team: { w: 270, gap: 15, mainSize: 35, mainGap: 20, altSize: 25, altGap: 10, altRowGap: 5, nameFs: 12, nameOffsetY: 16, mainOffsetY: 27, altOffsetY: 67, altLabelPadL: 20, altRangePadR: 20 },
   plusSize: 14, plusStrokeW: 1.5,
   charInfo: { padL: 20, padB: 20, lineGap: 15 },
-  radius: { panel: 12, inner: 6, slotFactor: 0.15 },
-  labelColor: '#FFE898',
-  innerBoxFill: 'rgba(255,255,255,.15)'
+  
+  /* === 视觉核心修改点 === */
+  radius: { panel: 16, inner: 8, slotFactor: 0.15 }, // 圆角加大，更现代
+  labelColor: '#D1CCC5', // 从亮黄改为温和的暖灰，降低视觉噪音
+  innerBoxFill: 'rgba(255,255,255,.06)' // 从 .15 降为 .06，让色块更通透、扁平
 };
 const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY;
 
@@ -94,7 +91,7 @@ const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手'
 const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' };
 const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def'];
 const PANEL_EMPTY_TEXT = '任意';
-const EMPTY_FILL = 'rgba(255,255,255,.5)';
+const EMPTY_FILL = 'rgba(255,255,255,.4)';
 
 /* =========================================================================
  * 【C5】Tab 定义 + 运行期全局变量
