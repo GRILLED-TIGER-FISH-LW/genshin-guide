@@ -1,9 +1,5 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (深色玻璃态修复版)
- * =========================================================================
- * 修改说明：
- *   1. 全局遮罩加深至 rgba(10,10,12, 0.55)。
- *   2. panelRect 改为 65% 深色黑底 + 1px 高光边。
+ * 原神一图流生成器 · svg.js (25%黑叠加版)
  * ========================================================================= */
 
 /* =========================================================================
@@ -208,8 +204,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  // 改为 65% 深色玻璃态面板，压制亮色背景
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(15, 15, 18, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>`;
+  // 一级面板：25%的黑
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.25)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -537,9 +533,8 @@ function buildSVG(scale = 1, forExport = false) {
     
     ${d.bgImg ? image(d.bgImg, 0, 0, SVG_W, SVG_H) : ''}
     
-    <!-- 全局遮罩：加深到 55% 以压制高亮底图 -->
-    <rect width="${SVG_W}" height="${SVG_H}" fill="rgba(10, 10, 12, 0.55)"/>
-    
+    <!-- 已彻底删除全局遮罩 -->
+
     <!-- 左侧立绘面板 -->
     ${panelRect(leftX, leftY, leftW, leftH, LAYOUT.radius.panel)}
     
