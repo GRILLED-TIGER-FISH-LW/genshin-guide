@@ -1,11 +1,9 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (2026 现代扁平视觉版)
+ * 原神一图流生成器 · svg.js (深色玻璃态修复版)
  * =========================================================================
  * 修改说明：
- *   1. 彻底移除了所有 filter="url(#glowTheme)" 的霓虹发光效果。
- *   2. 面板材质改用半透明玻璃态（无粗边框，极细高光）。
- *   3. 删除了 SVG 中的 glow 滤镜定义，提升渲染性能。
- *   4. 角色名阴影减弱，主文字颜色调整为更柔和的暖白。
+ *   1. 全局遮罩加深至 rgba(10,10,12, 0.55)。
+ *   2. panelRect 改为 65% 深色黑底 + 1px 高光边。
  * ========================================================================= */
 
 /* =========================================================================
@@ -154,8 +152,7 @@ function image(href, x, y, w, h, fit = 'xMidYMid slice', extra = '') {
 function sectionTitle(x, y, title) {
   const fs = LAYOUT.title.fs, dotR = LAYOUT.title.dotR, dotGap = LAYOUT.title.dotGap;
   const textX = x + dotR * 2 + dotGap;
-  // 去除发光，小圆点直接使用主题色，文字加粗
-  return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${State.data.theme || '#939393'}"/>${text(textX, y, title, fs, { weight: 600 })}`;
+  return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${State.data.theme || '#939393'}"/>${text(textX, y, title, fs, { weight: 600, fill: '#FFFFFF' })}`;
 }
 function slot(x, y, size, img, name, key, field) {
   const cp = `clip_${key}`;
@@ -211,8 +208,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  // 玻璃拟态面板：极低不透明度白底 + 1px 微弱高光边，去除粗边框和发光
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255, 255, 255, 0.04)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>`;
+  // 改为 65% 深色玻璃态面板，压制亮色背景
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(15, 15, 18, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -267,7 +264,6 @@ function renderArtifactIcon(iconKey, cx, cy, size) {
   const scale = size / 1024;
   const iconX = cx - size / 2, iconY = cy - size / 2;
   const pathsStr = paths.map(d => `<path d="${d}"/>`).join('');
-  // 去除了发光滤镜
   return `<g transform="translate(${iconX}, ${iconY}) scale(${scale})" fill="${State.data.theme}">${pathsStr}</g>`;
 }
 
@@ -398,8 +394,7 @@ function buildConstellations() {
     const badgeFill = active ? theme : 'rgba(0,0,0,.4)';
     
     if (active) {
-      // 现代化激活态：微弱的主题色底，取消粗边框
-      return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${theme}" fill-opacity="0.15" stroke="${theme}" stroke-opacity="0.3" stroke-width="1"/>
+      return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${theme}" fill-opacity="0.25" stroke="${theme}" stroke-opacity="0.5" stroke-width="1"/>
         <circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${badgeFill}"/>
         ${text(badgeCx, badgeCy + 0.5, i + 1, LAYOUT.cons.seqFs, { fill: '#fff', anchor: 'middle', weight: 600 })}
         ${descText}`;
@@ -542,8 +537,8 @@ function buildSVG(scale = 1, forExport = false) {
     
     ${d.bgImg ? image(d.bgImg, 0, 0, SVG_W, SVG_H) : ''}
     
-    <!-- 遮罩：确保文字可读性 -->
-    <rect width="${SVG_W}" height="${SVG_H}" fill="rgba(0,0,0,0.4)"/>
+    <!-- 全局遮罩：加深到 55% 以压制高亮底图 -->
+    <rect width="${SVG_W}" height="${SVG_H}" fill="rgba(10, 10, 12, 0.55)"/>
     
     <!-- 左侧立绘面板 -->
     ${panelRect(leftX, leftY, leftW, leftH, LAYOUT.radius.panel)}
