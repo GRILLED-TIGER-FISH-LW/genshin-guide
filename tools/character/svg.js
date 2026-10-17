@@ -1,5 +1,5 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (干净玻璃态最终版)
+ * 原神一图流生成器 · svg.js (干净玻璃态最终版 - 一级40%黑)
  * ========================================================================= */
 
 /* =========================================================================
@@ -204,8 +204,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  // 干净的一级面板：30%黑 + 1px高光边
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.3)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
+  // 一级面板：40%黑 + 1px高光边
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.4)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
