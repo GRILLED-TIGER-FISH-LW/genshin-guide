@@ -1,5 +1,9 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (25%黑叠加版)
+ * 原神一图流生成器 · svg.js (50%+25%黑叠加版)
+ * =========================================================================
+ * 修改说明：
+ *   panelRect 一级面板改为 50% 黑。
+ *   无全局遮罩。
  * ========================================================================= */
 
 /* =========================================================================
@@ -204,8 +208,8 @@ function doubleArtifact(x, y, size, a, key) {
  * 【S4】图层构建
  * ========================================================================= */
 function panelRect(x, y, w, h, rx) {
-  // 一级面板：25%的黑
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.25)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`;
+  // 一级面板：50% 的黑
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.5)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1"/>`;
 }
 function midSection(layerCfg, title, contentSvg) {
   const y = LAYOUT.layers.mid.y, h = LAYOUT.layers.mid.h;
@@ -533,7 +537,7 @@ function buildSVG(scale = 1, forExport = false) {
     
     ${d.bgImg ? image(d.bgImg, 0, 0, SVG_W, SVG_H) : ''}
     
-    <!-- 已彻底删除全局遮罩 -->
+    <!-- 无全局遮罩 -->
 
     <!-- 左侧立绘面板 -->
     ${panelRect(leftX, leftY, leftW, leftH, LAYOUT.radius.panel)}
