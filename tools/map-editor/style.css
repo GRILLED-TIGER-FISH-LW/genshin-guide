@@ -1,5 +1,5 @@
 /* =========================================================================
- * 图标字典编辑器 · style.css (2026 现代扁平重构版)
+ * 图标字典编辑器 · style.css (修复版)
  * ========================================================================= */
 
 body { 
@@ -101,31 +101,38 @@ input.entry-order {
 input.entry-order::-webkit-outer-spin-button,
 input.entry-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* 缩略图：固定 36×36 */
+/* 缩略图：固定 36×36，去掉边框 */
 .entry-thumb {
   width: 36px; height: 36px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: none;
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   overflow: hidden;
-  /* 动态渐变注入：颜色由 JS 提供，这里只负责渲染 */
   background: radial-gradient(circle, var(--star-color, transparent), var(--star-edge, transparent));
 }
 .entry-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
-/* 名字：占满剩余空间 */
-input.entry-name { flex: 1; min-width: 0; }
+/* 名字：占满剩余空间，高度对齐 */
+input.entry-name { flex: 1; min-width: 0; height: var(--ctl-h); }
 
 /* 星级下拉：极窄且统一样式 */
 select.star-select {
-  width: 60px; flex-shrink: 0;
+  width: 60px; flex-shrink: 0; height: var(--ctl-h);
   padding: 0 20px 0 8px;
   background-position: right 6px center;
   background-size: 8px 5px;
   font-size: 12px;
 }
 
-/* 删除：纯图标正方形 */
-.entry-del { width: 32px; height: 32px; padding: 0; flex-shrink: 0; }
+/* 删除：强制正方形，高度与输入框一致 */
+.entry-del { 
+  width: 36px; 
+  height: 36px; 
+  padding: 0; 
+  flex-shrink: 0; 
+  border-radius: var(--radius-sm); 
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.entry-del svg { width: 16px; height: 16px; }
 
 /* =========================================================================
  * 【CSS 模块 4】空状态
@@ -149,7 +156,7 @@ select.star-select {
 }
 
 /* =========================================================================
- * 【CSS 模块 6】悬浮状态胶囊 (去底边黑条)
+ * 【CSS 模块 6】悬浮状态胶囊
  * ========================================================================= */
 .status-bar {
   position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%;
