@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <!-- =========================================================================
-     视频封面 · index.html (2026 现代扁平版)
+     视频封面 · index.html (2026 现代扁平版 - 修复版)
      ========================================================================= -->
 <head>
 <meta charset="UTF-8">
@@ -95,13 +95,16 @@
     </div>
   </section>
 
-  <!-- 画布背景 -->
+  <!-- 画布背景 (改为图片预览版) -->
   <section>
     <div class="ios-section-header">画布背景</div>
     <div class="ios-group">
-      <div class="file-picker">
-        <label class="file-btn">上传文件<input type="file" id="bgFile" accept="image/*"></label>
-        <span class="file-picker-name" id="bgFileName">未选择文件</span>
+      <div class="ios-row upload-row" onclick="document.getElementById('bgFile').click()">
+        <img id="bgThumb" class="clickable-thumb" alt="">
+        <div class="flex-1">
+          <div class="upload-text" id="bgFileName">点击上传背景图</div>
+        </div>
+        <input type="file" id="bgFile" accept="image/*" class="hidden">
       </div>
       <div class="control-item form-pad">
         <div class="control-header"><span>背景亮度</span></div>
@@ -124,10 +127,11 @@
   <section>
     <div class="ios-section-header">攻略模式</div>
     <div class="ios-group">
-      <div class="seg-control form-pad">
-        <button type="button" class="seg-btn active" data-type="character">角色攻略</button>
-        <button type="button" class="seg-btn" data-type="boss">Boss攻略</button>
-        <button type="button" class="seg-btn" data-type="custom">自定义</button>
+      <!-- 加上 onclick 直接绑定，确保绝对能点 -->
+      <div class="seg-control form-pad" id="guideTypeSeg">
+        <button type="button" class="seg-btn active" onclick="App.setGuideType('character')">角色攻略</button>
+        <button type="button" class="seg-btn" onclick="App.setGuideType('boss')">Boss攻略</button>
+        <button type="button" class="seg-btn" onclick="App.setGuideType('custom')">自定义</button>
       </div>
 
       <!-- 角色模式面板（立绘 X） -->
@@ -221,7 +225,6 @@
   <div class="tab-sheet-list" id="fontSheetList"></div>
 </div>
 
-<!-- 自定义弹窗与提示 -->
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal-box">
