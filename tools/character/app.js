@@ -1,26 +1,8 @@
 /* =========================================================================
- * 原神一图流生成器 · app.js
+ * 原神一图流生成器 · app.js (2026 扁平化重构版)
  * =========================================================================
- * 模块导航（搜索 "【JS 模块 N】" 快速跳转）：
- *   【JS 模块 1】  Toast 提示 + Confirm 弹窗
- *   【JS 模块 2】  预览挂载 + 字段增量更新
- *   【JS 模块 3】  横向 Tab 栏
- *   【JS 模块 4】  UI 编辑器渲染
- *   【JS 模块 5】  图片上传
- *   【JS 模块 6】  字体库（含 IndexedDB 缓存）
- *   【JS 模块 7】  数据字典读取 + 角色名校验
- *   【JS 模块 8】  样式图匹配 + 在线存档
- *   【JS 模块 9】  图标库匹配
- *   【JS 模块 10】 数据归一化
- *   【JS 模块 11】 导出 / 导入 / 清空
- *   【JS 模块 12】 UI 交互（字段 / 增删改 / 移动）
- *   【JS 模块 13】 App 接口
- *   【JS 模块 14】 初始化
- * =========================================================================
- * 依赖：
- *   consts.js —— 常量 / LAYOUT / State / 工具函数 / IndexedDB
- *   svg.js    —— SVG 绘制 / 排版 / buildSVG / tightenAllIconViewBoxes
- *   shared/ui-icons.js / shared/gi-icons/*.js
+ * 核心改动：彻底清除所有拼接 HTML 时的内联样式（color, flex, margin 等），
+ * 把样式控制权完全交还给 style.css。保留所有数据和事件逻辑。
  * ========================================================================= */
 
 /* =========================================================================
@@ -215,7 +197,7 @@ function selectTab(tabId) {
 }
 
 /* =========================================================================
- * 【JS 模块 4】UI 编辑器渲染
+ * 【JS 模块 4】UI 编辑器渲染 (已全面去内联)
  * ========================================================================= */
 const collapseState = {};
 
@@ -240,8 +222,8 @@ function renderColorPicker() {
     const isMatch = (State.data.theme || '').toLowerCase() === color.toLowerCase();
     const icon = ELEMENT_ICONS[iconKey] || '';
     return `<div class="swatch-btn ${isMatch ? 'active' : ''}" onclick="App.setTheme('${color}')" style="color:${color};">
-      <span style="display:inline-flex;width:1em;height:1em;">${icon}</span>
-      <span style="color:var(--text-secondary);">${name}</span>
+      <span class="swatch-icon-wrap">${icon}</span>
+      <span class="swatch-name">${name}</span>
     </div>`;
   }).join('');
 }
@@ -286,7 +268,7 @@ function renderWeaponEditor() {
       return `
       <div class="item-card">
         <div class="item-header">
-          <span style="font-size:12px;color:var(--text-secondary);font-weight:600;">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
+          <span class="item-subtitle">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
           <div class="item-actions">
             <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}上移</button>
             <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -295,23 +277,23 @@ function renderWeaponEditor() {
         </div>
         <div class="item-row">
           <img src="${w.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-          <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchWeaponIcon('${type}',${i},this.value)" style="flex:1;" />
+          <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchWeaponIcon('${type}',${i},this.value)" class="flex-1" />
           <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.weaponData['${type}'][${i}].img = v; State.data.weaponData['${type}'][${i}].imgManual = true; App.renderWeaponEditor(); App.mountPreview(); App.debouncedSave(); })" />
         </div>
       </div>`;
     }).join('');
-    return `<div class="ios-group" style="padding:10px;">
-      <div style="display:flex;align-items:center;margin-bottom:${collapsed ? '0' : '8px'};flex-wrap:wrap;gap:6px;">
-        <span style="font-size:13px;font-weight:600;color:var(--accent);">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;">
+    return `<div class="ios-group group-card">
+      <div class="group-header">
+        <span class="group-title">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
+        <div class="group-actions">
           <button class="ios-btn-fill btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}添加</button>
           <button class="btn-xs collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
             <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
         </div>
       </div>
-      <div data-collapse-content="${key}" style="display:${collapsed ? 'none' : 'flex'};flex-direction:column;gap:6px;">
-        ${list || '<div style="font-size:12px;color:var(--text-tertiary);padding:4px 0;">暂无配置</div>'}
+      <div data-collapse-content="${key}" class="group-content flex-col">
+        ${list || '<div class="empty-tip">暂无配置</div>'}
       </div>
     </div>`;
   }).join('');
@@ -322,7 +304,7 @@ function renderArtifactEditor() {
   const headEl = document.getElementById('artifactSectionHead');
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
-      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; margin-left:auto;">
+      <div class="group-actions">
         <button class="ios-btn-fill btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}整套</button>
         <button class="ios-btn-fill btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}散搭</button>
         <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
@@ -338,7 +320,7 @@ function renderArtifactEditor() {
       const t1 = `a_img1_${i}`, t2 = `a_img2_${i}`;
       return `<div class="item-card">
         <div class="item-header">
-          <span style="font-size:12px;color:var(--accent);font-weight:600;">散搭 #${i + 1}</span>
+          <span class="item-subtitle text-accent">散搭 #${i + 1}</span>
           <div class="item-actions">
             <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
             <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -346,15 +328,15 @@ function renderArtifactEditor() {
           </div>
         </div>
         <input type="text" value="${esc(a.displayText)}" placeholder="卡片显示文本（可选，留空显示两个名字）" oninput="App.setArtifactDisplayText(${i},this.value)" />
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:140px;">
+        <div class="artifact-dual-row">
+          <div class="artifact-dual-item">
             <img src="${a.img1 || placeholder('')}" class="clickable-thumb" data-img-target="${t1}" onclick="App.triggerUpload('${t1}')" alt="" />
-            <input type="text" value="${esc(a.name1)}" placeholder="圣遗物1" oninput="App.setArtifactName1(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},1,this.value)" style="flex:1;min-width:0;" />
+            <input type="text" value="${esc(a.name1)}" placeholder="圣遗物1" oninput="App.setArtifactName1(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},1,this.value)" class="flex-1" />
             <input type="file" id="${t1}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img1 = v; State.data.artifactData[${i}].img1Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
-          <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:140px;">
+          <div class="artifact-dual-item">
             <img src="${a.img2 || placeholder('')}" class="clickable-thumb" data-img-target="${t2}" onclick="App.triggerUpload('${t2}')" alt="" />
-            <input type="text" value="${esc(a.name2)}" placeholder="圣遗物2" oninput="App.setArtifactName2(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},2,this.value)" style="flex:1;min-width:0;" />
+            <input type="text" value="${esc(a.name2)}" placeholder="圣遗物2" oninput="App.setArtifactName2(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},2,this.value)" class="flex-1" />
             <input type="file" id="${t2}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img2 = v; State.data.artifactData[${i}].img2Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
         </div>
@@ -363,7 +345,7 @@ function renderArtifactEditor() {
     const targetId = `a_img_${i}`;
     return `<div class="item-card">
       <div class="item-header">
-        <span style="font-size:12px;color:var(--text-primary);font-weight:600;">整套 #${i + 1}</span>
+        <span class="item-subtitle">整套 #${i + 1}</span>
         <div class="item-actions">
           <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
           <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -372,11 +354,11 @@ function renderArtifactEditor() {
       </div>
       <div class="item-row">
         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-        <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchArtifactIcon(${i},this.value)" style="flex:1;" />
+        <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchArtifactIcon(${i},this.value)" class="flex-1" />
         <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img = v; State.data.artifactData[${i}].imgManual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
       </div>
     </div>`;
-  }).join('') || '<div style="font-size:12px;color:var(--text-tertiary);padding:4px 0;">暂无圣遗物</div>';
+  }).join('') || '<div class="empty-tip">暂无圣遗物</div>';
 }
 function renderTeamEditor() {
   const el = document.getElementById('teamEditor');
@@ -384,9 +366,9 @@ function renderTeamEditor() {
   el.innerHTML = State.data.teamData.map((team, ti) => {
     const teamKey = `team_${ti}`;
     const teamCollapsed = isCollapsed(teamKey);
-    return `<div class="ios-group" style="padding:10px;">
-      <div class="item-header" style="margin-bottom:${teamCollapsed ? '0' : '8px'};">
-        <span style="font-size:13px;color:var(--accent);font-weight:600;">队伍 ${ti + 1}</span>
+    return `<div class="ios-group group-card">
+      <div class="item-header ${teamCollapsed ? 'mb-0' : 'mb-8'}">
+        <span class="group-title">队伍 ${ti + 1}</span>
         <div class="item-actions">
           <button class="btn-xs" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
           <button class="btn-xs" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -396,9 +378,9 @@ function renderTeamEditor() {
           <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}删除</button>
         </div>
       </div>
-      <div data-collapse-content="${teamKey}" style="display:${teamCollapsed ? 'none' : 'block'};">
+      <div data-collapse-content="${teamKey}" class="group-content">
         <input type="text" value="${esc(team.name)}" oninput="App.setTeamName(${ti},this.value)" />
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+        <div class="flex-col">
           ${team.chars.slice(1, 4).map((c, idx) => {
             const ci = idx + 1;
             const charKey = `team_${ti}_char_${ci}`;
@@ -406,7 +388,7 @@ function renderTeamEditor() {
             const targetId = `t_${ti}_${ci}_img`;
             return `<div class="item-card">
               <div class="item-header">
-                <span style="font-size:12px;color:var(--accent);font-weight:600;">${ci + 1}号位主角色</span>
+                <span class="item-subtitle text-accent">${ci + 1}号位主角色</span>
                 <div class="item-actions">
                   <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}上移</button>
                   <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -415,23 +397,23 @@ function renderTeamEditor() {
                   </button>
                 </div>
               </div>
-              <div data-collapse-content="${charKey}" style="display:${charCollapsed ? 'none' : 'block'};">
+              <div data-collapse-content="${charKey}" class="group-content">
                 <div class="item-row">
                   <img src="${c.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-                  <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchTeamCharIcon(${ti},${ci},this.value)" style="flex:1;" />
+                  <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchTeamCharIcon(${ti},${ci},this.value)" class="flex-1" />
                   <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].img = v; State.data.teamData[${ti}].chars[${ci}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                 </div>
-                <div style="margin-left:8px;padding-left:8px;border-left:2px solid var(--border-subtle);display:flex;flex-direction:column;gap:6px;margin-top:4px;">
-                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                    <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">备选角色 (${c.alts.length}/4)</span>
-                    <button class="ios-btn-fill btn-xs" style="margin-left:auto;" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}添加</button>
+                <div class="alt-list-wrap">
+                  <div class="alt-header">
+                    <span class="alt-count">备选角色 (${c.alts.length}/4)</span>
+                    <button class="ios-btn-fill btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}添加</button>
                   </div>
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
                     return `
-                    <div class="item-card" style="background:var(--bg-surface);padding:8px;">
+                    <div class="item-card sub-card">
                       <div class="item-header">
-                        <span style="font-size:11px;color:var(--text-secondary);">备选 #${ai + 1}</span>
+                        <span class="item-subtitle">备选 #${ai + 1}</span>
                         <div class="item-actions">
                           <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
                           <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
@@ -440,7 +422,7 @@ function renderTeamEditor() {
                       </div>
                       <div class="item-row">
                         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
-                        <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchAltIcon(${ti},${ci},${ai},this.value)" style="flex:1;" />
+                        <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchAltIcon(${ti},${ci},${ai},this.value)" class="flex-1" />
                         <input type="file" id="${altTargetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                       </div>
                     </div>`;
@@ -453,7 +435,7 @@ function renderTeamEditor() {
         </div>
       </div>
     </div>`;
-  }).join('') || '<div style="font-size:12px;color:var(--text-tertiary);padding:4px 0;">暂未添加配队</div>';
+  }).join('') || '<div class="empty-tip">暂未添加配队</div>';
 }
 function renderEditorsByKey() {
   renderColorPicker();
@@ -619,7 +601,7 @@ function renderFontSheetList() {
     '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
   '</button>';
   if (!FONT_LIST.length) {
-    html += '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px;">字体库为空</div>';
+    html += '<div class="empty-tip" style="padding:20px;text-align:center;">字体库为空</div>';
   } else {
     html += FONT_LIST.map((f, i) => {
       const isActive = currentFile === f.file;
@@ -1793,7 +1775,6 @@ function bindPreviewTapToggle() {
   });
 }
 async function init() {
-  /* 等资源加载器完成（ui-icons / theme / style / icon-loader / icon-dict / consts / svg / app） */
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   injectFloatIcons();
@@ -1815,7 +1796,6 @@ async function init() {
   selectTab(currentTab);
   bindPreviewTapToggle();
 
-  /* 一切就绪，揭开启动遮罩 */
   document.body.classList.add('ready');
 }
 if (document.readyState === 'loading') {
@@ -1825,7 +1805,7 @@ if (document.readyState === 'loading') {
 }
 
 window.addEventListener('message', function (e) {
-  if (e.data && e.data.type === 'theme') {
+  if (e.data && e.type === 'theme') {
     var html = document.documentElement;
     html.classList.add('theme-switching');
     html.setAttribute('data-theme', e.data.theme);
