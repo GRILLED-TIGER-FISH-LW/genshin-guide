@@ -1,9 +1,9 @@
 /* =========================================================================
- * 原神一图流生成器 · consts.js (2026 现代扁平视觉版)
+ * 原神一图流生成器 · consts.js (深色玻璃态修复版)
  * =========================================================================
  * 修改说明：
- *   仅调整了视觉相关的色值和圆角（LAYOUT.innerBoxFill / labelColor / radius），
- *   排版坐标与核心数据结构 100% 保持不变。
+ *   将 innerBoxFill 从白色半透明改为深色半透明（45%黑），
+ *   确保在亮色面板和亮背景上都能形成有效对比。
  * ========================================================================= */
 
 /* =========================================================================
@@ -70,9 +70,9 @@ const LAYOUT = {
   charInfo: { padL: 20, padB: 20, lineGap: 15 },
   
   /* === 视觉核心修改点 === */
-  radius: { panel: 16, inner: 8, slotFactor: 0.15 }, // 圆角加大，更现代
-  labelColor: '#D1CCC5', // 从亮黄改为温和的暖灰，降低视觉噪音
-  innerBoxFill: 'rgba(255,255,255,.06)' // 从 .15 降为 .06，让色块更通透、扁平
+  radius: { panel: 16, inner: 8, slotFactor: 0.15 },
+  labelColor: '#D1CCC5', 
+  innerBoxFill: 'rgba(0,0,0,.45)' // 内部色块用 45% 纯黑，压制底图
 };
 const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY;
 
@@ -91,7 +91,7 @@ const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手'
 const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' };
 const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def'];
 const PANEL_EMPTY_TEXT = '任意';
-const EMPTY_FILL = 'rgba(255,255,255,.4)';
+const EMPTY_FILL = 'rgba(255,255,255,.5)';
 
 /* =========================================================================
  * 【C5】Tab 定义 + 运行期全局变量
