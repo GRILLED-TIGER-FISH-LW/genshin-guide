@@ -1,5 +1,8 @@
 /* =========================================================================
- * 原神一图流生成器 · consts.js (二级面板15%白)
+ * 原神一图流生成器 · consts.js (干净玻璃态最终版)
+ * =========================================================================
+ * 一级面板：30% 黑
+ * 二级面板：15% 白
  * ========================================================================= */
 
 /* =========================================================================
@@ -67,7 +70,7 @@ const LAYOUT = {
   
   /* === 视觉核心修改点 === */
   radius: { panel: 16, inner: 8, slotFactor: 0.15 },
-  labelColor: '#FFE898',
+  labelColor: '#FFE898', // 保持淡黄色
   innerBoxFill: 'rgba(255, 255, 255, 0.15)' // 二级面板：15%的白
 };
 const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY;
@@ -87,7 +90,7 @@ const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手'
 const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' };
 const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def'];
 const PANEL_EMPTY_TEXT = '任意';
-const EMPTY_FILL = '#A19A92';
+const EMPTY_FILL = '#A19A92'; // 中灰色，完全不透明
 
 /* =========================================================================
  * 【C5】Tab 定义 + 运行期全局变量
