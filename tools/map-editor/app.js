@@ -1,5 +1,10 @@
 /* =========================================================================
  * 图标字典编辑器 · app.js (2026 现代扁平版)
+ * =========================================================================
+ * 核心改动：
+ * 1. 彻底移除 JS 内联样式（如星空渐变计算），交由 CSS 类名控制。
+ * 2. 状态栏改为悬浮胶囊显示，带消失动画。
+ * 3. 修复删除按钮尺寸。
  * ========================================================================= */
 (function () {
   "use strict";
@@ -347,7 +352,7 @@
 
       // 5. 删除
       var btnDel = document.createElement("button");
-      btnDel.type = "button"; btnDel.className = "entry-del btn-xs btn-danger";
+      btnDel.type = "button"; btnDel.className = "entry-del btn-danger";
       btnDel.innerHTML = ICONS.ui.trash;
       btnDel.addEventListener("click", function () {
         var idx = editorData[currentTab].indexOf(row);
