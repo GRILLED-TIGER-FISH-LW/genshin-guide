@@ -3,21 +3,12 @@
 <!-- =========================================================================
      原神一图流生成器 · index.html
      =========================================================================
-     HTML 模块导航（搜索 "【HTML 模块 N】" 快速跳转）：
+     HTML 模块导航：
        【HTML 模块 0】 资源加载器
        【HTML 模块 1】 主容器 app-container
        【HTML 模块 2】 预览区（工具栏 + 实时视口）
        【HTML 模块 3】 编辑区 / 横向 Tab 栏
        【HTML 模块 4】 Tab 内容容器
-         · 4.1 外观样式（角色信息 / 样式图 / 元素色 / 字体）
-         · 4.2 立绘区（立绘 / 元素图 / 大背景）
-         · 4.3 武器区
-         · 4.4 圣遗物区
-         · 4.5 天赋区
-         · 4.6 词条区
-         · 4.7 面板区
-         · 4.8 命座区
-         · 4.9 配队区
        【HTML 模块 5】 移动端底部导出按钮
        【HTML 模块 6】 Toast / Modal / Font Sheet
      ========================================================================= -->
@@ -27,129 +18,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>原神一图流生成器</title>
 
+<style>
+  /* 极简启动遮罩，颜色直接使用全局变量 */
+  body { visibility: hidden; }
+  body.ready { visibility: visible; }
+  .boot-loading {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
+    font-size: 13px; font-family: var(--std-font, sans-serif);
+    visibility: visible;
+  }
+  body.ready .boot-loading { display: none; }
+</style>
+
 <script>
 /* =========================================================================
  * 资源加载器
- * =========================================================================
- * 目的：绕过浏览器缓存，每次打开都拉最新版。
- * 加载顺序（分 4 批保证依赖）：
- *   1. ui-icons.js + theme.css + style.css
- *   2. icon-loader.js + icon-dict.js + consts.js
- *   3. svg.js
- *   4. app.js
  * ========================================================================= */
 (function () {
   var ts = Date.now();
-
-  function withTs(url) {
-    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
-  }
-
+  function withTs(url) { return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts; }
   function loadStyle(href) {
     return new Promise(function (resolve, reject) {
-      var l = document.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = withTs(href);
-      l.onload = resolve;
-      l.onerror = function () { reject(new Error('加载失败：' + href)); };
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = withTs(href);
+      l.onload = resolve; l.onerror = function () { reject(new Error('加载失败：' + href)); };
       document.head.appendChild(l);
     });
   }
-
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = withTs(src);
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error('加载失败：' + src)); };
+      var s = document.createElement('script'); s.src = withTs(src);
+      s.onload = resolve; s.onerror = function () { reject(new Error('加载失败：' + src)); };
       document.head.appendChild(s);
     });
   }
-
   window.__bootPromise = (async function () {
-    /* 1. 基础：图标库 + 主题 CSS（顺序很重要：theme 先于 style） */
     await Promise.all([
       loadScript('../../shared/ui-icons.js'),
       loadStyle('../../shared/theme.css'),
       loadStyle('style.css')
     ]);
-    /* 2. 依赖 ui-icons 的：图标加载器 / 字典 / 常量 */
     await Promise.all([
       loadScript('../../shared/gi-icons/icon-loader.js'),
       loadScript('../../shared/gi-icons/icon-dict.js'),
       loadScript('consts.js')
     ]);
-    /* 3. 依赖 consts 的：SVG 绘制 */
     await loadScript('svg.js');
-    /* 4. 入口：依赖上面全部 */
     await loadScript('app.js');
   })();
 })();
 </script>
-
-<!-- 启动遮罩：加载完成前隐藏页面 -->
-<style>
-  body { visibility: hidden; }
-  body.ready { visibility: visible; }
-  .boot-loading {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #F2EFEA;
-    color: #9C958A;
-    font-size: 13px;
-    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    visibility: visible;
-  }
-  html[data-theme="dark"] .boot-loading { background: #121212; color: #8A8279; }
-  body.ready .boot-loading { display: none; }
-</style>
 </head>
 
 <body>
-
-<!-- 启动遮罩 -->
 <div class="boot-loading">正在载入角色一图流…</div>
 
 <!-- 【HTML 模块 1】主容器 -->
 <main class="app-container">
-
   <!-- 【HTML 模块 2】预览区 -->
   <section class="preview-pane">
     <div class="preview-card">
-      <!-- 2.1 浮动工具栏 -->
       <div class="float-toolbar" id="floatToolbar">
         <button type="button" class="float-btn" id="floatExportBtn" onclick="App.exportConfig()" title="导出配置"></button>
         <button type="button" class="float-btn" id="floatImportBtn" onclick="document.getElementById('importJsonInput').click()" title="导入配置"></button>
         <button type="button" class="float-btn float-btn-danger" id="floatClearBtn" onclick="App.clearAllData()" title="清空全部数据"></button>
         <input type="file" id="importJsonInput" accept=".json" onchange="App.importConfig(this)" style="display:none" />
       </div>
-      <!-- 2.2 预览标题 + 桌面端导出按钮 -->
       <div class="preview-header">
         <span class="preview-title">实时卡片渲染视口</span>
         <button class="ios-btn-fill btn-sm" onclick="App.exportPNG()" id="exportDesktopBtn">导出 4K PNG</button>
       </div>
-      <!-- 2.3 SVG 挂载点 -->
       <div class="preview-frame" id="previewFrame">
         <div id="svgPreviewHost"></div>
       </div>
     </div>
   </section>
 
-  <!-- 【HTML 模块 3】编辑区 / 横向 Tab 栏 -->
+  <!-- 【HTML 模块 3】编辑区 -->
   <section class="inspector-pane">
-    <!-- 3.1 横向 Tab 栏（手机端横向滚动） -->
     <div class="tab-bar" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
-
-    <!-- 【HTML 模块 4】Tab 内容容器 -->
     <div class="tabs-content">
-
       <!-- 4.1 外观样式 -->
       <div class="tab-panel active" id="tab-style">
-        <!-- 角色信息 -->
         <div>
           <div class="ios-section-header">角色信息</div>
           <div class="ios-group">
@@ -161,37 +112,28 @@
             </div>
           </div>
         </div>
-        <!-- 样式图匹配 / 载入在线存档 -->
         <div>
           <div class="ios-section-header">样式图（立绘 / 元素 / 名片）</div>
           <div class="ios-group">
-            <div class="ios-row" style="gap:6px;">
-              <button type="button" class="ios-btn-fill btn-sm" style="flex:1;height:38px;" id="btnMatchStyle" onclick="App.matchStyleImages()">
-                <span class="icon-only" id="btnMatchStyleIcon"></span>
-                匹配样式图
+            <div class="action-row">
+              <button type="button" class="ios-btn-fill btn-sm flex-1" id="btnMatchStyle" onclick="App.matchStyleImages()">
+                <span class="icon-only" id="btnMatchStyleIcon"></span>匹配样式图
               </button>
-              <button type="button" class="btn-sm" style="flex:1;height:38px;" id="btnLoadSave" onclick="App.loadSaveFromRepo()">
-                <span class="icon-only" id="btnLoadSaveIcon"></span>
-                载入在线存档
+              <button type="button" class="btn-sm flex-1" id="btnLoadSave" onclick="App.loadSaveFromRepo()">
+                <span class="icon-only" id="btnLoadSaveIcon"></span>载入在线存档
               </button>
             </div>
           </div>
         </div>
-        <!-- 元素主题色 -->
         <div>
           <div class="ios-section-header">元素主题色</div>
-          <div class="ios-group">
-            <div class="color-swatches" id="colorPicker"></div>
-          </div>
+          <div class="ios-group"><div class="color-swatches" id="colorPicker"></div></div>
         </div>
-        <!-- 嵌入字体 -->
         <div>
           <div class="ios-section-header">卡片嵌入字体（仅作用于图片导出，不影响网页）</div>
           <div class="ios-group">
             <div class="ios-row">
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="labelCustomFont">默认标准字体</div>
-              </div>
+              <div class="flex-1 ellipsis" id="labelCustomFont">默认标准字体</div>
               <button type="button" class="ios-btn-fill btn-sm" onclick="App.openFontPicker()">选择字体</button>
             </div>
           </div>
@@ -203,55 +145,47 @@
         <div>
           <div class="ios-section-header">图片素材（点击缩略图更换）</div>
           <div class="ios-group">
-
             <!-- 立绘 -->
-            <div class="ios-row">
-              <img id="thumbCharImg" class="clickable-thumb" onclick="App.onThumbClick('inputCharImg', 'charImg')" title="点击上传立绘" alt="" />
-              <div style="flex:1;cursor:pointer;" onclick="App.onThumbClick('inputCharImg', 'charImg')">
-                <div style="font-size:13px;font-weight:500;" id="labelCharImg">点击上传立绘</div>
+            <div class="ios-row upload-row" onclick="App.onThumbClick('inputCharImg', 'charImg')">
+              <img id="thumbCharImg" class="clickable-thumb" title="点击上传立绘" alt="" />
+              <div class="flex-1">
+                <div class="upload-text" id="labelCharImg">点击上传立绘</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
-                <span class="icon-only" id="btnDelCharImg"></span>
-                删除
+              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
+                <span class="icon-only" id="btnDelCharImg"></span>删除
               </button>
               <input type="file" id="inputCharImg" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.charImg = v; State.data.charImgMeta = { w, h }; State.data.charImgDeleted = false; State.data.charImgManual = true; App.updateImgXHint(); App.updateThumb('thumbCharImg', 'labelCharImg', v, '已载入立绘（点击更换）'); })" />
             </div>
-
-            <!-- 立绘左右偏移 -->
-            <div class="control-item" style="padding:10px;">
+            <!-- 立绘偏移 -->
+            <div class="control-item slider-wrap">
               <div class="control-header"><span id="imgXHint">立绘偏移（左右移动）</span></div>
               <div class="slider-row">
                 <input type="range" min="-400" max="400" value="0" id="imgXSlider" oninput="App.setField('imgX', this.value)" />
                 <div class="num-box"><input type="number" id="imgX" value="0" oninput="App.setField('imgX', this.value)" /><span class="unit-tag">px</span></div>
               </div>
             </div>
-
             <!-- 元素图 -->
-            <div class="ios-row">
-              <img id="thumbNameBg" class="clickable-thumb" onclick="App.onThumbClick('inputNameBg', 'nameBgImg')" title="点击上传元素图" alt="" />
-              <div style="flex:1;cursor:pointer;" onclick="App.onThumbClick('inputNameBg', 'nameBgImg')">
-                <div style="font-size:13px;font-weight:500;" id="labelNameBg">点击上传元素图</div>
+            <div class="ios-row upload-row" onclick="App.onThumbClick('inputNameBg', 'nameBgImg')">
+              <img id="thumbNameBg" class="clickable-thumb" title="点击上传元素图" alt="" />
+              <div class="flex-1">
+                <div class="upload-text" id="labelNameBg">点击上传元素图</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
-                <span class="icon-only" id="btnDelNameBg"></span>
-                删除
+              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
+                <span class="icon-only" id="btnDelNameBg"></span>删除
               </button>
               <input type="file" id="inputNameBg" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.nameBgImg = v; State.data.nameBgImgMeta = { w, h }; State.data.nameBgImgDeleted = false; State.data.nameBgImgManual = true; App.updateThumb('thumbNameBg', 'labelNameBg', v, '已载入元素图（点击更换）'); })" />
             </div>
-
             <!-- 大背景 -->
-            <div class="ios-row">
-              <img id="thumbBg" class="clickable-thumb" onclick="App.onThumbClick('inputBg', 'bgImg')" title="点击上传大背景" alt="" />
-              <div style="flex:1;cursor:pointer;" onclick="App.onThumbClick('inputBg', 'bgImg')">
-                <div style="font-size:13px;font-weight:500;" id="labelBg">默认暗黑原力色</div>
+            <div class="ios-row upload-row" onclick="App.onThumbClick('inputBg', 'bgImg')">
+              <img id="thumbBg" class="clickable-thumb" title="点击上传大背景" alt="" />
+              <div class="flex-1">
+                <div class="upload-text" id="labelBg">默认暗黑原力色</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
-                <span class="icon-only" id="btnDelBg"></span>
-                删除
+              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
+                <span class="icon-only" id="btnDelBg"></span>删除
               </button>
               <input type="file" id="inputBg" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.bgImg = v; State.data.bgImgDeleted = false; State.data.bgImgManual = true; App.updateThumb('thumbBg', 'labelBg', v, '已载入大背景（点击更换）'); })" />
             </div>
-
           </div>
         </div>
       </div>
@@ -260,7 +194,7 @@
       <div class="tab-panel" id="tab-weapon">
         <div>
           <div class="ios-section-header">武器推荐</div>
-          <div id="weaponEditor" style="display:flex; flex-direction:column; gap:8px;"></div>
+          <div id="weaponEditor" class="editor-list"></div>
         </div>
       </div>
 
@@ -268,7 +202,7 @@
       <div class="tab-panel" id="tab-artifact">
         <div>
           <div class="ios-section-header" id="artifactSectionHead"></div>
-          <div id="artifactEditor" style="display:flex; flex-direction:column; gap:8px;"></div>
+          <div id="artifactEditor" class="editor-list"></div>
         </div>
       </div>
 
@@ -296,7 +230,7 @@
               <label class="ios-field">空之杯<input type="text" id="gobMain" oninput="App.setField('gobMain', this.value)" /></label>
               <label class="ios-field">理之冠<input type="text" id="cirMain" oninput="App.setField('cirMain', this.value)" /></label>
             </div>
-            <div style="padding:0 10px 10px 10px;">
+            <div class="sub-stats-wrap">
               <label class="ios-field">副词条优先顺序<input type="text" id="subStats" oninput="App.setField('subStats', this.value)" /></label>
             </div>
           </div>
@@ -308,15 +242,15 @@
         <div>
           <div class="ios-section-header">主属性（三选一）</div>
           <div class="ios-group">
-            <div class="ios-row" style="gap:10px;flex-wrap:wrap;">
-              <label class="ios-field" style="flex:1;min-width:130px;">属性类型
+            <div class="ios-row panel-primary-row">
+              <label class="ios-field flex-1">属性类型
                 <select id="panelPrimaryKey" onchange="App.setPanelPrimaryKey(this.value)">
                   <option value="hp">生命值</option>
                   <option value="atk">攻击力</option>
                   <option value="def">防御力</option>
                 </select>
               </label>
-              <label class="ios-field" style="flex:1;min-width:130px;">数值
+              <label class="ios-field flex-1">数值
                 <input type="text" id="panelPrimaryValue" placeholder="留空显示「任意」" oninput="App.setPanelField('primaryValue', this.value)" />
               </label>
             </div>
@@ -339,57 +273,48 @@
       <div class="tab-panel" id="tab-cons">
         <div>
           <div class="ios-section-header">核心命座说明（点击圆圈点亮）</div>
-          <div class="ios-group">
-            <div class="cons-grid" id="constellationEditor"></div>
-          </div>
+          <div class="ios-group"><div class="cons-grid" id="constellationEditor"></div></div>
         </div>
       </div>
 
       <!-- 4.9 配队区 -->
       <div class="tab-panel" id="tab-team">
-        <!-- 1 号位主角色头像 -->
         <div>
           <div class="ios-section-header">1号位主角色头像</div>
           <div class="ios-group">
-            <div class="ios-row">
-              <img id="thumbTeamCore" class="clickable-thumb" onclick="App.triggerUpload('inputTeamCore')" title="点击上传1号位头像" alt="" />
-              <div style="flex:1;cursor:pointer;" onclick="App.triggerUpload('inputTeamCore')">
-                <div style="font-size:13px;font-weight:500;" id="labelTeamCore">主角色一号位头像（点击更换）</div>
+            <div class="ios-row upload-row" onclick="App.triggerUpload('inputTeamCore')">
+              <img id="thumbTeamCore" class="clickable-thumb" title="点击上传1号位头像" alt="" />
+              <div class="flex-1">
+                <div class="upload-text" id="labelTeamCore">主角色一号位头像（点击更换）</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
-                <span class="icon-only" id="btnDelTeamCore"></span>
-                删除
+              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
+                <span class="icon-only" id="btnDelTeamCore"></span>删除
               </button>
               <input type="file" id="inputTeamCore" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamCoreImg = v; State.data.teamCoreImgManual = true; App.updateThumb('thumbTeamCore', 'labelTeamCore', v, '已载入1号位头像（点击更换）'); })" />
             </div>
           </div>
         </div>
-        <!-- 配队方案 -->
         <div>
           <div class="ios-section-header">
             <span>配队参考方案（最多 3 组）</span>
-            <button class="ios-btn-fill btn-xs" style="margin-left:auto;" id="btnAddTeam" onclick="App.addTeam()">
-              <span class="icon-only" id="btnAddTeamIcon"></span>
-              添加
+            <button class="ios-btn-fill btn-xs" id="btnAddTeam" onclick="App.addTeam()">
+              <span class="icon-only" id="btnAddTeamIcon"></span>添加
             </button>
           </div>
-          <div id="teamEditor" style="display:flex; flex-direction:column; gap:10px;"></div>
+          <div id="teamEditor" class="editor-list-large"></div>
         </div>
       </div>
-
     </div>
   </section>
-
 </main>
 
 <!-- 【HTML 模块 5】移动端底部导出按钮 -->
 <div class="bottom-dock">
-  <button class="export-btn-main" onclick="App.exportPNG()" id="exportMobileBtn">生成并导出 4K PNG</button>
+  <button class="export-btn-main" onclick="App.exportPNG()" id="exportMobileBtn">导出图片</button>
 </div>
 
 <!-- 【HTML 模块 6】Toast / Modal / Font Sheet -->
 <div class="toast-container" id="toastContainer"></div>
-
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal-box">
     <div class="modal-title" id="modalTitle">提示</div>
@@ -400,13 +325,11 @@
     </div>
   </div>
 </div>
-
 <div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
 <div class="tab-sheet" id="fontSheet" role="dialog" aria-modal="true">
   <div class="tab-sheet-handle" aria-hidden="true"></div>
   <div class="tab-sheet-header">选择导出字体</div>
   <div class="tab-sheet-list" id="fontSheetList"></div>
 </div>
-
 </body>
 </html>
