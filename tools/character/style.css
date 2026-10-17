@@ -1,15 +1,12 @@
 /* =========================================================================
- * 原神一图流生成器 · style.css (2026 现代扁平重构版)
- * =========================================================================
- * 只保留：布局 / 预览区 / Tab 内容 / 命座网格 / 色彩选择 / 展开收起动画
- * 控件样式已全部下沉至 shared/theme.css
+ * 原神一图流生成器 · style.css (彻底统一间距版)
  * ========================================================================= */
 
 /* 【CSS 模块 1】通用辅助类 */
 .flex-1 { flex: 1; min-width: 0; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .action-row { display: flex; gap: 8px; padding: 10px; }
-.action-row .btn-sm { height: 38px !important; } /* 统一操作区高度 */
+.action-row .btn-sm { height: 38px !important; }
 
 .upload-row { cursor: pointer; transition: background 0.2s var(--ease-spring); }
 .upload-row:hover { background: var(--bg-hover); }
@@ -21,9 +18,8 @@
 .panel-primary-row { gap: 10px; flex-wrap: wrap; }
 .panel-primary-row .ios-field { min-width: 130px; }
 
-/* 动态生成列表的容器 */
 .editor-list { display: flex; flex-direction: column; gap: 8px; }
-.editor-list-large { display: flex; flex-direction: column; gap: 10px; }
+.editor-list-large { display: flex; flex-direction: column; gap: 8px; }
 
 /* 【CSS 模块 2】主容器布局 */
 .app-container {
@@ -59,10 +55,7 @@
   .preview-pane { position: sticky; top: 16px; height: 100%; overflow-y: auto; padding-right: 6px; }
 }
 
-/* 预览卡片：依赖 theme.css，此处只管布局间距 */
-.preview-card {
-  display: flex; flex-direction: column; gap: 8px; padding: 10px;
-}
+.preview-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
 @media (max-width: 1023px) {
   .preview-card {
     padding: 0 !important; border: 0 !important;
@@ -71,11 +64,9 @@
   }
   .preview-header { display: none !important; }
 }
-
 .preview-header { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
 .preview-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 
-/* 预览框：扁平化处理，去掉外轮廓 */
 .preview-frame {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -101,7 +92,7 @@
 
 /* 【CSS 模块 5】Tab 内容与面板显示 */
 .tabs-content {
-  overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;
   padding-bottom: 8px; min-height: 0;
 }
 @media (max-width: 1023px) {
@@ -114,7 +105,7 @@
 .tab-panel { display: none; flex-direction: column; gap: 12px; }
 .tab-panel.active { display: flex; }
 
-/* 【CSS 模块 6】命座网格 (现代化扁平选中状态) */
+/* 【CSS 模块 6】命座网格 */
 .cons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; }
 @media (max-width: 600px) { .cons-grid { grid-template-columns: 1fr; } }
 .cons-item {
@@ -137,7 +128,7 @@
 }
 .cons-item.active .cons-badge { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* 【CSS 模块 7】元素主题色选择 (去阴影，纯边框控制) */
+/* 【CSS 模块 7】元素主题色选择 */
 .color-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
 .swatch-btn {
   display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -153,8 +144,10 @@
   color: var(--accent);
 }
 .swatch-icon { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; display: block; }
+.swatch-icon-wrap { display: inline-flex; width: 16px; height: 16px; }
+.swatch-name { color: var(--text-secondary); }
 
-/* 【CSS 模块 8】展开 / 收起按钮：箭头旋转动画 */
+/* 【CSS 模块 8】展开 / 收起按钮 */
 .collapse-toggle .collapse-icon {
   display: inline-flex !important; align-items: center !important; justify-content: center !important;
   transition: transform 0.25s var(--ease-spring) !important;
@@ -165,10 +158,9 @@
 }
 
 /* ============================================================
- * 新增：修复 app.js 生成的复杂头部布局
+ * 修复 app.js 生成的布局（彻底统一间距版）
  * ============================================================ */
 
-/* 通用间距与布局 */
 .flex-col { display: flex; flex-direction: column; gap: 8px; }
 .ml-auto { margin-left: auto; }
 .mb-0 { margin-bottom: 0 !important; }
@@ -179,46 +171,45 @@
 /* 大组卡片（武器、配队） */
 .group-card { padding: 12px; }
 .group-header { 
-  display: flex; align-items: flex-start; justify-content: space-between; 
-  gap: 8px; flex-wrap: wrap; 
+  display: flex; align-items: center; justify-content: space-between; 
+  gap: 8px; flex-wrap: nowrap; 
 }
 .group-title { 
-  flex: 1 1 100%; /* 手机端默认标题占满整行 */
+  flex: 1; min-width: 0;
   font-size: 13px; font-weight: 600; color: var(--accent); 
-  margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .group-actions { 
-  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; 
-  margin-left: auto; justify-content: flex-end; width: 100%;
+  display: flex; gap: 4px; align-items: center; 
+  flex-shrink: 0; margin-left: auto;
 }
-.group-content { margin-top: 10px; }
 
-@media (min-width: 768px) {
-  .group-title { flex: 1 1 auto; margin-bottom: 0; }
-  .group-actions { width: auto; }
+/* 【核心修复】这里把 margin-top 和 gap 全部统一为 8px，和内部列表彻底对齐 */
+.group-content { 
+  margin-top: 8px; 
+  display: flex; flex-direction: column; gap: 8px; 
 }
 
 /* 子项卡片标题行 */
 .item-header { 
-  display: flex; align-items: flex-start; justify-content: space-between; 
-  gap: 8px; flex-wrap: wrap; margin-bottom: 8px; 
+  display: flex; align-items: center; justify-content: space-between; 
+  gap: 8px; flex-wrap: nowrap; margin-bottom: 8px;
 }
 .item-subtitle { 
-  flex: 1 1 100%; 
+  flex: 1; min-width: 0;
   font-size: 12px; font-weight: 500; color: var(--text-secondary); 
-  margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .item-actions { 
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  margin-left: auto; justify-content: flex-end; width: 100%;
-}
-@media (min-width: 768px) {
-  .item-subtitle { flex: 1 1 auto; margin-bottom: 0; }
-  .item-actions { width: auto; }
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0; margin-left: auto;
 }
 
+/* 子项卡片内部 */
+.item-card { padding: 10px; gap: 8px; }
+
 /* 移动端把按钮压扁一点，防溢出 */
-.btn-xs { padding: 0 6px !important; }
+.btn-xs { padding: 0 6px !important; height: 26px !important; font-size: 11px !important; }
 
 /* 圣遗物散搭左右排版 */
 .artifact-dual-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -228,14 +219,17 @@
 .alt-list-wrap { 
   margin-left: 8px; padding-left: 8px; 
   border-left: 1px solid var(--border-subtle);
-  display: flex; flex-direction: column; gap: 8px; margin-top: 12px; 
+  display: flex; flex-direction: column; gap: 8px; margin-top: 4px; 
 }
 .alt-header { display: flex; align-items: center; gap: 8px; }
 .alt-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 
-/* 备选角色的轻量卡片 */
-.sub-card { background: var(--bg-sunken); border: 1px solid transparent; padding: 8px; }
-
-/* 主题色选择器的 inner wrapper */
-.swatch-icon-wrap { display: inline-flex; width: 16px; height: 16px; }
-.swatch-name { color: var(--text-secondary); }
+/* 修复备选颜色异常黑：改为透明底 + 虚线框 */
+.sub-card { 
+  background: transparent; 
+  border: 1px dashed var(--border-default); 
+  padding: 8px; 
+}
+.sub-card:hover {
+  border-color: var(--accent);
+}
