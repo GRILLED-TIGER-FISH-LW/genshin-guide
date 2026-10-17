@@ -1,17 +1,8 @@
 /* =========================================================================
- * 视频封面 · app.js (2026 现代扁平重构版)
- * =========================================================================
- * 核心改动：
- * 1. 彻底移除原生 alert / confirm，改用 Toast 和自定义 Modal。
- * 2. 彻底清除了 renderFloatList 生成 HTML 时的所有内联样式。
- * 3. 修复了 injectIcons 里的内联 rotate，改用全局 CSS 类。
- * 4. 显隐控制全部改用 .hidden 类。
+ * 视频封面 · app.js (2026 现代扁平修复版)
  * ========================================================================= */
 'use strict';
 
-/* =========================================================================
- * 【JS 模块 1】常量
- * ========================================================================= */
 const SVG_W = 3840;
 const SVG_H = 2160;
 const BLUR_MAX_PX = 100;
@@ -35,9 +26,6 @@ const MODE_CAP_TEXT = {
 const ART_PATH_PREFIX_OLD = '../../shared/';
 const ART_PATH_PREFIX_NEW = '../../../shared/';
 
-/* =========================================================================
- * 【JS 模块 2】状态
- * ========================================================================= */
 const state = {
   showGuides: true,
   safeBoundX: 480,
@@ -66,9 +54,6 @@ let cachedBlurredBg = '';
 let cachedBlurredBgKey = '';
 let cachedBgSrc = null;
 
-/* =========================================================================
- * 【JS 模块 3】数据字典
- * ========================================================================= */
 let CHAR_NAME_TO_ORDER = {};
 let ART_DICT = {};
 let NAMECARD_DICT = {};
@@ -143,9 +128,6 @@ async function loadDataFiles() {
   }
 }
 
-/* =========================================================================
- * 【JS 模块 4】工具函数与 Toast/Modal
- * ========================================================================= */
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -194,7 +176,6 @@ async function urlToDataURL(url) {
   }
 }
 
-/* 替代原生 Alert 和 Confirm */
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   if (!container) return;
@@ -230,9 +211,6 @@ function showConfirm(title, message) {
   });
 }
 
-/* =========================================================================
- * 【JS 模块 5】图标注入
- * ========================================================================= */
 function injectIcons() {
   const upIcon = ICONS.ui.arrowUp || '';
   const iconMap = {
@@ -251,9 +229,6 @@ function injectIcons() {
   });
 }
 
-/* =========================================================================
- * 【JS 模块 6】背景模糊图生成
- * ========================================================================= */
 async function loadBgImage() {
   if (state.bg === cachedBgSrc) return;
   cachedBgSrc = state.bg;
@@ -330,9 +305,6 @@ function generateBlurredBgSync() {
   return dataURL;
 }
 
-/* =========================================================================
- * 【JS 模块 7】SVG 生成
- * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d');
 function getFontFamily() { return state.fontName ? `'${state.fontName}'` : 'system-ui, sans-serif'; }
 function measureTextWidth(text, size, font) {
@@ -478,9 +450,6 @@ ${floatImages(upperFloats)}
 </svg>`;
 }
 
-/* =========================================================================
- * 【JS 模块 8】浮动图层收集
- * ========================================================================= */
 function collectFloats() {
   if (state.guideType === 'boss') {
     const arr = [];
@@ -517,9 +486,6 @@ function collectFloats() {
   return state.floatImg;
 }
 
-/* =========================================================================
- * 【JS 模块 9】预览挂载 + 增量更新
- * ========================================================================= */
 let previewSvgEl = null;
 
 function mountPreview() {
@@ -547,17 +513,18 @@ function updateFieldText(field, text) {
   return true;
 }
 
-/* =========================================================================
- * 【JS 模块 10】模式切换
- * ========================================================================= */
 function applyModeUI() {
   const type = state.guideType;
 
-  document.getElementById('characterPanel').classList.toggle('hidden', type !== 'character');
-  document.getElementById('customPanel').classList.toggle('hidden', type !== 'custom');
+  const cp = document.getElementById('characterPanel');
+  const csp = document.getElementById('customPanel');
+  if (cp) cp.classList.toggle('hidden', type !== 'character');
+  if (csp) csp.classList.toggle('hidden', type !== 'custom');
 
-  document.querySelectorAll('#guideTypeSeg .seg-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.type === type);
+  const btns = document.querySelectorAll('#guideTypeSeg .seg-btn');
+  btns.forEach((b, i) => {
+    const t = i === 0 ? 'character' : i === 1 ? 'boss' : 'custom';
+    b.classList.toggle('active', t === type);
   });
 
   const sub1SizeRow = document.getElementById('sub1SizeRow');
@@ -614,13 +581,9 @@ async function setGuideType(type) {
   }
 
   state.bg = '';
-
-  if (type !== 'character') {
-    state.characterArt = null;
-  }
-  if (type !== 'boss') {
-    state.bossAvatar = null;
-  }
+  
+  if (type !== 'character') state.characterArt = null;
+  if (type !== 'boss') state.bossAvatar = null;
 
   const mainInput = document.getElementById('mainTextInput');
   if (mainInput) mainInput.value = state.mainText;
@@ -630,10 +593,12 @@ async function setGuideType(type) {
   if (sub1Input) sub1Input.value = '';
   const sub2Input = document.getElementById('sub2Input');
   if (sub2Input) sub2Input.value = '';
+
+  // 清空背景预览
   const bgNameEl = document.getElementById('bgFileName');
-  if (bgNameEl) bgNameEl.textContent = '未选择文件';
-  const bgFileInput = document.getElementById('bgFile');
-  if (bgFileInput) bgFileInput.value = '';
+  if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
+  const bgThumb = document.getElementById('bgThumb');
+  if (bgThumb) bgThumb.removeAttribute('src');
 
   const s1 = document.getElementById('sub1Select');
   const s2 = document.getElementById('sub2Select');
@@ -646,9 +611,6 @@ async function setGuideType(type) {
   persist();
 }
 
-/* =========================================================================
- * 【JS 模块 11】副标题输入处理
- * ========================================================================= */
 function onSub1Input(v) {
   if (state.guideType === 'character') return;
   state.sub1 = v;
@@ -659,7 +621,6 @@ function onSub1Blur(v) {
   if (state.guideType !== 'boss') return;
   matchBossName(v);
 }
-
 function onSub2Input(v) {
   state.sub2 = v;
   if (!updateFieldText('sub2', v)) mountPreview();
@@ -683,14 +644,15 @@ async function matchCharacterName(name) {
     const sub1Input = document.getElementById('sub1Input');
     if (sub1Input) sub1Input.value = '';
     const bgNameEl = document.getElementById('bgFileName');
-    if (bgNameEl) bgNameEl.textContent = '未选择文件';
+    if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
+    const bgThumb = document.getElementById('bgThumb');
+    if (bgThumb) bgThumb.removeAttribute('src');
     await loadBgImage();
     mountPreview(); persist();
     return;
   }
 
   const baseName = stripElementSuffix(name);
-
   const order = CHAR_NAME_TO_ORDER[name] || CHAR_NAME_TO_ORDER[baseName];
   state.sub1 = order ? ('No.' + padOrder(order)) : '';
   const sub1Input = document.getElementById('sub1Input');
@@ -720,10 +682,14 @@ async function matchCharacterName(name) {
     state.bg = namecardUrl;
     const bgNameEl = document.getElementById('bgFileName');
     if (bgNameEl) bgNameEl.textContent = '已自动加载名片图';
+    const bgThumb = document.getElementById('bgThumb');
+    if (bgThumb) bgThumb.src = state.bg;
   } else {
     state.bg = '';
     const bgNameEl = document.getElementById('bgFileName');
-    if (bgNameEl) bgNameEl.textContent = '未选择文件';
+    if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
+    const bgThumb = document.getElementById('bgThumb');
+    if (bgThumb) bgThumb.removeAttribute('src');
   }
 
   await loadBgImage();
@@ -766,9 +732,6 @@ async function matchBossName(name) {
   persist();
 }
 
-/* =========================================================================
- * 【JS 模块 12】浮动素材
- * ========================================================================= */
 function addFloat() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
@@ -849,9 +812,6 @@ function renderFloatList() {
   injectIcons();
 }
 
-/* =========================================================================
- * 【JS 模块 13】字体
- * ========================================================================= */
 async function loadFontList() {
   try {
     const res = await fetch('../../../shared/fonts/fonts.json?t=' + Date.now());
@@ -1021,9 +981,6 @@ async function selectFont(index) {
   }
 }
 
-/* =========================================================================
- * 【JS 模块 14】IndexedDB 持久化
- * ========================================================================= */
 const IDB_NAME = 'video_cover_db';
 const IDB_STORE = 'state';
 
@@ -1061,9 +1018,6 @@ async function loadPersist() {
   } catch (e) {}
 }
 
-/* =========================================================================
- * 【JS 模块 15】导出 / 导入 / 清空
- * ========================================================================= */
 function getExportBaseName() {
   const s2 = (state.sub2 || '').trim();
   const s1 = (state.sub1 || '').trim();
@@ -1173,9 +1127,6 @@ async function clearAll() {
   }
 }
 
-/* =========================================================================
- * 【JS 模块 16】UI 同步
- * ========================================================================= */
 function syncInputsFromState() {
   const map = {
     capTextInput: state.capText,
@@ -1211,25 +1162,30 @@ function syncInputsFromState() {
   }
   const t = document.getElementById('logoThumb');
   if (t && state.capLogo) t.src = state.capLogo;
+
+  // 同步画布背景的预览图
+  const bgThumb = document.getElementById('bgThumb');
+  const bgNameEl = document.getElementById('bgFileName');
+  if (state.bg) {
+    if (bgThumb) bgThumb.src = state.bg;
+    if (bgNameEl) bgNameEl.textContent = '已载入背景图（点击更换）';
+  } else {
+    if (bgThumb) bgThumb.removeAttribute('src');
+    if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
+  }
 }
 
-/* =========================================================================
- * 【JS 模块 17】事件绑定
- * ========================================================================= */
 function bindEvents() {
-  document.querySelectorAll('#guideTypeSeg .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => setGuideType(btn.dataset.type));
-  });
-
   document.getElementById('bgFile').addEventListener('change', e => {
     const f = e.target.files[0];
     if (!f) return;
-    const picker = e.target.closest('.file-picker');
-    const nameEl = picker && picker.querySelector('.file-picker-name');
+    const nameEl = document.getElementById('bgFileName');
     if (nameEl) nameEl.textContent = f.name;
     const reader = new FileReader();
     reader.onload = async () => {
       state.bg = reader.result;
+      const bgThumb = document.getElementById('bgThumb');
+      if (bgThumb) bgThumb.src = state.bg;
       await loadBgImage();
       mountPreview();
       persist();
@@ -1281,9 +1237,6 @@ function bindEvents() {
   });
 }
 
-/* =========================================================================
- * 【JS 模块 18】App 接口
- * ========================================================================= */
 const App = {
   set(key, value) {
     if (state[key] === value) return;
@@ -1369,16 +1322,13 @@ const App = {
 };
 window.App = App;
 
-/* =========================================================================
- * 【JS 模块 19】初始化
- * ========================================================================= */
 (async function init() {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   injectIcons();
-  await loadDataFiles();
-  await loadFontList();
-  await loadPersist();
+  try { await loadDataFiles(); } catch(e) {}
+  try { await loadFontList(); } catch(e) {}
+  try { await loadPersist(); } catch(e) {}
 
   if (state.guideType === 'character' || state.guideType === 'boss') {
     state.mainText = MODE_MAIN_TEXTS[state.guideType];
@@ -1386,8 +1336,7 @@ window.App = App;
   }
 
   try { await installFont(); } catch(e) {}
-
-  await loadBgImage();
+  try { await loadBgImage(); } catch(e) {}
 
   const logoSelect = document.getElementById('logoSelect');
   if (logoSelect) {
@@ -1419,7 +1368,7 @@ window.App = App;
   syncInputsFromState();
   applyModeUI();
   renderFloatList();
-  bindEvents();
+  bindEvents(); // 确保事件绑定
   mountPreview();
   injectIcons();
 
