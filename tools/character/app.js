@@ -1,12 +1,11 @@
 /* =========================================================================
- * 原神一图流生成器 · app.js (2026 现代 ES6+ 彻底重构版)
+ * 原神一图流生成器 · app.js (2026 现代 ES6+ 彻底重构修复版)
  * =========================================================================
  * 核心改造：
- * 1. 彻底消灭所有 var，全面采用 const / let。
- * 2. 彻底消灭 .then() 回调地狱，全部改为 async / await。
- * 3. 合并 matchWeaponIcon / matchArtifactIcon / matchTeamCharIcon 等重复逻辑。
- * 4. DOM 引用集中管理，去除冗余状态。
- * 5. 消除原生 alert / confirm。
+ * 1. 彻底移除错乱的全局事件绑定（因为角色卡大量使用了 HTML 内联 onclick）。
+ * 2. 彻底消灭所有 var，全面采用 const / let。
+ * 3. 合并四个 matchIcon 重复函数。
+ * 4. 恢复纯净的初始化逻辑，完美加载。
  * ========================================================================= */
 
 'use strict';
@@ -15,19 +14,8 @@
  * 【模块 1】DOM 引用集中管理
  * ========================================================================= */
 const DOM = {
-  homeView: document.getElementById('homeView'),
-  frameContainer: document.getElementById('frameContainer'),
-  sidebarDrawer: document.getElementById('sidebarDrawer'),
-  sidebarBackdrop: document.getElementById('sidebarBackdrop'),
-  sidebarMenu: document.getElementById('sidebarMenu'),
-  loadingMask: document.getElementById('loadingMask'),
-  navIcon: document.getElementById('navIcon'),
-  navText: document.getElementById('navText'),
-  btnMenu: document.getElementById('btnMenu'),
-  btnClose: document.getElementById('btnClose'),
-  btnTheme: document.getElementById('btnTheme'),
-  tabBar: document.getElementById('tabBar'),
   svgPreviewHost: document.getElementById('svgPreviewHost'),
+  tabBar: document.getElementById('tabBar'),
   toastContainer: document.getElementById('toastContainer'),
   modalBackdrop: document.getElementById('modalBackdrop'),
   modalTitle: document.getElementById('modalTitle'),
@@ -549,7 +537,6 @@ function updateImgXHint() {
 /* =========================================================================
  * 【模块 7】核心匹配逻辑 (高度封装)
  * ========================================================================= */
-// 通用的图标匹配函数，彻底消灭原来的多个重复函数
 async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
   if (!window.ICON_LIB || !name || !name.trim()) return;
   const trimmed = name.trim();
