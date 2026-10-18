@@ -1,59 +1,89 @@
 /* =========================================================================
- * 原神一图流生成器 · app.js (2026 扁平化重构版)
+ * 原神一图流生成器 · app.js (2026 现代 ES6+ 彻底重构版)
  * =========================================================================
- * 核心改动：彻底清除所有拼接 HTML 时的内联样式（color, flex, margin 等），
- * 把样式控制权完全交还给 style.css。保留所有数据和事件逻辑。
+ * 核心改造：
+ * 1. 彻底消灭所有 var，全面采用 const / let。
+ * 2. 彻底消灭 .then() 回调地狱，全部改为 async / await。
+ * 3. 合并 matchWeaponIcon / matchArtifactIcon / matchTeamCharIcon 等重复逻辑。
+ * 4. DOM 引用集中管理，去除冗余状态。
+ * 5. 消除原生 alert / confirm。
  * ========================================================================= */
 
+'use strict';
+
 /* =========================================================================
- * 【JS 模块 1】Toast 与 Confirm
+ * 【模块 1】DOM 引用集中管理
+ * ========================================================================= */
+const DOM = {
+  homeView: document.getElementById('homeView'),
+  frameContainer: document.getElementById('frameContainer'),
+  sidebarDrawer: document.getElementById('sidebarDrawer'),
+  sidebarBackdrop: document.getElementById('sidebarBackdrop'),
+  sidebarMenu: document.getElementById('sidebarMenu'),
+  loadingMask: document.getElementById('loadingMask'),
+  navIcon: document.getElementById('navIcon'),
+  navText: document.getElementById('navText'),
+  btnMenu: document.getElementById('btnMenu'),
+  btnClose: document.getElementById('btnClose'),
+  btnTheme: document.getElementById('btnTheme'),
+  tabBar: document.getElementById('tabBar'),
+  svgPreviewHost: document.getElementById('svgPreviewHost'),
+  toastContainer: document.getElementById('toastContainer'),
+  modalBackdrop: document.getElementById('modalBackdrop'),
+  modalTitle: document.getElementById('modalTitle'),
+  modalMessage: document.getElementById('modalMessage'),
+  modalCancel: document.getElementById('modalCancel'),
+  modalConfirm: document.getElementById('modalConfirm'),
+  fontSheetBackdrop: document.getElementById('fontSheetBackdrop'),
+  fontSheet: document.getElementById('fontSheet'),
+  fontSheetList: document.getElementById('fontSheetList')
+};
+
+/* =========================================================================
+ * 【模块 2】UI 交互封装 (Toast / Modal)
  * ========================================================================= */
 function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  if (!container) return;
+  if (!DOM.toastContainer) return;
   const el = document.createElement('div');
   el.className = 'toast' + (type === 'error' ? ' toast-error' : type === 'success' ? ' toast-success' : '');
   el.textContent = message;
-  container.appendChild(el);
+  DOM.toastContainer.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => el.remove(), 300);
   }, 2400);
 }
+
 function showConfirm(title, message) {
   return new Promise(resolve => {
-    const backdrop = document.getElementById('modalBackdrop');
-    document.getElementById('modalTitle').textContent = title;
-    document.getElementById('modalMessage').textContent = message;
-    const cancelBtn = document.getElementById('modalCancel');
-    const confirmBtn = document.getElementById('modalConfirm');
+    DOM.modalTitle.textContent = title;
+    DOM.modalMessage.textContent = message;
     const cleanup = (result) => {
-      backdrop.classList.remove('show');
-      cancelBtn.onclick = null;
-      confirmBtn.onclick = null;
-      backdrop.onclick = null;
+      DOM.modalBackdrop.classList.remove('show');
+      DOM.modalCancel.onclick = null;
+      DOM.modalConfirm.onclick = null;
+      DOM.modalBackdrop.onclick = null;
       resolve(result);
     };
-    cancelBtn.onclick = () => cleanup(false);
-    confirmBtn.onclick = () => cleanup(true);
-    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(false); };
-    backdrop.classList.add('show');
+    DOM.modalCancel.onclick = () => cleanup(false);
+    DOM.modalConfirm.onclick = () => cleanup(true);
+    DOM.modalBackdrop.onclick = (e) => { if (e.target === DOM.modalBackdrop) cleanup(false); };
+    DOM.modalBackdrop.classList.add('show');
   });
 }
 
 /* =========================================================================
- * 【JS 模块 2】预览挂载与字段增量更新
+ * 【模块 3】预览挂载与增量更新
  * ========================================================================= */
 let previewSvgEl = null;
 const previewIndex = new Map();
 let renderTimer = null;
 
 function mountPreview() {
-  const host = document.getElementById('svgPreviewHost');
-  if (!host) return;
-  host.innerHTML = buildSVG(1);
-  previewSvgEl = host.querySelector('svg');
+  if (!DOM.svgPreviewHost) return;
+  DOM.svgPreviewHost.innerHTML = buildSVG(1);
+  previewSvgEl = DOM.svgPreviewHost.querySelector('svg');
   previewIndex.clear();
   if (previewSvgEl) {
     previewSvgEl.querySelectorAll('[data-field]').forEach(el => {
@@ -63,6 +93,7 @@ function mountPreview() {
     });
   }
 }
+
 function updateCharImgX() {
   if (!previewSvgEl) return;
   const el = previewSvgEl.querySelector('#charImgEl');
@@ -77,6 +108,7 @@ function updateCharImgX() {
   const newX = leftX + (leftW - charDrawW) / 2 + imgX;
   el.setAttribute('x', newX);
 }
+
 function applyTextFieldUpdate(el, textValue, fill) {
   el.textContent = textValue == null ? '' : String(textValue);
   if (fill) el.setAttribute('fill', fill);
@@ -87,6 +119,7 @@ function applyTextFieldUpdate(el, textValue, fill) {
     el.setAttribute('font-size', fitSize(String(textValue || ''), +maxW, base, min));
   }
 }
+
 function getFieldDisplayValue(field) {
   const d = State.data;
   if (field === 'charName') return { text: d.charName || '' };
@@ -124,6 +157,7 @@ function getFieldDisplayValue(field) {
   }
   return null;
 }
+
 function updatePreviewField(field) {
   if (!previewSvgEl || !previewIndex.size) { mountPreview(); return; }
   const els = previewIndex.get(field);
@@ -132,10 +166,7 @@ function updatePreviewField(field) {
   if (!info) { mountPreview(); return; }
   els.forEach(el => applyTextFieldUpdate(el, info.text, info.fill));
 }
-function scheduleRender() {
-  clearTimeout(renderTimer);
-  renderTimer = setTimeout(() => { syncInputs(); mountPreview(); debouncedSave(); }, 40);
-}
+
 function syncInputs() {
   const map = ['charName','version','date','author','sandMain','gobMain','cirMain','subStats','talentA','talentE','talentQ'];
   map.forEach(id => {
@@ -161,26 +192,15 @@ function syncInputs() {
 }
 
 /* =========================================================================
- * 【JS 模块 3】横向 Tab 栏
+ * 【模块 4】Tab 栏渲染
  * ========================================================================= */
 function renderTabBar() {
-  const el = document.getElementById('tabBar');
-  if (!el) return;
-  el.innerHTML = TAB_DEFS.map(t =>
+  if (!DOM.tabBar) return;
+  DOM.tabBar.innerHTML = TAB_DEFS.map(t =>
     `<button type="button" class="tab-btn ${t.key === currentTab ? 'active' : ''}" data-tab="${t.key}" onclick="App.selectTab('${t.key}')">${t.label}</button>`
   ).join('');
 }
-function scrollTabIntoView(btn) {
-  const bar = document.getElementById('tabBar');
-  if (!bar || !btn) return;
-  const barRect = bar.getBoundingClientRect();
-  const btnRect = btn.getBoundingClientRect();
-  if (btnRect.left < barRect.left) {
-    bar.scrollLeft -= (barRect.left - btnRect.left) + 16;
-  } else if (btnRect.right > barRect.right) {
-    bar.scrollLeft += (btnRect.right - barRect.right) + 16;
-  }
-}
+
 function selectTab(tabId) {
   if (!TAB_DEFS.find(t => t.key === tabId)) return;
   currentTab = tabId;
@@ -192,12 +212,10 @@ function selectTab(tabId) {
   });
   const tc = document.querySelector('.tabs-content');
   if (tc) tc.scrollTop = 0;
-  const activeBtn = document.querySelector('.tab-btn.active');
-  scrollTabIntoView(activeBtn);
 }
 
 /* =========================================================================
- * 【JS 模块 4】UI 编辑器渲染 (已全面去内联)
+ * 【模块 5】UI 编辑器渲染
  * ========================================================================= */
 const collapseState = {};
 
@@ -227,14 +245,7 @@ function renderColorPicker() {
     </div>`;
   }).join('');
 }
-function setTheme(color) {
-  State.data.theme = color;
-  document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty('--accent-dark', darken(color, 50));
-  renderColorPicker();
-  mountPreview();
-  debouncedSave();
-}
+
 function renderConstellationEditor() {
   const el = document.getElementById('constellationEditor');
   if (!el) return;
@@ -244,16 +255,7 @@ function renderConstellationEditor() {
       <input type="text" value="${esc(c.desc)}" placeholder="${i + 1}命核心效果描述" oninput="App.setConstellationDesc(${i}, this.value)" />
     </div>`).join('');
 }
-function toggleConstellation(i) {
-  if (!State.data.constellationData[i]) return;
-  State.data.constellationData[i].active = !State.data.constellationData[i].active;
-  renderConstellationEditor(); mountPreview(); debouncedSave();
-}
-function setConstellationDesc(i, value) {
-  if (!State.data.constellationData[i]) return;
-  State.data.constellationData[i].desc = value;
-  mountPreview(); debouncedSave();
-}
+
 function renderWeaponEditor() {
   const el = document.getElementById('weaponEditor');
   if (!el) return;
@@ -277,7 +279,7 @@ function renderWeaponEditor() {
         </div>
         <div class="item-row">
           <img src="${w.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-          <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchWeaponIcon('${type}',${i},this.value)" class="flex-1" />
+          <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchIconByType('weapons','${type}',${i},this.value)" class="flex-1" />
           <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.weaponData['${type}'][${i}].img = v; State.data.weaponData['${type}'][${i}].imgManual = true; App.renderWeaponEditor(); App.mountPreview(); App.debouncedSave(); })" />
         </div>
       </div>`;
@@ -298,6 +300,7 @@ function renderWeaponEditor() {
     </div>`;
   }).join('');
 }
+
 function renderArtifactEditor() {
   const sectionKey = 'artifact_section';
   const isSectionCollapsed = isCollapsed(sectionKey);
@@ -354,12 +357,13 @@ function renderArtifactEditor() {
       </div>
       <div class="item-row">
         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-        <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchArtifactIcon(${i},this.value)" class="flex-1" />
+        <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchIconByType('artifacts','${i}',null,this.value)" class="flex-1" />
         <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img = v; State.data.artifactData[${i}].imgManual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
       </div>
     </div>`;
   }).join('') || '<div class="empty-tip">暂无圣遗物</div>';
 }
+
 function renderTeamEditor() {
   const el = document.getElementById('teamEditor');
   if (!el) return;
@@ -379,7 +383,7 @@ function renderTeamEditor() {
         </div>
       </div>
       <div data-collapse-content="${teamKey}" class="group-content">
-        <input type="text" value="${esc(team.name)}" oninput="App.setTeamName(${ti},this.value)" />
+        <input type="text" value="${esc(team.name)}" oninput="App.setTeamName(${ti},this.value)" placeholder="队伍名称" />
         <div class="flex-col">
           ${team.chars.slice(1, 4).map((c, idx) => {
             const ci = idx + 1;
@@ -400,7 +404,7 @@ function renderTeamEditor() {
               <div data-collapse-content="${charKey}" class="group-content">
                 <div class="item-row">
                   <img src="${c.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
-                  <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchTeamCharIcon(${ti},${ci},this.value)" class="flex-1" />
+                  <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchIconByType('characters',${ti},${ci},this.value)" class="flex-1" />
                   <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].img = v; State.data.teamData[${ti}].chars[${ci}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                 </div>
                 <div class="alt-list-wrap">
@@ -422,12 +426,12 @@ function renderTeamEditor() {
                       </div>
                       <div class="item-row">
                         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
-                        <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchAltIcon(${ti},${ci},${ai},this.value)" class="flex-1" />
+                        <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchIconByType('characters_alt',${ti},${ci},this.value,${ai})" class="flex-1" />
                         <input type="file" id="${altTargetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                       </div>
                     </div>`;
                   }).join('')}
-                  ${!c.alts.length ? `<input type="text" value="${esc(c.emptyAltText || '暂无备选')}" oninput="App.setEmptyAltText(${ti},${ci},this.value)" />` : ''}
+                  ${!c.alts.length ? `<input type="text" value="${esc(c.emptyAltText || '暂无备选')}" oninput="App.setEmptyAltText(${ti},${ci},this.value)" placeholder="无备选时显示的文字" />` : ''}
                 </div>
               </div>
             </div>`;
@@ -437,6 +441,7 @@ function renderTeamEditor() {
     </div>`;
   }).join('') || '<div class="empty-tip">暂未添加配队</div>';
 }
+
 function renderEditorsByKey() {
   renderColorPicker();
   renderWeaponEditor();
@@ -444,6 +449,12 @@ function renderEditorsByKey() {
   renderConstellationEditor();
   renderTeamEditor();
 }
+
+/* =========================================================================
+ * 【模块 6】上传与缩略图
+ * ========================================================================= */
+const IMAGE_WARN_SIZE = 15 * 1024 * 1024;
+
 function updateThumb(thumbId, labelId, src, labelText) {
   const thumb = document.getElementById(thumbId);
   if (thumb) thumb.src = src;
@@ -456,6 +467,7 @@ function resetThumb(thumbId, labelId, labelText) {
   const label = document.getElementById(labelId);
   if (label) label.textContent = labelText;
 }
+
 function initThumbnails() {
   const d = State.data;
   if (d.charImg) updateThumb('thumbCharImg', 'labelCharImg', d.charImg, '已载入立绘（点击更换）');
@@ -474,6 +486,7 @@ function initThumbnails() {
   }
   updateImgXHint();
 }
+
 function clearImage(stateKey, thumbId, labelId) {
   State.data[stateKey] = '';
   State.data[stateKey + 'Deleted'] = true;
@@ -485,6 +498,7 @@ function clearImage(stateKey, thumbId, labelId) {
   mountPreview();
   debouncedSave();
 }
+
 function onThumbClick(inputId, stateKey) {
   if (State.data[stateKey]) {
     showToast('已有图片，如需更换请先删除', 'info');
@@ -493,33 +507,34 @@ function onThumbClick(inputId, stateKey) {
   triggerUpload(inputId);
 }
 
-/* =========================================================================
- * 【JS 模块 5】图片上传
- * ========================================================================= */
-const IMAGE_WARN_SIZE = 15 * 1024 * 1024;
 function triggerUpload(id) { document.getElementById(id)?.click(); }
-function uploadImageHandler(input, setter) {
+
+async function uploadImageHandler(input, setter) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
+  
   if (file.size > IMAGE_WARN_SIZE) {
-    showConfirm('图片较大', `该图片 ${formatBytes(file.size)}，可能影响保存速度。是否继续？`).then(ok => {
-      if (ok) doUpload(input, setter);
-      else input.value = '';
-    });
-  } else {
-    doUpload(input, setter);
+    const ok = await showConfirm('图片较大', `该图片 ${formatBytes(file.size)}，可能影响保存速度。是否继续？`);
+    if (!ok) {
+      input.value = '';
+      return;
+    }
   }
-}
-function doUpload(input, setter) {
+  
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
-    img.onload = () => { setter(e.target.result, img.width, img.height); mountPreview(); debouncedSave(); };
+    img.onload = () => { 
+      setter(e.target.result, img.width, img.height); 
+      mountPreview(); 
+      debouncedSave(); 
+    };
     img.src = e.target.result;
   };
   reader.readAsDataURL(input.files[0]);
   input.value = '';
 }
+
 function updateImgXHint() {
   const el = document.getElementById('imgXHint');
   if (!el) return;
@@ -532,616 +547,89 @@ function updateImgXHint() {
 }
 
 /* =========================================================================
- * 【JS 模块 6】字体库（含 IndexedDB 缓存）
+ * 【模块 7】核心匹配逻辑 (高度封装)
  * ========================================================================= */
-let FONT_LIST = [];
-let fontSheetOpen = false;
-let loadedFontFace = null;
-
-const FONT_CACHE_PREFIX = 'font_cache::';
-
-async function getFontFromCache(fileName) {
-  if (!fileName) return '';
-  try {
-    const db = await openDatabase();
-    return await new Promise(resolve => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const req = tx.objectStore(STORE_NAME).get(FONT_CACHE_PREFIX + fileName);
-      req.onsuccess = () => resolve(req.result || '');
-      req.onerror = () => resolve('');
-    });
-  } catch (e) { return ''; }
-}
-
-async function putFontToCache(fileName, dataURL) {
-  if (!fileName || !dataURL) return;
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(dataURL, FONT_CACHE_PREFIX + fileName);
-  } catch (e) {}
-}
-
-async function clearFontCache() {
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.openCursor();
-    req.onsuccess = (e) => {
-      const cursor = e.target.result;
-      if (cursor) {
-        if (String(cursor.key).indexOf(FONT_CACHE_PREFIX) === 0) {
-          cursor.delete();
-        }
-        cursor.continue();
-      }
-    };
-  } catch (e) {}
-}
-
-async function loadFontList() {
-  try {
-    const res = await fetch('../../shared/fonts/fonts.json?t=' + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    FONT_LIST = Array.isArray(json.fonts) ? json.fonts : [];
-  } catch (e) {
-    FONT_LIST = [];
-    console.warn('字体清单加载失败：', e.message);
-  }
-}
-
-function renderFontSheetList() {
-  const el = document.getElementById('fontSheetList');
-  if (!el) return;
-  const currentFile = State.data.fontFileName || '';
-  let html = '<button type="button" class="tab-sheet-item ' + (currentFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
-    '<span>默认系统字体</span>' +
-    '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
-  '</button>';
-  if (!FONT_LIST.length) {
-    html += '<div class="empty-tip" style="padding:20px;text-align:center;">字体库为空</div>';
-  } else {
-    html += FONT_LIST.map((f, i) => {
-      const isActive = currentFile === f.file;
-      return '<button type="button" class="tab-sheet-item ' + (isActive ? 'active' : '') + '" onclick="App.selectFont(' + i + ')">' +
-        '<span>' + esc(f.name) + '</span>' +
-        '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
-      '</button>';
-    }).join('');
-  }
-  el.innerHTML = html;
-}
-
-function openFontPicker() {
-  if (fontSheetOpen) return;
-  fontSheetOpen = true;
-  renderFontSheetList();
-  document.getElementById('fontSheetBackdrop').classList.add('show');
-  document.getElementById('fontSheet').classList.add('show');
-}
-function closeFontPicker() {
-  if (!fontSheetOpen) return;
-  fontSheetOpen = false;
-  document.getElementById('fontSheetBackdrop').classList.remove('show');
-  document.getElementById('fontSheet').classList.remove('show');
-}
-
-async function installPreviewFont() {
-  if (!State.data.fontData || !window.FontFace) return false;
-  try {
-    if (loadedFontFace) {
-      try { document.fonts.delete(loadedFontFace); } catch (e) {}
-      loadedFontFace = null;
-    }
-    let buffer;
+// 通用的图标匹配函数，彻底消灭原来的多个重复函数
+async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
+  if (!window.ICON_LIB || !name || !name.trim()) return;
+  const trimmed = name.trim();
+  
+  if (type === 'weapons') {
+    const cell = State.data.weaponData[arg1]?.[arg2];
+    if (!cell) return;
     try {
-      const res = await fetch(State.data.fontData);
-      buffer = await res.arrayBuffer();
-    } catch (e) {
-      const arr = State.data.fontData.split(',');
-      const raw = atob(arr[1]);
-      buffer = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) {
-        buffer[i] = raw.charCodeAt(i);
-      }
-    }
-    const ff = new FontFace('CardCustomFont', buffer);
-    const loaded = await ff.load();
-    document.fonts.add(loaded);
-    loadedFontFace = loaded;
-    return true;
-  } catch (e) {
-    console.error('字体解析异常：', e);
-    return false;
+      const r = await ICON_LIB.fromName('weapons', trimmed);
+      cell.img = r?.dataURL || '';
+    } catch (e) { cell.img = ''; }
+    cell.imgManual = false;
+    document.querySelector(`[data-img-target="w_img_${arg1}_${arg2}"]`)?.setAttribute('src', cell.img || placeholder(''));
+  } 
+  else if (type === 'artifacts') {
+    const cell = State.data.artifactData[arg1];
+    if (!cell) return;
+    try {
+      const r = await ICON_LIB.fromName('artifacts', trimmed);
+      cell.img = r?.dataURL || '';
+    } catch (e) { cell.img = ''; }
+    cell.imgManual = false;
+    document.querySelector(`[data-img-target="a_img_${arg1}"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
-}
-
-async function applyFontData(fileName, fontName, dataURL) {
-  State.data.fontData = dataURL;
-  State.data.fontFileName = fileName;
-  State.data.fontName = fontName;
-  await installPreviewFont();
-  const labelEl = document.getElementById('labelCustomFont');
-  if (labelEl) labelEl.textContent = '当前：' + fontName;
-  mountPreview();
+  else if (type === 'characters') {
+    const cell = State.data.teamData[arg1]?.chars?.[arg2];
+    if (!cell) return;
+    const matchedName = resolveCharName(trimmed);
+    if (!matchedName) { cell.img = ''; cell.imgManual = false; return; }
+    try {
+      const r = await ICON_LIB.fromName('characters', matchedName);
+      cell.img = r?.dataURL || '';
+    } catch (e) { cell.img = ''; }
+    cell.imgManual = false;
+    document.querySelector(`[data-img-target="t_${arg1}_${arg2}_img"]`)?.setAttribute('src', cell.img || placeholder(''));
+  }
+  else if (type === 'characters_alt') {
+    const cell = State.data.teamData[arg1]?.chars?.[arg2]?.alts?.[altIndex];
+    if (!cell) return;
+    const matchedName = resolveCharName(trimmed);
+    if (!matchedName) { cell.img = ''; cell.imgManual = false; return; }
+    try {
+      const r = await ICON_LIB.fromName('characters', matchedName);
+      cell.img = r?.dataURL || '';
+    } catch (e) { cell.img = ''; }
+    cell.imgManual = false;
+    document.querySelector(`[data-img-target="t_${arg1}_${arg2}_${altIndex}_img"]`)?.setAttribute('src', cell.img || placeholder(''));
+  }
+  
+  mountPreview(); 
   debouncedSave();
 }
 
-async function selectFont(index) {
-  closeFontPicker();
-  const labelEl = document.getElementById('labelCustomFont');
-
-  if (index === -1) {
-    State.data.fontData = ''; State.data.fontFileName = ''; State.data.fontName = '';
-    if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} loadedFontFace = null; }
-    if (labelEl) labelEl.textContent = '默认标准字体';
-    mountPreview(); debouncedSave();
-    return;
-  }
-
-  const f = FONT_LIST[index];
-  if (!f) return;
-
-  if (State.data.fontFileName === f.file && State.data.fontData) {
-    if (labelEl) labelEl.textContent = '当前：' + f.name;
-    return;
-  }
-
-  if (labelEl) labelEl.textContent = `[1/3] 正在检查本地缓存...`;
-  const cached = await getFontFromCache(f.file);
-  if (cached) {
-    if (labelEl) labelEl.textContent = `[2/3] 命中缓存，正在注入字体...`;
-    await applyFontData(f.file, f.name, cached);
-    return;
-  }
-
-  try {
-    if (labelEl) labelEl.textContent = `[1/3] 正在下载二进制流...`;
-    let res;
-    try {
-      res = await fetch('../../shared/fonts/' + encodeURIComponent(f.file));
-    } catch (netErr) {
-      throw new Error(`跨域或网络受阻 (${netErr.message})`);
-    }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status} 文件未找到`);
-
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('text/html')) {
-      throw new Error('服务器返回网页而非字体(可能是404)');
-    }
-
-    const buf = await res.arrayBuffer();
-
-    if (labelEl) labelEl.textContent = `[2/3] 正在注入字体渲染引擎...`;
-    try {
-      const ff = new FontFace('CardCustomFont', buf);
-      const loaded = await ff.load();
-      if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch(e){} }
-      document.fonts.add(loaded);
-      loadedFontFace = loaded;
-    } catch (fontErr) {
-      throw new Error(`该格式无法识别或文件损坏 (${fontErr.message || 'Font Engine Refused'})`);
-    }
-
-    if (labelEl) labelEl.textContent = `[3/3] 正在固化存档数据...`;
-
-    let ext = f.file.split('.').pop().toLowerCase();
-    let mime = 'font/ttf';
-    if (ext === 'otf') mime = 'font/otf';
-    else if (ext === 'woff2') mime = 'font/woff2';
-    else if (ext === 'woff') mime = 'font/woff';
-
-    const blob = new Blob([buf], { type: mime });
-    const dataURL = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('数据过大序列化失败'));
-      reader.readAsDataURL(blob);
-    });
-
-    State.data.fontData = dataURL;
-    State.data.fontFileName = f.file;
-    State.data.fontName = f.name;
-
-    await putFontToCache(f.file, dataURL);
-
-    if (labelEl) labelEl.textContent = '当前：' + f.name;
-    mountPreview(); debouncedSave();
-
-  } catch (err) {
-    console.error(`[字体加载失败] ${f.name}:`, err);
-    if (labelEl) labelEl.textContent = `异常卡住: ${err.message}`;
-    showToast(`字体 [${f.name}] 加载失败: ${err.message}`, 'error');
-
-    State.data.fontData = '';
-    State.data.fontFileName = '';
-    State.data.fontName = '';
-    debouncedSave();
-  }
-}
-
-/* =========================================================================
- * 【JS 模块 7】数据字典读取 + 角色名校验
- * ========================================================================= */
-async function loadCharOrderTxt() {
-  try {
-    const res = await fetch('../../shared/data/characters.txt?t=' + Date.now());
-    if (!res.ok) { console.warn('characters.txt HTTP ' + res.status); return; }
-    const text = await res.text();
-    CHAR_NAME_TO_ORDER = {};
-    text.split(/\r?\n/).forEach(function (line) {
-      line = line.trim();
-      if (!line || line.startsWith('#')) return;
-      const parts = line.split(/[\s,，\t]+/);
-      if (parts.length < 2) return;
-      const order = parseInt(parts[0], 10);
-      const name = parts.slice(1).join(' ').trim();
-      if (!order || !name) return;
-      CHAR_NAME_TO_ORDER[name] = order;
-    });
-    console.log('characters.txt 加载成功，共 ' + Object.keys(CHAR_NAME_TO_ORDER).length + ' 条');
-  } catch (e) {
-    console.warn('characters.txt 加载失败：', e.message);
-  }
-}
-
-function isValidCharName(name) {
-  var t = String(name || '').trim();
-  if (!t) return false;
-  return !!CHAR_NAME_TO_ORDER[t];
-}
-
-function stripElementSuffix(name) {
-  return String(name || '').split('·')[0].trim();
-}
-
-function resolveCharName(input) {
-  const t = String(input || '').trim();
-  if (!t) return '';
-  if (isValidCharName(t)) return t;
-  const stripped = stripElementSuffix(t);
-  if (stripped && isValidCharName(stripped)) return stripped;
-  return '';
-}
-
-async function loadNamecards() {
-  try {
-    const res = await fetch('../../shared/data/namecards.txt?t=' + Date.now());
-    if (!res.ok) { console.warn('namecards.txt HTTP ' + res.status); return; }
-    const text = await res.text();
-    NAMECARD_DICT = {};
-    text.split(/\r?\n/).forEach(function (line) {
-      line = line.trim();
-      if (!line || line.startsWith('#')) return;
-      const m = line.match(/^(\d+)\s+(\S+)\s+(https?:\/\/\S+)$/);
-      if (!m) return;
-      NAMECARD_DICT[m[2]] = m[3];
-    });
-    console.log('namecards.txt 加载成功，共 ' + Object.keys(NAMECARD_DICT).length + ' 条');
-  } catch (e) {
-    console.warn('namecards.txt 加载失败：', e.message);
-  }
-}
-
-async function loadArtDict() {
-  try {
-    const res = await fetch('../../shared/data/character-art.txt?t=' + Date.now());
-    if (!res.ok) { console.warn('character-art.txt HTTP ' + res.status); return; }
-    const text = await res.text();
-    ART_DICT = {};
-    text.split(/\r?\n/).forEach(function (line) {
-      line = line.trim();
-      if (!line || line.startsWith('#')) return;
-      const m = line.match(/^(\d+)\s+(\S+)\s*(.*)$/);
-      if (!m) return;
-      const name = m[2];
-      const url = (m[3] || '').trim();
-      ART_DICT[name] = url;
-    });
-    console.log('character-art.txt 加载成功，共 ' + Object.keys(ART_DICT).length + ' 条');
-  } catch (e) {
-    console.warn('character-art.txt 加载失败：', e.message);
-  }
-}
-
-/* =========================================================================
- * 【JS 模块 8】样式图匹配 + 在线存档
- * ========================================================================= */
-async function matchStyleImages(onlyEmpty) {
-  const name = (State.data.charName || '').trim();
-  if (!name) { if (!onlyEmpty) showToast('请先填写角色名', 'error'); return; }
-  State.data.charImgDeleted = false;
-  State.data.nameBgImgDeleted = false;
-  State.data.bgImgDeleted = false;
-  if (!onlyEmpty) showToast('正在匹配样式图…', 'info');
-
-  const nameValid = isValidCharName(name);
-  const results = { standing: false, element: false, namecard: false, standingError: '' };
-  const elementName = themeToElementName();
-
-  var tasks = [];
-
-  if (!onlyEmpty || !State.data.charImg) {
-    tasks.push(async function () {
-      if (!nameValid) {
-        State.data.charImg = '';
-        State.data.charImgMeta = null;
-        State.data.charImgManual = false;
-        resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
-        results.standingError = '角色清单无此名字';
-        return;
-      }
-      const artKeyWithEle = elementName ? name + '·' + elementName : '';
-      let artUrl = '';
-      if (artKeyWithEle && ART_DICT[artKeyWithEle] !== undefined && ART_DICT[artKeyWithEle] !== '') {
-        artUrl = ART_DICT[artKeyWithEle];
-      } else if (ART_DICT[name] !== undefined && ART_DICT[name] !== '') {
-        artUrl = ART_DICT[name];
-      }
-      if (artUrl) {
-        const meta = await loadImageMeta(artUrl);
-        if (meta) {
-          State.data.charImg = artUrl;
-          State.data.charImgMeta = meta;
-          State.data.charImgManual = false;
-          updateThumb('thumbCharImg', 'labelCharImg', artUrl, '已匹配立绘');
-          results.standing = true;
-        } else {
-          State.data.charImg = '';
-          State.data.charImgMeta = null;
-          State.data.charImgManual = false;
-          resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
-          results.standingError = '链接加载失败';
-        }
-      } else {
-        State.data.charImg = '';
-        State.data.charImgMeta = null;
-        State.data.charImgManual = false;
-        resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
-        if (ART_DICT[name] === undefined && ART_DICT[artKeyWithEle] === undefined) {
-          results.standingError = '字典无此角色';
-        } else {
-          results.standingError = '暂无立绘链接';
-        }
-      }
-    });
-  }
-
-  if (!onlyEmpty || !State.data.nameBgImg) {
-    tasks.push(async function () {
-      let elementUrl = '';
-      if (elementName) {
-        const ghUrl = '../../shared/assets/characters/element/' + elementName + '.png';
-        if (await urlExists(ghUrl)) elementUrl = ghUrl;
-      }
-      if (elementUrl) {
-        State.data.nameBgImg = elementUrl;
-        State.data.nameBgImgMeta = null;
-        State.data.nameBgImgManual = false;
-        updateThumb('thumbNameBg', 'labelNameBg', elementUrl, '已匹配元素图：' + elementName);
-        results.element = true;
-      } else {
-        State.data.nameBgImg = '';
-        State.data.nameBgImgManual = false;
-        resetThumb('thumbNameBg', 'labelNameBg', '点击上传元素图');
-      }
-    });
-  }
-
-  if (!onlyEmpty || !State.data.bgImg) {
-    tasks.push(async function () {
-      if (!nameValid) {
-        State.data.bgImg = '';
-        State.data.bgImgManual = false;
-        resetThumb('thumbBg', 'labelBg', '默认暗黑原力色');
-        return;
-      }
-      const namecardUrl = NAMECARD_DICT[name] || '';
-      if (namecardUrl) {
-        State.data.bgImg = namecardUrl;
-        State.data.bgImgManual = false;
-        updateThumb('thumbBg', 'labelBg', namecardUrl, '已匹配名片图');
-        results.namecard = true;
-      } else {
-        State.data.bgImg = '';
-        State.data.bgImgManual = false;
-        resetThumb('thumbBg', 'labelBg', '默认暗黑原力色');
-      }
-    });
-  }
-
-  await Promise.all(tasks.map(fn => fn()));
-
-  if (!onlyEmpty) {
-    if (!nameValid) {
-      showToast('角色「' + name + '」不在 characters.txt 中', 'error');
-    } else {
-      const failed = [];
-      if (!results.standing) failed.push('立绘（' + (results.standingError || '未匹配') + '）');
-      if (elementName && !results.element) failed.push('元素图');
-      if (!results.namecard) failed.push('名片图（字典无此角色）');
-      if (!elementName) failed.push('元素图（未选元素色）');
-      if (failed.length) showToast('未找到：' + failed.join('、'), 'error');
-      else showToast('全部匹配成功', 'success');
-    }
-    updateImgXHint();
-    mountPreview(); debouncedSave();
-  }
-}
-
-async function loadSaveFromRepo() {
-  const name = (State.data.charName || '').trim();
-  if (!name) { showToast('请先填写角色名', 'error'); return; }
-  const order = CHAR_NAME_TO_ORDER[name];
-  if (!order) { showToast('characters.txt 中找不到「' + name + '」', 'error'); return; }
-  const filename = padOrder(order) + '.' + name + '.json';
-  const url = '../../shared/saves/characters/' + filename;
-  showToast('正在查找存档…', 'info');
-  try {
-    const res = await fetch(url + '?t=' + Date.now());
-    if (!res.ok) { showToast('未找到存档「' + filename + '」', 'error'); return; }
-    const json = await res.json();
-    const ok = await showConfirm('发现存档', '是否载入「' + name + '」的存档？当前编辑内容会被覆盖。');
-    if (!ok) return;
-    await applyImportedData(json);
-    showToast('存档载入成功', 'success');
-  } catch (e) {
-    showToast('存档读取失败：' + e.message, 'error');
-  }
-}
-
-/* =========================================================================
- * 【JS 模块 9】图标库匹配
- * ========================================================================= */
-function updateImgTarget(targetId, src) {
-  const el = document.querySelector('[data-img-target="' + targetId + '"]');
-  if (el) el.src = src || placeholder('');
-}
-
-async function matchWeaponIcon(type, i, name) {
-  if (!window.ICON_LIB) return;
-  const trimmed = (name || '').trim();
-  const targetId = `w_img_${type}_${i}`;
-  const cell = State.data.weaponData[type] && State.data.weaponData[type][i];
-  if (!cell) return;
-
-  if (!trimmed) {
-    cell.img = '';
-    cell.imgManual = false;
-    updateImgTarget(targetId, '');
-    mountPreview(); debouncedSave();
-    return;
-  }
-  try {
-    const r = await ICON_LIB.fromName('weapons', trimmed);
-    cell.img = (r && r.dataURL) ? r.dataURL : '';
-    cell.imgManual = false;
-  } catch (e) {
-    cell.img = '';
-    cell.imgManual = false;
-  }
-  updateImgTarget(targetId, cell.img);
-  mountPreview(); debouncedSave();
-}
-
-async function matchArtifactIcon(i, name) {
-  if (!window.ICON_LIB) return;
-  const trimmed = (name || '').trim();
-  const targetId = `a_img_${i}`;
-  const cell = State.data.artifactData[i];
-  if (!cell) return;
-
-  if (!trimmed) {
-    cell.img = '';
-    cell.imgManual = false;
-    updateImgTarget(targetId, '');
-    mountPreview(); debouncedSave();
-    return;
-  }
-  try {
-    const r = await ICON_LIB.fromName('artifacts', trimmed);
-    cell.img = (r && r.dataURL) ? r.dataURL : '';
-    cell.imgManual = false;
-  } catch (e) {
-    cell.img = '';
-    cell.imgManual = false;
-  }
-  updateImgTarget(targetId, cell.img);
-  mountPreview(); debouncedSave();
-}
-
 async function matchArtifactDoubleIcon(i, part, name) {
-  if (!window.ICON_LIB) return;
-  const trimmed = (name || '').trim();
+  if (!window.ICON_LIB || !name || !name.trim()) return;
+  const trimmed = name.trim();
   const imgKey = part === 1 ? 'img1' : 'img2';
   const manualKey = part === 1 ? 'img1Manual' : 'img2Manual';
   const targetId = part === 1 ? `a_img1_${i}` : `a_img2_${i}`;
   const cell = State.data.artifactData[i];
   if (!cell) return;
-
-  if (!trimmed) {
-    cell[imgKey] = '';
-    cell[manualKey] = false;
-    updateImgTarget(targetId, '');
-    mountPreview(); debouncedSave();
-    return;
-  }
+  
   try {
     const r = await ICON_LIB.fromName('artifacts', trimmed);
-    cell[imgKey] = (r && r.dataURL) ? r.dataURL : '';
+    cell[imgKey] = r?.dataURL || '';
   } catch (e) { cell[imgKey] = ''; }
   cell[manualKey] = false;
-  updateImgTarget(targetId, cell[imgKey]);
-  mountPreview(); debouncedSave();
-}
-
-function setArtifactName1(i, v) { State.data.artifactData[i].name1 = v; mountPreview(); debouncedSave(); }
-function setArtifactName2(i, v) { State.data.artifactData[i].name2 = v; mountPreview(); debouncedSave(); }
-function setArtifactDisplayText(i, v) { State.data.artifactData[i].displayText = v; mountPreview(); debouncedSave(); }
-
-async function matchTeamCharIcon(ti, ci, name) {
-  if (!window.ICON_LIB) return;
-  const targetId = `t_${ti}_${ci}_img`;
-  const cell = State.data.teamData[ti]?.chars?.[ci];
-  if (!cell) return;
-
-  const matchedName = resolveCharName(name);
-  if (!matchedName) {
-    cell.img = '';
-    cell.imgManual = false;
-    updateImgTarget(targetId, '');
-    mountPreview(); debouncedSave();
-    return;
-  }
-  try {
-    const r = await ICON_LIB.fromName('characters', matchedName);
-    cell.img = (r && r.dataURL) ? r.dataURL : '';
-    cell.imgManual = false;
-  } catch (e) {
-    cell.img = '';
-    cell.imgManual = false;
-  }
-  updateImgTarget(targetId, cell.img);
-  mountPreview(); debouncedSave();
-}
-
-async function matchAltIcon(ti, ci, ai, name) {
-  if (!window.ICON_LIB) return;
-  const alt = State.data.teamData[ti]?.chars?.[ci]?.alts?.[ai];
-  if (!alt) return;
-  const targetId = `t_${ti}_${ci}_${ai}_img`;
-
-  const matchedName = resolveCharName(name);
-  if (!matchedName) {
-    alt.img = '';
-    alt.imgManual = false;
-    updateImgTarget(targetId, '');
-    mountPreview(); debouncedSave();
-    return;
-  }
-  try {
-    const r = await ICON_LIB.fromName('characters', matchedName);
-    alt.img = (r && r.dataURL) ? r.dataURL : '';
-    alt.imgManual = false;
-  } catch (e) {
-    alt.img = '';
-    alt.imgManual = false;
-  }
-  updateImgTarget(targetId, alt.img);
+  document.querySelector(`[data-img-target="${targetId}"]`)?.setAttribute('src', cell[imgKey] || placeholder(''));
   mountPreview(); debouncedSave();
 }
 
 async function matchCharAvatar(name) {
   if (!window.ICON_LIB) return;
-  var trimmed = (name || '').trim();
+  const trimmed = (name || '').trim();
   if (!trimmed || !isValidCharName(trimmed)) {
     State.data.teamCoreImg = '';
     State.data.teamCoreImgManual = false;
     resetThumb('thumbTeamCore', 'labelTeamCore', '主角色一号位头像（点击更换）');
-    mountPreview(); debouncedSave(); return;
+    mountPreview(); debouncedSave(); 
+    return;
   }
   try {
     const r = await ICON_LIB.fromName('characters', trimmed);
@@ -1163,45 +651,154 @@ async function matchCharAvatar(name) {
   }
 }
 
+async function matchStyleImages(onlyEmpty) {
+  const name = (State.data.charName || '').trim();
+  if (!name) { if (!onlyEmpty) showToast('请先填写角色名', 'error'); return; }
+  State.data.charImgDeleted = false;
+  State.data.nameBgImgDeleted = false;
+  State.data.bgImgDeleted = false;
+  if (!onlyEmpty) showToast('正在匹配样式图…', 'info');
+
+  const nameValid = isValidCharName(name);
+  const results = { standing: false, element: false, namecard: false, standingError: '' };
+  const elementName = themeToElementName();
+
+  const tasks = [];
+
+  if (!onlyEmpty || !State.data.charImg) {
+    tasks.push(async () => {
+      if (!nameValid) {
+        State.data.charImg = ''; State.data.charImgMeta = null; State.data.charImgManual = false;
+        resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
+        results.standingError = '角色清单无此名字';
+        return;
+      }
+      const artKeyWithEle = elementName ? name + '·' + elementName : '';
+      let artUrl = ART_DICT[artKeyWithEle] || ART_DICT[name] || '';
+      if (artUrl) {
+        const meta = await loadImageMeta(artUrl);
+        if (meta) {
+          State.data.charImg = artUrl;
+          State.data.charImgMeta = meta;
+          State.data.charImgManual = false;
+          updateThumb('thumbCharImg', 'labelCharImg', artUrl, '已匹配立绘');
+          results.standing = true;
+        } else {
+          State.data.charImg = ''; State.data.charImgMeta = null; State.data.charImgManual = false;
+          resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
+          results.standingError = '链接加载失败';
+        }
+      } else {
+        State.data.charImg = ''; State.data.charImgMeta = null; State.data.charImgManual = false;
+        resetThumb('thumbCharImg', 'labelCharImg', '点击上传立绘');
+        results.standingError = ART_DICT[name] === undefined && ART_DICT[artKeyWithEle] === undefined ? '字典无此角色' : '暂无立绘链接';
+      }
+    });
+  }
+
+  if (!onlyEmpty || !State.data.nameBgImg) {
+    tasks.push(async () => {
+      let elementUrl = '';
+      if (elementName) {
+        const ghUrl = '../../shared/assets/characters/element/' + elementName + '.png';
+        if (await urlExists(ghUrl)) elementUrl = ghUrl;
+      }
+      if (elementUrl) {
+        State.data.nameBgImg = elementUrl; State.data.nameBgImgMeta = null; State.data.nameBgImgManual = false;
+        updateThumb('thumbNameBg', 'labelNameBg', elementUrl, '已匹配元素图：' + elementName);
+        results.element = true;
+      } else {
+        State.data.nameBgImg = ''; State.data.nameBgImgManual = false;
+        resetThumb('thumbNameBg', 'labelNameBg', '点击上传元素图');
+      }
+    });
+  }
+
+  if (!onlyEmpty || !State.data.bgImg) {
+    tasks.push(async () => {
+      if (!nameValid) {
+        State.data.bgImg = ''; State.data.bgImgManual = false;
+        resetThumb('thumbBg', 'labelBg', '默认暗黑原力色');
+        return;
+      }
+      const namecardUrl = NAMECARD_DICT[name] || '';
+      if (namecardUrl) {
+        State.data.bgImg = namecardUrl; State.data.bgImgManual = false;
+        updateThumb('thumbBg', 'labelBg', namecardUrl, '已匹配名片图');
+        results.namecard = true;
+      } else {
+        State.data.bgImg = ''; State.data.bgImgManual = false;
+        resetThumb('thumbBg', 'labelBg', '默认暗黑原力色');
+      }
+    });
+  }
+
+  await Promise.all(tasks.map(fn => fn()));
+
+  if (!onlyEmpty) {
+    if (!nameValid) {
+      showToast('角色「' + name + '」不在 characters.txt 中', 'error');
+    } else {
+      const failed = [];
+      if (!results.standing) failed.push('立绘（' + (results.standingError || '未匹配') + '）');
+      if (elementName && !results.element) failed.push('元素图');
+      if (!results.namecard) failed.push('名片图（字典无此角色）');
+      if (!elementName) failed.push('元素图（未选元素色）');
+      if (failed.length) showToast('未找到：' + failed.join('、'), 'error');
+      else showToast('全部匹配成功', 'success');
+    }
+    updateImgXHint(); mountPreview(); debouncedSave();
+  }
+}
+
+async function loadSaveFromRepo() {
+  const name = (State.data.charName || '').trim();
+  if (!name) { showToast('请先填写角色名', 'error'); return; }
+  const order = CHAR_NAME_TO_ORDER[name];
+  if (!order) { showToast('characters.txt 中找不到「' + name + '」', 'error'); return; }
+  const filename = padOrder(order) + '.' + name + '.json';
+  const url = '../../shared/saves/characters/' + filename;
+  showToast('正在查找存档…', 'info');
+  
+  try {
+    const res = await fetch(url + '?t=' + Date.now());
+    if (!res.ok) { showToast('未找到存档「' + filename + '」', 'error'); return; }
+    const json = await res.json();
+    const ok = await showConfirm('发现存档', '是否载入「' + name + '」的存档？当前编辑内容会被覆盖。');
+    if (!ok) return;
+    await applyImportedData(json);
+    showToast('存档载入成功', 'success');
+  } catch (e) {
+    showToast('存档读取失败：' + e.message, 'error');
+  }
+}
+
 /* =========================================================================
- * 【JS 模块 10】数据归一化
+ * 【模块 8】数据归一化
  * ========================================================================= */
 function normalizeWeaponList(list) {
-  return Array.isArray(list) ? list.map(w => ({
-    name: String(w?.name ?? ''),
-    img: String(w?.img ?? ''),
-    imgManual: !!w?.imgManual
-  })) : [];
+  return Array.isArray(list) ? list.map(w => ({ name: String(w?.name ?? ''), img: String(w?.img ?? ''), imgManual: !!w?.imgManual })) : [];
 }
 function normalizeArtifactList(list) {
   return Array.isArray(list) ? list.map(a => {
     if (a?.type === 'double') {
       return {
-        type: 'double',
-        name1: String(a?.name1 ?? a?.name ?? ''),
-        name2: String(a?.name2 ?? ''),
-        displayText: String(a?.displayText ?? ''),
-        img1: String(a?.img1 ?? ''), img1Manual: !!a?.img1Manual,
-        img2: String(a?.img2 ?? ''), img2Manual: !!a?.img2Manual
+        type: 'double', name1: String(a?.name1 ?? a?.name ?? ''), name2: String(a?.name2 ?? ''), displayText: String(a?.displayText ?? ''),
+        img1: String(a?.img1 ?? ''), img1Manual: !!a?.img1Manual, img2: String(a?.img2 ?? ''), img2Manual: !!a?.img2Manual
       };
     }
     return { type: 'single', name: String(a?.name ?? ''), img: String(a?.img ?? ''), imgManual: !!a?.imgManual };
   }) : [];
 }
 function normalizeAlts(list) {
-  return Array.isArray(list) ? list.map(a => ({
-    name: String(a?.name ?? ''),
-    img: String(a?.img ?? ''),
-    imgManual: !!a?.imgManual
-  })) : [];
+  return Array.isArray(list) ? list.map(a => ({ name: String(a?.name ?? ''), img: String(a?.img ?? ''), imgManual: !!a?.imgManual })) : [];
 }
 function normalizeTeamChars(chars) {
   return Array.from({ length: 4 }, (_, i) => {
     const c = chars?.[i] || {};
     return {
       name: String(c.name ?? ''), img: String(c.img ?? ''), imgManual: !!c.imgManual,
-      emptyAltText: String(c.emptyAltText ?? '暂无备选'),
-      alts: normalizeAlts(c.alts)
+      emptyAltText: String(c.emptyAltText ?? '暂无备选'), alts: normalizeAlts(c.alts)
     };
   });
 }
@@ -1209,51 +806,33 @@ function normalizePanel(p) {
   const src = p || {};
   return {
     primaryKey: PANEL_PRIMARY_KEYS.includes(src.primaryKey) ? src.primaryKey : 'hp',
-    primaryValue: String(src.primaryValue ?? ''), cr: String(src.cr ?? ''),
-    cd: String(src.cd ?? ''), em: String(src.em ?? ''), er: String(src.er ?? '')
+    primaryValue: String(src.primaryValue ?? ''), cr: String(src.cr ?? ''), cd: String(src.cd ?? ''), em: String(src.em ?? ''), er: String(src.er ?? '')
   };
 }
 function normalizeState(data = {}) {
   return {
     ...State.data, ...data,
-    charImg: data.charImg || '', charImgMeta: data.charImgMeta || null,
-    charImgDeleted: !!data.charImgDeleted,
-    charImgManual: !!data.charImgManual,
-    bgImg: data.bgImg || '', bgImgDeleted: !!data.bgImgDeleted,
-    bgImgManual: !!data.bgImgManual,
-    nameBgImg: data.nameBgImg || '', nameBgImgMeta: data.nameBgImgMeta || null,
-    nameBgImgDeleted: !!data.nameBgImgDeleted,
-    nameBgImgManual: !!data.nameBgImgManual,
-    teamCoreImg: data.teamCoreImg || '',
-    teamCoreImgManual: !!data.teamCoreImgManual,
-    fontData: data.fontData || '',
-    fontName: data.fontName || '',
-    fontFileName: data.fontFileName || '',
+    charImg: data.charImg || '', charImgMeta: data.charImgMeta || null, charImgDeleted: !!data.charImgDeleted, charImgManual: !!data.charImgManual,
+    bgImg: data.bgImg || '', bgImgDeleted: !!data.bgImgDeleted, bgImgManual: !!data.bgImgManual,
+    nameBgImg: data.nameBgImg || '', nameBgImgMeta: data.nameBgImgMeta || null, nameBgImgDeleted: !!data.nameBgImgDeleted, nameBgImgManual: !!data.nameBgImgManual,
+    teamCoreImg: data.teamCoreImg || '', teamCoreImgManual: !!data.teamCoreImgManual,
+    fontData: data.fontData || '', fontName: data.fontName || '', fontFileName: data.fontFileName || '',
     theme: data.theme || '#939393', imgX: Number(data.imgX) || 0,
     weaponData: {
-      graduate: normalizeWeaponList(data?.weaponData?.graduate),
-      optional: normalizeWeaponList(data?.weaponData?.optional),
-      newbie: normalizeWeaponList(data?.weaponData?.newbie)
+      graduate: normalizeWeaponList(data?.weaponData?.graduate), optional: normalizeWeaponList(data?.weaponData?.optional), newbie: normalizeWeaponList(data?.weaponData?.newbie)
     },
     artifactData: normalizeArtifactList(data.artifactData),
-    constellationData: Array.from({ length: 6 }, (_, i) => ({
-      active: !!data?.constellationData?.[i]?.active,
-      desc: String(data?.constellationData?.[i]?.desc ?? '')
-    })),
+    constellationData: Array.from({ length: 6 }, (_, i) => ({ active: !!data?.constellationData?.[i]?.active, desc: String(data?.constellationData?.[i]?.desc ?? '') })),
     panel: normalizePanel(data.panel),
     teamData: Array.isArray(data.teamData) ? data.teamData.map(team => ({ ...team, chars: normalizeTeamChars(team?.chars) })) : []
   };
 }
 
 /* =========================================================================
- * 【JS 模块 11】导出 / 导入 / 清空
+ * 【模块 9】导出 / 导入
  * ========================================================================= */
-
-/* ---- 图片洗 dataURL（导出 PNG 前用）------------------------------------ */
-
 async function urlToDataURL(url) {
-  if (!url) return '';
-  if (/^data:/i.test(url)) return url;
+  if (!url || /^data:/i.test(url)) return url;
   try {
     const res = await fetch(url, { mode: 'cors' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1265,7 +844,7 @@ async function urlToDataURL(url) {
       reader.readAsDataURL(blob);
     });
   } catch (e) {
-    console.warn('[bake] 转 dataURL 失败，保留原 URL：', url, '—', e.message);
+    console.warn('[bake] 转 dataURL 失败', url, '—', e.message);
     return url;
   }
 }
@@ -1274,29 +853,27 @@ async function bakeImagesToDataURL() {
   const data = JSON.parse(JSON.stringify(State.data));
   const tasks = [];
 
-  ['charImg', 'bgImg', 'nameBgImg', 'teamCoreImg'].forEach(function (key) {
-    if (data[key]) {
-      tasks.push((async function () { data[key] = await urlToDataURL(data[key]); })());
-    }
+  ['charImg', 'bgImg', 'nameBgImg', 'teamCoreImg'].forEach(key => {
+    if (data[key]) tasks.push((async () => { data[key] = await urlToDataURL(data[key]); })());
   });
 
-  WEAPON_ORDER.forEach(function (type) {
-    (data.weaponData[type] || []).forEach(function (w) {
-      if (w.img) tasks.push((async function () { w.img = await urlToDataURL(w.img); })());
+  WEAPON_ORDER.forEach(type => {
+    (data.weaponData[type] || []).forEach(w => {
+      if (w.img) tasks.push((async () => { w.img = await urlToDataURL(w.img); })());
     });
   });
 
-  (data.artifactData || []).forEach(function (a) {
-    if (a.img) tasks.push((async function () { a.img = await urlToDataURL(a.img); })());
-    if (a.img1) tasks.push((async function () { a.img1 = await urlToDataURL(a.img1); })());
-    if (a.img2) tasks.push((async function () { a.img2 = await urlToDataURL(a.img2); })());
+  (data.artifactData || []).forEach(a => {
+    if (a.img) tasks.push((async () => { a.img = await urlToDataURL(a.img); })());
+    if (a.img1) tasks.push((async () => { a.img1 = await urlToDataURL(a.img1); })());
+    if (a.img2) tasks.push((async () => { a.img2 = await urlToDataURL(a.img2); })());
   });
 
-  (data.teamData || []).forEach(function (t) {
-    (t.chars || []).forEach(function (c) {
-      if (c.img) tasks.push((async function () { c.img = await urlToDataURL(c.img); })());
-      (c.alts || []).forEach(function (a) {
-        if (a.img) tasks.push((async function () { a.img = await urlToDataURL(a.img); })());
+  (data.teamData || []).forEach(t => {
+    (t.chars || []).forEach(c => {
+      if (c.img) tasks.push((async () => { c.img = await urlToDataURL(c.img); })());
+      (c.alts || []).forEach(a => {
+        if (a.img) tasks.push((async () => { a.img = await urlToDataURL(a.img); })());
       });
     });
   });
@@ -1305,31 +882,25 @@ async function bakeImagesToDataURL() {
   return data;
 }
 
-/* ---- 导出 -------------------------------------------------------------- */
-
 function buildExportPayload(data) {
-  var out = JSON.parse(JSON.stringify(data));
+  const out = JSON.parse(JSON.stringify(data));
   out.fontData = '';
   if (!out.charImgManual) { out.charImg = ''; out.charImgMeta = null; }
   if (!out.bgImgManual) out.bgImg = '';
   if (!out.nameBgImgManual) { out.nameBgImg = ''; out.nameBgImgMeta = null; }
   if (!out.teamCoreImgManual) out.teamCoreImg = '';
-  WEAPON_ORDER.forEach(function (type) {
-    (out.weaponData[type] || []).forEach(function (w) {
-      if (!w.imgManual) w.img = '';
-    });
+  WEAPON_ORDER.forEach(type => {
+    (out.weaponData[type] || []).forEach(w => { if (!w.imgManual) w.img = ''; });
   });
-  (out.artifactData || []).forEach(function (a) {
+  (out.artifactData || []).forEach(a => {
     if (!a.imgManual) a.img = '';
     if (!a.img1Manual) a.img1 = '';
     if (!a.img2Manual) a.img2 = '';
   });
-  (out.teamData || []).forEach(function (t) {
-    (t.chars || []).forEach(function (c) {
+  (out.teamData || []).forEach(t => {
+    (t.chars || []).forEach(c => {
       if (!c.imgManual) c.img = '';
-      (c.alts || []).forEach(function (a) {
-        if (!a.imgManual) a.img = '';
-      });
+      (c.alts || []).forEach(a => { if (!a.imgManual) a.img = ''; });
     });
   });
   return out;
@@ -1346,15 +917,11 @@ function downloadBlob(blob, filename) {
 async function exportPNG() {
   const bd = document.getElementById('exportDesktopBtn');
   const bm = document.getElementById('exportMobileBtn');
-  const btns = [
-    bd ? { el: bd, text: bd.textContent } : null,
-    bm ? { el: bm, text: bm.textContent } : null
-  ].filter(Boolean);
+  const btns = [bd ? { el: bd, text: bd.textContent } : null, bm ? { el: bm, text: bm.textContent } : null].filter(Boolean);
   btns.forEach(b => { b.el.disabled = true; b.el.textContent = '正在导出...'; });
 
   try {
     if (document.fonts) await document.fonts.ready;
-
     const baked = await bakeImagesToDataURL();
     const original = State.data;
     let svg;
@@ -1383,9 +950,7 @@ async function exportPNG() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1));
       const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
+      const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0'), d = String(now.getDate()).padStart(2, '0');
       downloadBlob(pngBlob, `${original.charName || '角色'}_${y}-${m}-${d}.png`);
       showToast('导出成功', 'success');
     } finally { URL.revokeObjectURL(url); }
@@ -1397,25 +962,20 @@ async function exportPNG() {
 }
 
 function exportConfig() {
-  var name = State.data.charName || '角色';
-  var order = CHAR_NAME_TO_ORDER[name];
-  var filename = order ? (padOrder(order) + '.' + name + '.json') : (name + '.json');
-  var payload = buildExportPayload(State.data);
-  downloadBlob(
-    new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
-    filename
-  );
+  const name = State.data.charName || '角色';
+  const order = CHAR_NAME_TO_ORDER[name];
+  const filename = order ? (padOrder(order) + '.' + name + '.json') : (name + '.json');
+  const payload = buildExportPayload(State.data);
+  downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), filename);
 }
-
-/* ---- 导入 -------------------------------------------------------------- */
 
 async function silentFromName(type, name) {
   if (!window.ICON_LIB) return '';
-  var trimmed = String(name || '').trim();
+  const trimmed = String(name || '').trim();
   if (!trimmed) return '';
   try {
-    var r = await ICON_LIB.fromName(type, trimmed);
-    return (r && r.dataURL) ? r.dataURL : '';
+    const r = await ICON_LIB.fromName(type, trimmed);
+    return r?.dataURL || '';
   } catch (e) { return ''; }
 }
 
@@ -1432,79 +992,44 @@ async function runConcurrent(tasks, limit) {
 }
 
 async function autoRematchAll() {
-  var d = State.data;
-  var tasks = [];
+  const d = State.data;
+  const tasks = [];
 
-  if (d.charName && (!d.charImg || !d.nameBgImg || !d.bgImg)) {
-    tasks.push(function () { return matchStyleImages(true); });
-  }
+  if (d.charName && (!d.charImg || !d.nameBgImg || !d.bgImg)) tasks.push(() => matchStyleImages(true));
 
-  WEAPON_ORDER.forEach(function (type) {
-    (d.weaponData[type] || []).forEach(function (w) {
-      if (w.name && !w.img) {
-        tasks.push(async function () {
-          const u = await silentFromName('weapons', w.name);
-          if (u) w.img = u;
-        });
-      }
+  WEAPON_ORDER.forEach(type => {
+    (d.weaponData[type] || []).forEach(w => {
+      if (w.name && !w.img) tasks.push(async () => { const u = await silentFromName('weapons', w.name); if (u) w.img = u; });
     });
   });
 
-  (d.artifactData || []).forEach(function (a) {
+  (d.artifactData || []).forEach(a => {
     if (a.type === 'double') {
-      if (a.name1 && !a.img1) {
-        tasks.push(async function () {
-          const u = await silentFromName('artifacts', a.name1);
-          if (u) a.img1 = u;
-        });
-      }
-      if (a.name2 && !a.img2) {
-        tasks.push(async function () {
-          const u = await silentFromName('artifacts', a.name2);
-          if (u) a.img2 = u;
-        });
-      }
+      if (a.name1 && !a.img1) tasks.push(async () => { const u = await silentFromName('artifacts', a.name1); if (u) a.img1 = u; });
+      if (a.name2 && !a.img2) tasks.push(async () => { const u = await silentFromName('artifacts', a.name2); if (u) a.img2 = u; });
     } else {
-      if (a.name && !a.img) {
-        tasks.push(async function () {
-          const u = await silentFromName('artifacts', a.name);
-          if (u) a.img = u;
-        });
-      }
+      if (a.name && !a.img) tasks.push(async () => { const u = await silentFromName('artifacts', a.name); if (u) a.img = u; });
     }
   });
 
-  (d.teamData || []).forEach(function (team) {
-    (team.chars || []).forEach(function (c, ci) {
+  (d.teamData || []).forEach(team => {
+    (team.chars || []).forEach((c, ci) => {
       if (ci === 0) return;
       if (c.name && !c.img) {
         const hit = resolveCharName(c.name);
-        if (hit) {
-          tasks.push(async function () {
-            const u = await silentFromName('characters', hit);
-            if (u) c.img = u;
-          });
-        }
+        if (hit) tasks.push(async () => { const u = await silentFromName('characters', hit); if (u) c.img = u; });
       }
-      (c.alts || []).forEach(function (alt) {
+      (c.alts || []).forEach(alt => {
         if (alt.name && !alt.img) {
           const hit = resolveCharName(alt.name);
-          if (hit) {
-            tasks.push(async function () {
-              const u = await silentFromName('characters', hit);
-              if (u) alt.img = u;
-            });
-          }
+          if (hit) tasks.push(async () => { const u = await silentFromName('characters', hit); if (u) alt.img = u; });
         }
       });
     });
   });
 
   if (d.charName && !d.teamCoreImg && isValidCharName(d.charName)) {
-    tasks.push(async function () {
-      const u = await silentFromName('characters', d.charName);
-      if (u) d.teamCoreImg = u;
-    });
+    tasks.push(async () => { const u = await silentFromName('characters', d.charName); if (u) d.teamCoreImg = u; });
   }
 
   await runConcurrent(tasks);
@@ -1513,15 +1038,9 @@ async function autoRematchAll() {
 async function reloadFontByFileName() {
   if (State.data.fontFileName) {
     if (!FONT_LIST.length) await loadFontList();
-    var idx = FONT_LIST.findIndex(x => x.file === State.data.fontFileName);
-    if (idx >= 0) {
-      await selectFont(idx);
-      return true;
-    }
-    if (State.data.fontData) {
-      await installPreviewFont();
-      return true;
-    }
+    const idx = FONT_LIST.findIndex(x => x.file === State.data.fontFileName);
+    if (idx >= 0) { await selectFont(idx); return true; }
+    if (State.data.fontData) { await installPreviewFont(); return true; }
   } else {
     if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} loadedFontFace = null; }
   }
@@ -1536,10 +1055,7 @@ async function applyImportedData(data) {
   const iconPromise = autoRematchAll();
 
   await iconPromise;
-  initThumbnails();
-  renderEditorsByKey();
-  syncInputs();
-  mountPreview();
+  initThumbnails(); renderEditorsByKey(); syncInputs(); mountPreview();
 
   await fontPromise;
   if (document.fonts) { try { await document.fonts.ready; } catch (e) {} }
@@ -1548,7 +1064,7 @@ async function applyImportedData(data) {
   debouncedSave();
 }
 
-function importConfig(input) {
+async function importConfig(input) {
   if (!input.files || !input.files[0]) return;
   const reader = new FileReader();
   reader.onload = async e => {
@@ -1579,13 +1095,14 @@ async function clearAllData() {
 }
 
 /* =========================================================================
- * 【JS 模块 12】UI 交互
+ * 【模块 10】交互逻辑
  * ========================================================================= */
 const FIELD_MAP = {
   charName: 'charName', version: 'version', date: 'date', author: 'author',
   talentA: 'talent.A', talentE: 'talent.E', talentQ: 'talent.Q',
   sandMain: 'stat.sandMain', gobMain: 'stat.gobMain', cirMain: 'stat.cirMain'
 };
+
 function setField(key, value) {
   if (key === 'imgX' && value !== '') value = Number(value) || 0;
   State.data[key] = value;
@@ -1606,16 +1123,7 @@ function setField(key, value) {
   }
   debouncedSave();
 }
-function setPanelPrimaryKey(key) {
-  State.data.panel.primaryKey = PANEL_PRIMARY_KEYS.includes(key) ? key : 'hp';
-  mountPreview(); debouncedSave();
-}
-function setPanelField(key, value) {
-  if (!State.data.panel) State.data.panel = normalizePanel(null);
-  State.data.panel[key] = value;
-  updatePreviewField(`panel.${key}`);
-  debouncedSave();
-}
+
 function canMoveWeapon(type, i, dir) {
   const list = State.data.weaponData[type];
   if (!list) return false;
@@ -1624,9 +1132,9 @@ function canMoveWeapon(type, i, dir) {
   const ti = WEAPON_ORDER.indexOf(type);
   const adjTi = ti + dir;
   if (adjTi < 0 || adjTi >= WEAPON_ORDER.length) return false;
-  const adjList = State.data.weaponData[WEAPON_ORDER[adjTi]];
-  return adjList.length < WEAPON_MAX;
+  return State.data.weaponData[WEAPON_ORDER[adjTi]].length < WEAPON_MAX;
 }
+
 function moveWeapon(type, i, dir) {
   const list = State.data.weaponData[type];
   if (!list || i < 0 || i >= list.length) return;
@@ -1640,13 +1148,12 @@ function moveWeapon(type, i, dir) {
   if (adjTi < 0 || adjTi >= WEAPON_ORDER.length) return;
   const adjType = WEAPON_ORDER[adjTi];
   const adjList = State.data.weaponData[adjType];
-  if (adjList.length >= WEAPON_MAX) {
-    return showToast(`「${WEAPON_LABELS[adjType]}」区已满 ${WEAPON_MAX} 个`, 'error');
-  }
+  if (adjList.length >= WEAPON_MAX) return showToast(`「${WEAPON_LABELS[adjType]}」区已满 ${WEAPON_MAX} 个`, 'error');
   const [item] = list.splice(i, 1);
   if (dir === 1) adjList.unshift(item); else adjList.push(item);
   renderWeaponEditor(); mountPreview(); debouncedSave();
 }
+
 function addWeapon(type) {
   const list = State.data.weaponData[type];
   if (list.length >= WEAPON_MAX) return showToast(`「${WEAPON_LABELS[type]}」区最多 ${WEAPON_MAX} 个`, 'error');
@@ -1654,8 +1161,10 @@ function addWeapon(type) {
   collapseState[`weapon_${type}`] = false;
   renderWeaponEditor(); mountPreview(); debouncedSave();
 }
+
 function removeWeapon(type, i) { State.data.weaponData[type].splice(i, 1); renderWeaponEditor(); mountPreview(); debouncedSave(); }
 function setWeaponName(type, i, v) { State.data.weaponData[type][i].name = v; updatePreviewField(`weapon.${type}.${i}.name`); debouncedSave(); }
+
 function addArtifact(type) {
   State.data.artifactData.push(type === 'double'
     ? { type, name1: '', name2: '', displayText: '', img1: '', img1Manual: false, img2: '', img2Manual: false }
@@ -1666,18 +1175,17 @@ function addArtifact(type) {
 function removeArtifact(i) { State.data.artifactData.splice(i, 1); renderArtifactEditor(); mountPreview(); debouncedSave(); }
 function moveArtifact(i, dir) { if (moveItem(State.data.artifactData, i, dir)) { renderArtifactEditor(); mountPreview(); debouncedSave(); } }
 function setArtifactName(i, v) { State.data.artifactData[i].name = v; updatePreviewField(`artifact.${i}.name`); debouncedSave(); }
+
 function addTeam() {
   if (State.data.teamData.length >= 3) return showToast('最多支持 3 组队伍', 'error');
-  State.data.teamData.push({
-    name: '',
-    chars: Array.from({ length: 4 }, () => ({ name: '', img: '', imgManual: false, alts: [], emptyAltText: '暂无备选' }))
-  });
+  State.data.teamData.push({ name: '', chars: Array.from({ length: 4 }, () => ({ name: '', img: '', imgManual: false, alts: [], emptyAltText: '暂无备选' })) });
   collapseState[`team_${State.data.teamData.length - 1}`] = false;
   renderTeamEditor(); mountPreview(); debouncedSave();
 }
 function removeTeam(ti) { State.data.teamData.splice(ti, 1); renderTeamEditor(); mountPreview(); debouncedSave(); }
 function moveTeam(ti, dir) { if (moveItem(State.data.teamData, ti, dir)) { renderTeamEditor(); mountPreview(); debouncedSave(); } }
 function setTeamName(ti, v) { State.data.teamData[ti].name = v; updatePreviewField(`team.${ti}.name`); debouncedSave(); }
+
 function moveTeamChar(ti, ci, dir) {
   const chars = State.data.teamData[ti]?.chars;
   if (!chars) return;
@@ -1687,10 +1195,10 @@ function moveTeamChar(ti, ci, dir) {
 }
 function setTeamCharName(ti, ci, v) {
   State.data.teamData[ti].chars[ci].name = v;
-  if (ci === 0) updatePreviewField('charName');
-  else updatePreviewField(`team.${ti}.char.${ci}.name`);
+  updatePreviewField(ci === 0 ? 'charName' : `team.${ti}.char.${ci}.name`);
   debouncedSave();
 }
+
 function addAlt(ti, ci) {
   const alts = State.data.teamData[ti]?.chars?.[ci]?.alts;
   if (!alts) return;
@@ -1717,70 +1225,85 @@ function setEmptyAltText(ti, ci, v) {
   State.data.teamData[ti].chars[ci].emptyAltText = v;
   mountPreview(); debouncedSave();
 }
+function setArtifactName1(i, v) { State.data.artifactData[i].name1 = v; mountPreview(); debouncedSave(); }
+function setArtifactName2(i, v) { State.data.artifactData[i].name2 = v; mountPreview(); debouncedSave(); }
+function setArtifactDisplayText(i, v) { State.data.artifactData[i].displayText = v; mountPreview(); debouncedSave(); }
+function toggleConstellation(i) {
+  if (!State.data.constellationData[i]) return;
+  State.data.constellationData[i].active = !State.data.constellationData[i].active;
+  renderConstellationEditor(); mountPreview(); debouncedSave();
+}
+function setConstellationDesc(i, value) {
+  if (!State.data.constellationData[i]) return;
+  State.data.constellationData[i].desc = value;
+  mountPreview(); debouncedSave();
+}
+function setTheme(color) {
+  State.data.theme = color;
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-dark', darken(color, 50));
+  renderColorPicker(); mountPreview(); debouncedSave();
+}
+function setPanelPrimaryKey(key) {
+  State.data.panel.primaryKey = PANEL_PRIMARY_KEYS.includes(key) ? key : 'hp';
+  mountPreview(); debouncedSave();
+}
+function setPanelField(key, value) {
+  if (!State.data.panel) State.data.panel = normalizePanel(null);
+  State.data.panel[key] = value;
+  updatePreviewField(`panel.${key}`);
+  debouncedSave();
+}
 
 /* =========================================================================
- * 【JS 模块 13】App 接口
+ * 【模块 11】App 导出接口与初始化
  * ========================================================================= */
 const App = {
-  selectTab,
-  setField, setTheme, setPanelPrimaryKey, setPanelField,
+  selectTab, setField, setTheme, setPanelPrimaryKey, setPanelField,
   toggleCollapse, toggleConstellation, setConstellationDesc,
   addWeapon, removeWeapon, moveWeapon, setWeaponName,
   addArtifact, removeArtifact, moveArtifact, setArtifactName,
-  addTeam, removeTeam, moveTeam, setTeamName,
-  moveTeamChar, setTeamCharName,
+  addTeam, removeTeam, moveTeam, setTeamName, moveTeamChar, setTeamCharName,
   addAlt, removeAlt, moveAlt, setAltName, setEmptyAltText,
   renderWeaponEditor, renderArtifactEditor, renderTeamEditor,
-  mountPreview, debouncedSave,
-  triggerUpload, uploadImageHandler,
+  mountPreview, debouncedSave, triggerUpload, uploadImageHandler,
   updateThumb, updateImgXHint, clearImage, onThumbClick,
   exportPNG, exportConfig, importConfig, clearAllData,
-  matchWeaponIcon, matchArtifactIcon, matchArtifactDoubleIcon,
-  setArtifactName1, setArtifactName2, setArtifactDisplayText,
-  matchTeamCharIcon, matchAltIcon, matchCharAvatar,
-  matchStyleImages, loadSaveFromRepo,
+  matchIconByType, matchArtifactDoubleIcon, setArtifactName1, setArtifactName2, setArtifactDisplayText,
+  matchCharAvatar, matchStyleImages, loadSaveFromRepo,
   openFontPicker, closeFontPicker, selectFont
 };
 window.App = App;
 
-/* =========================================================================
- * 【JS 模块 14】初始化
- * ========================================================================= */
 function injectFloatIcons() {
   const S = window.ICONS || { ui: {} };
-  const ex = document.getElementById('floatExportBtn');
-  const im = document.getElementById('floatImportBtn');
-  const cl = document.getElementById('floatClearBtn');
-  if (ex && S.ui) ex.innerHTML = S.ui.export || '';
-  if (im && S.ui) im.innerHTML = S.ui.import || '';
-  if (cl && S.ui) cl.innerHTML = S.ui.trash || '';
-  const delTargets = ['btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore'];
-  delTargets.forEach(id => {
+  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
+  icons.forEach(id => {
     const el = document.getElementById(id);
-    if (el && S.ui) el.innerHTML = S.ui.trash || '';
+    if (!el) return;
+    if (id.includes('Export')) el.innerHTML = S.ui.export;
+    if (id.includes('Import') || id.includes('LoadSave')) el.innerHTML = S.ui.import;
+    if (id.includes('Clear') || id.includes('Del')) el.innerHTML = S.ui.trash;
+    if (id.includes('AddTeam') || id.includes('MatchStyle')) el.innerHTML = S.ui.plus;
   });
-  const addTeamIcon = document.getElementById('btnAddTeamIcon');
-  if (addTeamIcon && S.ui) addTeamIcon.innerHTML = S.ui.plus || '';
-  const matchStyleIcon = document.getElementById('btnMatchStyleIcon');
-  if (matchStyleIcon && S.ui) matchStyleIcon.innerHTML = S.ui.plus || '';
-  const loadSaveIcon = document.getElementById('btnLoadSaveIcon');
-  if (loadSaveIcon && S.ui) loadSaveIcon.innerHTML = S.ui.import || '';
 }
+
 function bindPreviewTapToggle() {
   const frame = document.getElementById('previewFrame');
   const toolbar = document.getElementById('floatToolbar');
   if (!frame || !toolbar) return;
-  frame.addEventListener('click', () => {
-    toolbar.classList.toggle('hidden');
-  });
+  frame.addEventListener('click', () => toolbar.classList.toggle('hidden'));
 }
-async function init() {
+
+(async function init() {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   injectFloatIcons();
   tightenAllIconViewBoxes();
+  
   const saved = await loadStateFromIDB();
   State.data = normalizeState(saved || {});
+  
   await loadCharOrderTxt();
   await loadNamecards();
   await loadArtDict();
@@ -1797,23 +1320,16 @@ async function init() {
   bindPreviewTapToggle();
 
   document.body.classList.add('ready');
-}
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+})();
 
 window.addEventListener('message', function (e) {
-  if (e.data && e.type === 'theme') {
-    var html = document.documentElement;
+  if (e.data && e.data.type === 'theme') {
+    const html = document.documentElement;
     html.classList.add('theme-switching');
     html.setAttribute('data-theme', e.data.theme);
     void html.offsetHeight;
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        html.classList.remove('theme-switching');
-      });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => html.classList.remove('theme-switching'));
     });
   }
 });
