@@ -8,88 +8,72 @@
 
 ---
 
-## 2026-10-18
+## 2026-10-18 · 全站现代化重构
 
-**里程碑**：
-- **全站视觉重构（2026 现代扁平化）**：彻底抛弃 iOS 风格与原生控件，采用焦糖色/莫兰迪色系；去除全站死黑边框，统一改用极细描边与背景色阶差；重写所有原生滑块、复选框、下拉框与滚动条；底部移动端 Dock 全部改为悬浮胶囊。
-- **主页（Dashboard）**：新增 Bento 网格首页，支持图标懒加载；侧边栏加入“首页”入口；顶栏与侧边栏改为半透明毛玻璃；退出工具时直接回到网格视图，不再强刷。
-- **角色一图流**：`svg.js`/`consts.js` 移除发光滤镜与粗边框，改为玻璃态面板（一级 40% 黑，二级 20% 白，无全局遮罩）；圣遗物图标增加白色描边；恢复淡黄色标签文字；`style.css` / `app.js` 彻底去内联，修复了复杂表单的头部挤压、按钮换行问题。
-- **图标字典编辑器**：重构 UI 布局，顶部工具栏毛玻璃化；星空渐变背景从 JS 内联迁移至 CSS 变量动态注入；修复替换按钮点击失效问题；头像等比例展示。
-- **视频封面**：修复原生 `alert`/`confirm`，全面接入 Toast 与自定义弹窗；画布背景、浮动素材统一改为正方形预览图，点击直接唤出文件选择器替换。
+**核心里程碑（2026 视觉重构）**：
+- **视觉规范大换血**：彻底抛弃旧版 iOS 风格与原生控件。确立“燕麦米色/深咖灰 + 焦糖色”的莫兰迪色系；全站去除死黑边框，改用极细描边与背景色阶差；所有原生滑块、复选框、下拉框、滚动条均被深度重写。
+- **外壳与主页**：主页新增 Bento 网格首页；顶栏、侧边栏、底部 Dock 全量改为毛玻璃材质；底部移动端 Dock 升级为悬浮胶囊按钮。
+- **角色一图流**：卡片面板改为玻璃态（一级 40% 黑，二级 30% 白，无全局遮罩）；圣遗物图标增加白色描边；`app.js` 彻底消除内联样式与冗余代码，合并重复的图标匹配函数，补齐所有缺失的字体缓存与加载逻辑。
+- **图标字典编辑器**：星空渐变背景由 JS 内联迁移至 CSS 变量动态注入；重构 UI 布局，修复替换按钮点击失效与排版挤压问题。
+- **视频/合集封面**：原生 `alert`/`confirm` 全面替换为全局 Toast 与自定义 Modal；画布背景、浮动素材统一改为正方形预览图；彻底移除冗余的排版内联样式；合集封面 UI 与视频封面完全对齐。
 
-**约定更改**：
-- **绝对禁止**在 HTML 和 JS 中编写内联排版样式（`style="..."`）。
-- **绝对禁止**使用原生的 `alert()` 和 `confirm()`。
-- 复杂布局优先使用 CSS Flex/Grid，组件外观一律交由 `shared/theme.css` 控制。
+**约束与规范更改**：
+1. **绝对禁止**在 HTML 和 JS 中使用内联排版样式（`style="..."`）。
+2. **绝对禁止**使用原生的 `alert()` 和 `confirm()`。
+3. **语法必须现代化**，全面废弃 `var`，使用 `const`/`let` 和 `async/await`。杜绝老旧回调。
+4. 每次提交代码前**必须自查**，删除冗余废弃代码，确保依赖完整不报错。
 
 ---
 
 ## 2026-10-13
 
 **里程碑**：
-- 已拆工具页（主页 + character + map-editor + video-cover/video + video-cover/collection）加资源加载器：所有 CSS / JS 走时间戳 URL，加载前显示启动遮罩，解决"改动后要清缓存才生效"
-- 主页 iframe 的 src 加时间戳
-- 视频封面 / 合集封面：背景模糊机制重写。模糊图改用 canvas 预生成（原图 cover 缩放 + 边缘像素拉伸 pad + blur + 亮度），解决"模糊后边缘透明露底图"和"模糊会放大图片"
-- 图标字典编辑器：新增搜索框，按中文名 / key 实时筛选
+- 已拆工具页加资源加载器：所有 CSS / JS 走时间戳 URL，加载前显示启动遮罩。
+- 主页 iframe 的 src 加时间戳。
+- 视频封面 / 合集封面：背景模糊机制重写（canvas 预生成，解决边缘透明）。
+- 图标字典编辑器：新增搜索框，按中文名 / key 实时筛选。
 
 ---
 
 ## 2026-10-09
 
 **里程碑**：
-- 角色一图流重构：拆 `app.js` → `{consts.js, svg.js, app.js}`；导出 JSON 剥离图片、导入自动重匹配；字体加 IndexedDB 缓存；导出 PNG 前把图片洗成 dataURL
-- 角色一图流：配队区 2/3/4 号位和备选支持 `名字·元素` 输入（两级回退）；匹配完成后只刷新缩略图，不重建编辑器
-- 立绘匹配 key 从 `名字（元素）` 改为 `名字·元素`
-- 视频封面稳定化：修一批 bug（无字 / 清空还原 / 导出虚线 / 图片丢失 / 胶囊文字隐形 / 预览撑爆），图层顺序调整
-- 图标字典编辑器支持 `url` 字段；粘贴 URL 语义改为「给 key 挂源」
-- 图标系统支持单条 `url` 覆盖，优先级 `local > url > http key > 拼接`（`icon-loader.js`）
-- `ui-icons.js` export / import 方向对调
+- 角色一图流重构：拆 `app.js` → `{consts.js, svg.js, app.js}`；导出 JSON 剥离图片、导入自动重匹配；字体加 IndexedDB 缓存；导出 PNG 前把图片洗成 dataURL。
+- 视频封面稳定化：修一批 bug，图层顺序调整。
+- 图标字典编辑器支持 `url` 字段；粘贴 URL 语义改为「给 key 挂源」。
 
 ---
 
 ## 2026-10-08
 
 **里程碑**：
-- 拆 `tools/video-cover.html` → `tools/video-cover/{video,collection}/`
-- `shared/theme.css` 从「只有变量」扩展成「变量 + 通用控件」（22 模块）
-- 角色卡改造：横向 Tab、浮动按钮方形、立绘 / 名片图走字典
-- 图标字典编辑器：统一风格、一行布局、缩略图 lazy
-- 新增字典：`shared/data/namecards.txt`、`shared/data/character-art.txt`
-- 新增目录：`shared/assets/portrait/`
-- favicon 换成 `favicon.png`
-- 字体加载机制重写
-
-**删除**：
-- `tools/video-cover.html`
-- `shared/assets/characters/standing/`
-- `temp-namecard-check.html`
+- 拆 `tools/video-cover.html` → `tools/video-cover/{video,collection}/`。
+- `shared/theme.css` 从「只有变量」扩展成「变量 + 通用控件」（22 模块）。
+- 新增字典：`shared/data/namecards.txt`、`shared/data/character-art.txt`。
 
 ---
 
 ## 2026-10-07
 
 **里程碑**：
-- 新建 `shared/` 目录
-- 拆 `tools/character.html` → `tools/character/`，`tools/map-editor.html` → `tools/map-editor/`
-- 主页重写：支持「单工具 + 多子工具」两种形态
-- UI 图标从 Solar 换成 Phosphor
-- 字典 key 从短 ID 改为图标全名
+- 新建 `shared/` 目录。
+- 拆工具页，主页重写：支持「单工具 + 多子工具」两种形态。
+- UI 图标从 Solar 换成 Phosphor。
 
 ---
 
-## 命名规范
+## 📌 命名规范
 
-- **文件夹 / 文件名**：英文小写，多词用短横线
-- **工具拆分结构**：`tools/<name>/{index.html, style.css, app.js}`
-- **多子工具**：`tools/<name>/{subA, subB}/`，各自完整三件套
-- **文件顶部带模块导航注释**
+- **文件夹 / 文件名**：英文小写，多词用短横线。
+- **工具拆分结构**：`tools/<name>/{index.html, style.css, app.js}`。
+- **多子工具**：`tools/<name>/{subA, subB}/`，各自完整三件套。
 - **路径规则**：
   - `tools/<name>/index.html` → `../../shared/xxx`
   - `tools/<name>/<sub>/index.html` → `../../../shared/xxx`
 
 ---
 
-## 关键路径速查
+## 🗺️ 关键路径速查
 
 | 内容 | 路径 |
 |---|---|
@@ -101,56 +85,30 @@
 | 名片图字典 | `shared/data/namecards.txt` |
 | 立绘字典 | `shared/data/character-art.txt` |
 | 字体库 | `shared/fonts/` |
-| 本地立绘 | `shared/assets/portrait/` |
-| 元素图 | `shared/assets/characters/element/` |
 | 在线存档 | `shared/saves/characters/` |
-| 角色卡拆分文件 | `tools/character/{consts.js, svg.js, app.js}` |
 
 ---
 
-## 给 AI 的备忘
+## 🤖 给 AI 的备忘
 
-### 0. 定位
+> [!IMPORTANT]
+> **记忆恢复**：读完 README 和 CHANGELOG 后，简单确认即可，**等我下指令**。不要主动给方案或改代码。
 
-你是我的助手。我发 `README.md` + `CHANGELOG.md` 让你恢复记忆。
+### 修改流程
+1. **先给方案，我确认后再给代码**。
+2. 我发齐文件后，你**一次发回一个完整文件**。代码必须完整，用 4 个反引号包裹。
+3. 我**只用手机**操作，看不到 Console。如果有改动，请确保语法无误，或者告诉我怎么快速回退。
 
-读完：简单确认（一两句话）→ **等我下指令**。不要主动给方案或改代码。
-
-### 1. 修改流程
-
-- 先给方案，我确认后再给代码
-- 我**先发齐**所有相关文件 → 你**一次一个**发回完整文件
-- 代码必须完整版，不说"改哪一处"
-- 4 反引号包裹
-
-### 2. 环境
-
-- 我**只用手机**操作 GitHub 网页端
-- 我**看不到 Console**
-- 改完没效果 → 关浏览器重开 / 无痕测试
-
-### 3. 关键坑位
-
-- **导出 PNG 丢图**：blob SVG 里相对路径失效 + 外链受 CORS → 导出前把图片洗成 dataURL
-- **`imgManual`**：区分手动上传 / 字典匹配，导出 JSON 时前者保留后者剥离
-- **匹配不重建编辑器**：只更新缩略图 `src`（`data-img-target`），避免打断输入框
-- **字体**：慢是 GitHub Pages 问题，靠 IndexedDB 缓存
-- **角色名匹配**：立绘 / 名片 / 1 号位严格；2/3/4 号位 / 备选两级回退（`·` 分隔）
-- **视频封面图层**：底层 → `underMiddle=true` 素材 → 模糊层 → `underMiddle=false` 素材 → 胶囊 → 文字
-- **视频封面模糊**：用 canvas 预生成（不用 SVG `feGaussianBlur`，浏览器对 `edgeMode` 支持不稳，会导致边缘透明）
-- **缓存**：所有工具页都有资源加载器，CSS/JS 走时间戳 URL
-
-### 4. 界面规范
-
-- 优先用 `shared/theme.css` 和 `tools/character/` 里已有的类
-- 能直接用就不新增样式；内缩在 HTML 层控制
+### 关键坑位备忘
+- **导出 PNG 丢图**：导出前把图片洗成 `dataURL`。
+- **缓存**：所有工具页都有资源加载器，CSS/JS 走时间戳 URL，不要删。
+- **字体**：加载慢，靠 IndexedDB 缓存。
+- **界面规范**：所有样式优先用 `theme.css` 里的类，工具自带 `style.css` 只写布局，严禁内联。
 
 ---
 
-## 待办
+## 🚧 待办事项
 
-**（仅供 AI 了解可能的方向，不代表要立刻做）**
-
-- 拆 `tools/image-tools.html` → `tools/image-tools/{7 个子工具}/`，拆完给每个 subtool 加独立 `src` + 加资源加载器
-- 拆 `tools/chart.html` → `tools/chart/{radar,bar}/`，同上
-- `tools/tier.html` 是否拆待定，拆完同样加资源加载器
+- `tools/image-tools.html` 拆分及加资源加载器。
+- `tools/chart.html` 拆分及加资源加载器。
+- `tools/tier.html` 是否拆分待定。
