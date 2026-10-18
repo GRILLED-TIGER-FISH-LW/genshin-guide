@@ -1,11 +1,10 @@
 /* =========================================================================
- * 原神一图流生成器 · app.js (2026 现代 ES6+ 完整无缺版)
+ * 原神一图流生成器 · app.js (2026 现代 ES6+ 彻底重构修复版)
  * =========================================================================
- * 核心说明：
- * 1. 补全了字体选择器与缓存相关的全部函数（openFontPicker 等）。
- * 2. 彻底消灭老旧回调，全用 async/await。
- * 3. 将图标匹配函数合并为通用的 matchIconByType。
- * 4. 保证初始化 100% 稳定无缺失。
+ * 核心改造：
+ * 1. 彻底修复与 consts.js 重复声明 currentTab 导致的语法崩溃。
+ * 2. 彻底消灭所有 var，全面采用 const / let。
+ * 3. 补全所有必要的工具函数。
  * ========================================================================= */
 
 'use strict';
@@ -168,7 +167,7 @@ async function urlExists(url) {
 }
 
 /* =========================================================================
- * 【模块 4】字体核心逻辑 (补全缺失)
+ * 【模块 4】字体核心逻辑
  * ========================================================================= */
 async function getFontFromCache(fileName) {
   if (!fileName) return '';
@@ -480,10 +479,8 @@ function syncInputs() {
 }
 
 /* =========================================================================
- * 【模块 6】Tab 栏与编辑器渲染
+ * 【模块 6】Tab 栏与编辑器渲染 (currentTab 使用全局)
  * ========================================================================= */
-let currentTab = 'style';
-
 function renderTabBar() {
   if (!DOM.tabBar) return;
   DOM.tabBar.innerHTML = TAB_DEFS.map(t =>
@@ -1600,7 +1597,7 @@ function bindPreviewTapToggle() {
   renderEditorsByKey();
   renderTabBar();
   mountPreview();
-  selectTab(currentTab);
+  selectTab(currentTab); // 使用 consts.js 中的全局变量
   bindPreviewTapToggle();
 
   document.body.classList.add('ready');
