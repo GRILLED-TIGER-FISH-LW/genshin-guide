@@ -2,10 +2,10 @@
  * 原神一图流生成器 · app.js (2026 现代 ES6+ 完整无缺版)
  * =========================================================================
  * 核心说明：
- * 1. 补全了误删的数据字典加载、字体加载、名字回退匹配等基础函数。
- * 2. 彻底消灭所有老旧回调，全用 async/await。
- * 3. 将四个图标匹配函数合并为通用的 matchIconByType。
- * 4. 消除全局 DOM 乱查，保证初始化 100% 稳定。
+ * 1. 补全了字体选择器与缓存相关的全部函数（openFontPicker 等）。
+ * 2. 彻底消灭老旧回调，全用 async/await。
+ * 3. 将图标匹配函数合并为通用的 matchIconByType。
+ * 4. 保证初始化 100% 稳定无缺失。
  * ========================================================================= */
 
 'use strict';
@@ -167,6 +167,47 @@ async function urlExists(url) {
   }
 }
 
+/* =========================================================================
+ * 【模块 4】字体核心逻辑 (补全缺失)
+ * ========================================================================= */
+async function getFontFromCache(fileName) {
+  if (!fileName) return '';
+  try {
+    const db = await openDatabase();
+    return await new Promise(resolve => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).get(FONT_CACHE_PREFIX + fileName);
+      req.onsuccess = () => resolve(req.result || '');
+      req.onerror = () => resolve('');
+    });
+  } catch (e) { return ''; }
+}
+
+async function putFontToCache(fileName, dataURL) {
+  if (!fileName || !dataURL) return;
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(dataURL, FONT_CACHE_PREFIX + fileName);
+  } catch (e) {}
+}
+
+async function clearFontCache() {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (String(cursor.key).indexOf(FONT_CACHE_PREFIX) === 0) cursor.delete();
+        cursor.continue();
+      }
+    };
+  } catch (e) {}
+}
+
 async function installPreviewFont() {
   if (!State.data.fontData || !window.FontFace) return false;
   try {
@@ -194,24 +235,135 @@ async function installPreviewFont() {
   }
 }
 
-async function clearFontCache() {
+function openFontPicker() {
+  if (fontSheetOpen) return;
+  fontSheetOpen = true;
+  if (!DOM.fontSheetList) return;
+  
+  const curFile = State.data.fontFileName;
+  let html = '<button type="button" class="tab-sheet-item ' + (curFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
+    '<span>默认系统字体</span>' +
+    '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+  '</button>';
+  FONT_LIST.forEach((f, i) => {
+    const isAct = curFile === f.file;
+    html += '<button type="button" class="tab-sheet-item ' + (isAct ? 'active' : '') + '" onclick="App.selectFont(' + i + ')">' +
+      '<span>' + esc(f.name) + '</span>' +
+      '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+    '</button>';
+  });
+  DOM.fontSheetList.innerHTML = html;
+  DOM.fontSheetBackdrop.classList.add('show');
+  DOM.fontSheet.classList.add('show');
+}
+
+function closeFontPicker() {
+  if (!fontSheetOpen) return;
+  fontSheetOpen = false;
+  DOM.fontSheetBackdrop.classList.remove('show');
+  DOM.fontSheet.classList.remove('show');
+}
+
+async function selectFont(index) {
+  closeFontPicker();
+  const labelEl = document.getElementById('labelCustomFont');
+
+  if (index === -1) {
+    State.data.fontData = ''; State.data.fontFileName = ''; State.data.fontName = '';
+    if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} loadedFontFace = null; }
+    if (labelEl) labelEl.textContent = '默认标准字体';
+    mountPreview(); debouncedSave();
+    return;
+  }
+
+  const f = FONT_LIST[index];
+  if (!f) return;
+  if (State.data.fontFileName === f.file && State.data.fontData) {
+    if (labelEl) labelEl.textContent = '当前：' + f.name;
+    return;
+  }
+
+  if (labelEl) labelEl.textContent = `[1/3] 正在检查本地缓存...`;
+  const cached = await getFontFromCache(f.file);
+  if (cached) {
+    if (labelEl) labelEl.textContent = `[2/3] 命中缓存，正在注入...`;
+    State.data.fontData = cached;
+    State.data.fontFileName = f.file;
+    State.data.fontName = f.name;
+    await installPreviewFont();
+    if (labelEl) labelEl.textContent = '当前：' + f.name;
+    mountPreview(); debouncedSave();
+    return;
+  }
+
   try {
-    const db = await openDatabase();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.openCursor();
-    req.onsuccess = (e) => {
-      const cursor = e.target.result;
-      if (cursor) {
-        if (String(cursor.key).indexOf(FONT_CACHE_PREFIX) === 0) cursor.delete();
-        cursor.continue();
-      }
-    };
-  } catch (e) {}
+    if (labelEl) labelEl.textContent = `[1/3] 正在下载二进制流...`;
+    let res;
+    try {
+      res = await fetch('../../shared/fonts/' + encodeURIComponent(f.file));
+    } catch (netErr) {
+      throw new Error(`跨域或网络受阻 (${netErr.message})`);
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} 文件未找到`);
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      throw new Error('服务器返回网页而非字体(可能是404)');
+    }
+
+    const buf = await res.arrayBuffer();
+
+    if (labelEl) labelEl.textContent = `[2/3] 正在注入字体渲染引擎...`;
+    try {
+      const ff = new FontFace(f.name, buf);
+      const loaded = await ff.load();
+      if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch(e){} }
+      document.fonts.add(loaded);
+      loadedFontFace = loaded;
+    } catch (fontErr) {
+      throw new Error(`该格式无法识别或文件损坏 (${fontErr.message || 'Font Engine Refused'})`);
+    }
+
+    if (labelEl) labelEl.textContent = `[3/3] 正在固化存档数据...`;
+
+    let ext = f.file.split('.').pop().toLowerCase();
+    let mime = 'font/ttf';
+    if (ext === 'otf') mime = 'font/otf';
+    else if (ext === 'woff2') mime = 'font/woff2';
+    else if (ext === 'woff') mime = 'font/woff';
+
+    const blob = new Blob([buf], { type: mime });
+    const dataURL = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('数据过大序列化失败'));
+      reader.readAsDataURL(blob);
+    });
+
+    State.data.fontData = dataURL;
+    State.data.fontFileName = f.file;
+    State.data.fontName = f.name;
+
+    await putFontToCache(f.file, dataURL);
+
+    if (labelEl) labelEl.textContent = '当前：' + f.name;
+    mountPreview(); debouncedSave();
+
+  } catch (err) {
+    console.error(`[字体加载失败] ${f.name}:`, err);
+    if (labelEl) labelEl.textContent = `异常卡住: ${err.message}`;
+    showToast(`字体 [${f.name}] 加载失败: ${err.message}`, 'error');
+
+    State.data.fontData = '';
+    State.data.fontFileName = '';
+    State.data.fontName = '';
+    debouncedSave();
+  }
 }
 
 /* =========================================================================
- * 【模块 4】预览挂载与增量更新
+ * 【模块 5】预览挂载与增量更新
  * ========================================================================= */
 let previewSvgEl = null;
 const previewIndex = new Map();
@@ -328,7 +480,7 @@ function syncInputs() {
 }
 
 /* =========================================================================
- * 【模块 5】Tab 栏与编辑器渲染
+ * 【模块 6】Tab 栏与编辑器渲染
  * ========================================================================= */
 let currentTab = 'style';
 
@@ -585,7 +737,7 @@ function renderEditorsByKey() {
 }
 
 /* =========================================================================
- * 【模块 6】上传与缩略图
+ * 【模块 7】上传与缩略图
  * ========================================================================= */
 const IMAGE_WARN_SIZE = 15 * 1024 * 1024;
 
@@ -681,7 +833,7 @@ function updateImgXHint() {
 }
 
 /* =========================================================================
- * 【模块 7】核心匹配逻辑 (高度封装)
+ * 【模块 8】核心匹配逻辑 (高度封装)
  * ========================================================================= */
 async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
   if (!window.ICON_LIB || !name || !name.trim()) return;
@@ -907,7 +1059,7 @@ async function loadSaveFromRepo() {
 }
 
 /* =========================================================================
- * 【模块 8】数据归一化
+ * 【模块 9】数据归一化
  * ========================================================================= */
 function normalizeWeaponList(list) {
   return Array.isArray(list) ? list.map(w => ({ name: String(w?.name ?? ''), img: String(w?.img ?? ''), imgManual: !!w?.imgManual })) : [];
@@ -962,7 +1114,7 @@ function normalizeState(data = {}) {
 }
 
 /* =========================================================================
- * 【模块 9】导出 / 导入
+ * 【模块 10】导出 / 导入
  * ========================================================================= */
 async function urlToDataURL(url) {
   if (!url || /^data:/i.test(url)) return url;
@@ -1227,7 +1379,7 @@ async function clearAllData() {
 }
 
 /* =========================================================================
- * 【模块 10】交互逻辑
+ * 【模块 11】交互逻辑
  * ========================================================================= */
 const FIELD_MAP = {
   charName: 'charName', version: 'version', date: 'date', author: 'author',
@@ -1388,7 +1540,7 @@ function setPanelField(key, value) {
 }
 
 /* =========================================================================
- * 【模块 11】App 导出接口与初始化
+ * 【模块 12】App 导出接口与初始化
  * ========================================================================= */
 const App = {
   selectTab, setField, setTheme, setPanelPrimaryKey, setPanelField,
