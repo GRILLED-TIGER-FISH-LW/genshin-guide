@@ -45,12 +45,6 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-#guideTypeSeg {
-  background: var(--bg-hover);
-  border-color: var(--border-subtle);
-}
-.seg-control .seg-btn { flex: 1; }
-
 /* 浮动素材卡片 */
 .custom-head {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
