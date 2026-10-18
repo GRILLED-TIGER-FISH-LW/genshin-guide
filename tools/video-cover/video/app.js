@@ -221,7 +221,6 @@ function injectIcons() {
     up: upIcon,
     down: '<span class="icon-flip-y">' + upIcon + '</span>',
     font: ICONS.ui.import || '',
-    // 替换为你找的参考线图标
     guides: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path fill="currentColor" d="M152 40a8 8 0 0 1-8 8h-32a8 8 0 0 1 0-16h32a8 8 0 0 1 8 8m-8 168h-32a8 8 0 0 0 0 16h32a8 8 0 0 0 0-16m64-176h-24a8 8 0 0 0 0 16h24v24a8 8 0 0 0 16 0V48a16 16 0 0 0-16-16m8 72a8 8 0 0 0-8 8v32a8 8 0 0 0 16 0v-32a8 8 0 0 0-8-8m0 72a8 8 0 0 0-8 8v24h-24a8 8 0 0 0 0 16h24a16 16 0 0 0 16-16v-24a8 8 0 0 0-8-8M40 152a8 8 0 0 0 8-8v-32a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 56H48v-24a8 8 0 0 0-16 0v24a16 16 0 0 0 16 16h24a8 8 0 0 0 0-16m0-176H48a16 16 0 0 0-16 16v24a8 8 0 0 0 16 0V48h24a8 8 0 0 0 0-16"/></svg>'
   };
   document.querySelectorAll('[data-icon]').forEach(el => {
@@ -517,19 +516,16 @@ function updateFieldText(field, text) {
 function applyModeUI() {
   const type = state.guideType;
 
-  // 独立面板的显示隐藏
   const cp = document.getElementById('characterPanel');
   const csp = document.getElementById('customPanel');
   if (cp) cp.classList.toggle('hidden', type !== 'character');
   if (csp) csp.classList.toggle('hidden', type !== 'custom');
 
-  // Tab 栏高亮
   const btns = document.querySelectorAll('.tab-bar .tab-btn');
   btns.forEach(b => {
     b.classList.toggle('active', b.dataset.type === type);
   });
 
-  // 其他段落显隐
   const sub1SizeRow = document.getElementById('sub1SizeRow');
   const sub2SizeRow = document.getElementById('sub2SizeRow');
   if (sub1SizeRow) sub1SizeRow.classList.toggle('hidden', type !== 'custom');
@@ -540,7 +536,6 @@ function applyModeUI() {
   if (mainSection) mainSection.classList.toggle('hidden', type !== 'custom');
   if (capSection) capSection.classList.toggle('hidden', type !== 'custom');
 
-  // 标签文字
   const sub1Label = document.getElementById('sub1Label');
   const sub2Label = document.getElementById('sub2Label');
   if (sub1Label) {
@@ -766,7 +761,6 @@ function addFloat() {
 function renderFloatList() {
   const el = document.getElementById('floatList');
   if (!el) return;
-  // 【核心修改】如果没有素材，直接清空，不再显示"暂无素材"废话
   if (!state.floatImg.length) {
     el.innerHTML = '';
     return;
