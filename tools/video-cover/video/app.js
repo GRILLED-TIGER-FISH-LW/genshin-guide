@@ -521,10 +521,10 @@ function applyModeUI() {
   if (cp) cp.classList.toggle('hidden', type !== 'character');
   if (csp) csp.classList.toggle('hidden', type !== 'custom');
 
-  const btns = document.querySelectorAll('#guideTypeSeg .seg-btn');
-  btns.forEach((b, i) => {
-    const t = i === 0 ? 'character' : i === 1 ? 'boss' : 'custom';
-    b.classList.toggle('active', t === type);
+  // 使用最新的 tab-btn 判断逻辑
+  const btns = document.querySelectorAll('#guideTypeSeg .tab-btn');
+  btns.forEach(b => {
+    b.classList.toggle('active', b.dataset.type === type);
   });
 
   const sub1SizeRow = document.getElementById('sub1SizeRow');
@@ -771,14 +771,12 @@ function renderFloatList() {
     <div class="float-item">
       <div class="float-item-head">
         <div class="float-item-head-thumb">
-          <!-- 改为点击图片触发上传 -->
           <img class="float-thumb" src="${o.url}" alt="" onclick="App.triggerReplaceFloat('${o.id}')" title="点击更换图片">
           <span class="float-thumb-meta">${o.w}×${o.h}</span>
         </div>
         <div class="float-item-head-actions">
           <button class="btn-xs" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
           <button class="btn-xs" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
-          <!-- 删除了多余的 label 按钮 -->
           <button class="btn-xs btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
         </div>
       </div>
