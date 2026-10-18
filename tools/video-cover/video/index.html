@@ -70,6 +70,7 @@
 </div>
 
 <main class="grid">
+  <!-- 字体 -->
   <section>
     <div class="ios-section-header">字体（仅作用于导出图片）</div>
     <div class="ios-group">
@@ -80,6 +81,7 @@
     </div>
   </section>
 
+  <!-- 游戏 Logo -->
   <section>
     <div class="ios-section-header">游戏 Logo</div>
     <div class="ios-group">
@@ -90,6 +92,7 @@
     </div>
   </section>
 
+  <!-- 画布背景 -->
   <section>
     <div class="ios-section-header">画布背景</div>
     <div class="ios-group">
@@ -100,14 +103,14 @@
         </div>
         <input type="file" id="bgFile" accept="image/*" class="hidden">
       </div>
-      <div class="control-item pad-10">
+      <div class="control-item row-pad">
         <div class="control-header"><span>背景亮度</span></div>
         <div class="slider-row">
           <input type="range" id="midBrightness" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)">
           <div class="num-box"><input type="number" id="midBrightnessInput" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)"><span class="unit-tag">%</span></div>
         </div>
       </div>
-      <div class="control-item pad-10">
+      <div class="control-item row-pad">
         <div class="control-header"><span>背景模糊</span></div>
         <div class="slider-row">
           <input type="range" id="midBlur" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)">
@@ -117,45 +120,45 @@
     </div>
   </section>
 
+  <!-- 攻略模式 (拆分独立) -->
   <section>
     <div class="ios-section-header">攻略模式</div>
-    <div class="ios-group">
-      <div class="pad-10">
-        <!-- 修改为和角色卡一致的 tab-bar -->
-        <div class="tab-bar" id="guideTypeSeg">
-          <button type="button" class="tab-btn active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
-          <button type="button" class="tab-btn" data-type="boss" onclick="App.setGuideType('boss')">Boss攻略</button>
-          <button type="button" class="tab-btn" data-type="custom" onclick="App.setGuideType('custom')">自定义</button>
-        </div>
-      </div>
+    <!-- Tab 栏独立在外，不放在框里 -->
+    <div class="tab-bar">
+      <button type="button" class="tab-btn active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
+      <button type="button" class="tab-btn" data-type="boss" onclick="App.setGuideType('boss')">Boss攻略</button>
+      <button type="button" class="tab-btn" data-type="custom" onclick="App.setGuideType('custom')">自定义</button>
+    </div>
 
-      <div id="characterPanel" class="pad-t-10">
-        <div class="control-item pad-10">
-          <div class="control-header"><span>立绘 X 位置</span></div>
-          <div class="slider-row">
-            <input type="range" id="characterX" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)">
-            <div class="num-box"><input type="number" id="characterXInput" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)"><span class="unit-tag">px</span></div>
-          </div>
+    <!-- 角色模式面板 (独立成框) -->
+    <div id="characterPanel" class="ios-group">
+      <div class="control-item row-pad">
+        <div class="control-header"><span>立绘 X 位置</span></div>
+        <div class="slider-row">
+          <input type="range" id="characterX" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)">
+          <div class="num-box"><input type="number" id="characterXInput" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)"><span class="unit-tag">px</span></div>
         </div>
       </div>
+    </div>
 
-      <div id="customPanel" class="hidden pad-t-10">
-        <div class="custom-head">
-          <span class="custom-head-label">浮动素材</span>
-          <button type="button" class="btn-xs ios-btn-fill" onclick="App.addFloat()">添加素材</button>
-        </div>
-        <div id="floatList" class="float-list pad-10"></div>
+    <!-- 自定义面板 (独立成框) -->
+    <div id="customPanel" class="ios-group hidden">
+      <div class="ios-row custom-head">
+        <span class="custom-head-label">浮动素材</span>
+        <button type="button" class="btn-xs ios-btn-fill" onclick="App.addFloat()">添加素材</button>
       </div>
+      <div id="floatList" class="float-list row-pad"></div>
     </div>
   </section>
 
+  <!-- 胶囊标签 -->
   <section id="capSection">
     <div class="ios-section-header">胶囊标签</div>
     <div class="ios-group">
-      <label class="ios-field pad-10">标签文字
+      <label class="ios-field row-pad">标签文字
         <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
       </label>
-      <div class="control-item pad-10">
+      <div class="control-item row-pad">
         <div class="control-header"><span>文字亮度</span></div>
         <div class="slider-row">
           <input type="range" id="capTextBrightness" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)">
@@ -165,34 +168,36 @@
     </div>
   </section>
 
+  <!-- 主标题 -->
   <section id="mainSection">
     <div class="ios-section-header">主标题</div>
     <div class="ios-group">
-      <label class="ios-field pad-10">
+      <label class="ios-field row-pad">
         <textarea id="mainTextInput" rows="2" placeholder="输入主标题（支持回车两行）" oninput="App.set('mainText', this.value)"></textarea>
       </label>
     </div>
   </section>
 
+  <!-- 副标题 -->
   <section>
     <div class="ios-section-header">副标题</div>
     <div class="ios-group">
-      <label class="ios-field pad-10">
+      <label class="ios-field row-pad">
         <span id="sub1Label">第一行</span>
         <input type="text" id="sub1Input" placeholder="第一行文字" oninput="App.onSub1Input(this.value)" onblur="App.onSub1Blur(this.value)">
       </label>
-      <label class="ios-field pad-10 hidden" id="sub1SizeRow">
+      <label class="ios-field row-pad hidden" id="sub1SizeRow">
         字号
         <select id="sub1Select" onchange="App.setSubSize(1, this.value)">
           <option value="200">小字号</option>
           <option value="250">大字号</option>
         </select>
       </label>
-      <label class="ios-field pad-10">
+      <label class="ios-field row-pad">
         <span id="sub2Label">第二行</span>
         <input type="text" id="sub2Input" placeholder="第二行文字" oninput="App.onSub2Input(this.value)" onblur="App.onSub2Blur(this.value)">
       </label>
-      <label class="ios-field pad-10 hidden" id="sub2SizeRow">
+      <label class="ios-field row-pad hidden" id="sub2SizeRow">
         字号
         <select id="sub2Select" onchange="App.setSubSize(2, this.value)">
           <option value="200">小字号</option>
