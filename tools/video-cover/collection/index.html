@@ -1,96 +1,61 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<!-- =========================================================================
-     合集封面 · index.html
-     =========================================================================
-     HTML 模块导航：
-       【HTML 模块 0】 资源加载器 + 启动遮罩
-       【HTML 模块 1】 预览区（含浮动工具栏）
-       【HTML 模块 2】 编辑表单
-       【HTML 模块 3】 底部导出按钮
-       【HTML 模块 4】 字体弹层
-     ========================================================================= -->
 <head>
-<!-- 【HTML 模块 0】资源加载器 + 启动遮罩 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#F2EFEA">
+<meta name="theme-color" content="#F4F1EA">
 <title>合集封面</title>
 
 <script>
 /* =========================================================================
- * 资源加载器
- * 目的：绕过浏览器缓存，每次打开都拉最新版。
- * 加载顺序：
- *   1. ui-icons.js + theme.css + style.css
- *   2. app.js
+ * 资源加载器 (2026 现代 ES6+ 语法)
  * ========================================================================= */
-(function () {
-  var ts = Date.now();
+(async function () {
+  const ts = Date.now();
+  const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
 
-  function withTs(url) {
-    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
-  }
+  const loadStyle = (href) => new Promise((resolve, reject) => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = withTs(href);
+    l.onload = resolve;
+    l.onerror = () => reject(new Error('加载失败：' + href));
+    document.head.appendChild(l);
+  });
 
-  function loadStyle(href) {
-    return new Promise(function (resolve, reject) {
-      var l = document.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = withTs(href);
-      l.onload = resolve;
-      l.onerror = function () { reject(new Error('加载失败：' + href)); };
-      document.head.appendChild(l);
-    });
-  }
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = withTs(src);
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('加载失败：' + src));
+    document.head.appendChild(s);
+  });
 
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = withTs(src);
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error('加载失败：' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-
-  window.__bootPromise = (async function () {
-    await Promise.all([
-      loadScript('../../../shared/ui-icons.js'),
-      loadStyle('../../../shared/theme.css'),
-      loadStyle('style.css')
-    ]);
-    await loadScript('app.js');
-  })();
+  window.__bootPromise = Promise.all([
+    loadScript('../../../shared/ui-icons.js'),
+    loadStyle('../../../shared/theme.css'),
+    loadStyle('style.css')
+  ]).then(() => loadScript('app.js'));
 })();
 </script>
 
 <style>
-  /* 启动遮罩 */
+  /* 统一使用全局变量，防止主题切换闪烁 */
   body { visibility: hidden; }
   body.ready { visibility: visible; }
   .boot-loading {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #F2EFEA;
-    color: #9C958A;
-    font-size: 13px;
-    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
+    font-size: 13px; font-family: var(--std-font, sans-serif);
     visibility: visible;
   }
-  html[data-theme="dark"] .boot-loading { background: #121212; color: #8A8279; }
   body.ready .boot-loading { display: none; }
 </style>
 </head>
 <body>
 
-<!-- 启动遮罩 -->
 <div class="boot-loading">正在载入合集封面…</div>
 
-<!-- 【HTML 模块 1】预览区（含浮动工具栏） -->
 <div class="preview-sticky">
   <div class="preview-frame" id="previewFrame">
     <div id="collectionPreview"></div>
@@ -100,18 +65,21 @@
   </div>
 </div>
 
-<!-- 【HTML 模块 2】编辑表单 -->
 <main class="grid">
   <!-- 画布 -->
   <section>
     <div class="ios-section-header">画布</div>
     <div class="ios-group">
-      <div class="ios-field" style="padding:10px 10px 0 10px;">输出分辨率</div>
-      <div class="readonly-text" style="margin:10px;">2560 × 1440（2K）</div>
-      <div class="ios-field" style="padding:0 10px 0 10px;">背景图</div>
-      <div class="file-picker" style="margin:10px;">
-        <label class="file-btn">上传<input type="file" id="collectionBgFile" accept="image/*"></label>
-        <span class="file-picker-name" id="collectionBgName">未选择文件</span>
+      <div class="ios-row">
+        <div class="font-label">输出分辨率</div>
+        <div class="readonly-text">2560 × 1440 (2K)</div>
+      </div>
+      <div class="ios-row upload-row" onclick="document.getElementById('collectionBgFile').click()">
+        <img id="collectionBgThumb" class="clickable-thumb" alt="">
+        <div class="flex-1">
+          <div class="upload-text" id="collectionBgName">点击上传背景图</div>
+        </div>
+        <input type="file" id="collectionBgFile" accept="image/*" class="hidden">
       </div>
     </div>
   </section>
@@ -131,28 +99,37 @@
   <section>
     <div class="ios-section-header">文字内容</div>
     <div class="ios-group">
-      <label class="ios-field" style="padding:10px 10px 0 10px;">主标题
+      <label class="ios-field form-pad-t">主标题
         <textarea rows="2" id="collectionTitle" placeholder="输入合集主标题" oninput="App.setCollection('title', this.value)"></textarea>
       </label>
-      <label class="ios-field" style="padding:10px;">
-        副标题
+      <label class="ios-field form-pad">副标题
         <textarea rows="2" id="collectionSubtitle" placeholder="输入合集副标题" oninput="App.setCollection('subtitle', this.value)"></textarea>
       </label>
     </div>
   </section>
 </main>
 
-<!-- 【HTML 模块 3】底部导出按钮 -->
 <div class="bottom-dock">
-  <button class="export-btn-main" onclick="App.exportCollection()">导出合集封面 PNG</button>
+  <button class="export-btn-main" onclick="App.exportCollection()">导出图片</button>
 </div>
 
-<!-- 【HTML 模块 4】字体弹层 -->
 <div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
 <div class="tab-sheet" id="fontSheet">
   <div class="tab-sheet-handle"></div>
   <div class="tab-sheet-header">选择字体</div>
   <div class="tab-sheet-list" id="fontSheetList"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">提示</div>
+    <div class="modal-message" id="modalMessage"></div>
+    <div class="modal-actions">
+      <button type="button" id="modalCancel">取消</button>
+      <button type="button" class="ios-btn-fill" id="modalConfirm">确定</button>
+    </div>
+  </div>
 </div>
 
 </body>
