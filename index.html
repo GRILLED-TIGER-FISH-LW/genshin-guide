@@ -296,6 +296,16 @@ const TOOLS = [
     src: 'tools/map-editor/index.html'
   },
   {
+    key: 'video-cover',
+    label: '封面制作',
+    icon: 'videoCover',
+    iconBold: 'videoCoverBold',
+    subtools: [
+      { key: 'video',      label: '视频封面', src: 'tools/video-cover/video/index.html' },
+      { key: 'collection', label: '合集封面', src: 'tools/video-cover/collection/index.html' }
+    ]
+  },
+  {
     key: 'image-tools',
     label: '图片处理',
     icon: 'imageTools',
@@ -309,16 +319,6 @@ const TOOLS = [
       { key: 'weapon-icon', label: '武器图标' },
       { key: 'weapon-card', label: '武器卡片' },
       { key: 'achievement', label: '成就制作' }
-    ]
-  },
-  {
-    key: 'video-cover',
-    label: '封面制作',
-    icon: 'videoCover',
-    iconBold: 'videoCoverBold',
-    subtools: [
-      { key: 'video',      label: '视频封面', src: 'tools/video-cover/video/index.html' },
-      { key: 'collection', label: '合集封面', src: 'tools/video-cover/collection/index.html' }
     ]
   },
   {
@@ -505,7 +505,6 @@ function renderHome() {
   TOOLS.forEach(tool => {
     const card = document.createElement('div');
     card.className = 'dash-card';
-    // 【关键调整】这里使用默认的 tool.icon（线框），而不是 tool.iconBold
     card.innerHTML = 
       `<div class="dash-card-icon">${ICONS.nav[tool.icon] || ''}</div>
        <div>
@@ -565,7 +564,6 @@ function goHome() {
   homeView.classList.remove('hidden');
   loadingMask.classList.remove('show');
   
-  // 清空图标，配合 CSS 的 :empty 规则，标题会完美左对齐
   navIcon.innerHTML = '';
   navText.textContent = '原神攻略工具集';
   
@@ -638,7 +636,6 @@ function updateNavTitle() {
   const tool = TOOLS.find(t => t.key === activeTool);
   if (!tool) return;
 
-  // 激活工具时，顶部导航栏使用 iconBold
   navIcon.innerHTML = (ICONS.nav && ICONS.nav[tool.iconBold]) || '';
   const subs = tool.subtools || [];
   const sub = subs.find(s => s.key === activeSubtool);
