@@ -121,10 +121,11 @@
     <div class="ios-section-header">攻略模式</div>
     <div class="ios-group">
       <div class="pad-10">
-        <div class="seg-control" id="guideTypeSeg">
-          <button type="button" class="seg-btn active" onclick="App.setGuideType('character')">角色攻略</button>
-          <button type="button" class="seg-btn" onclick="App.setGuideType('boss')">Boss攻略</button>
-          <button type="button" class="seg-btn" onclick="App.setGuideType('custom')">自定义</button>
+        <!-- 修改为和角色卡一致的 tab-bar -->
+        <div class="tab-bar" id="guideTypeSeg">
+          <button type="button" class="tab-btn active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
+          <button type="button" class="tab-btn" data-type="boss" onclick="App.setGuideType('boss')">Boss攻略</button>
+          <button type="button" class="tab-btn" data-type="custom" onclick="App.setGuideType('custom')">自定义</button>
         </div>
       </div>
 
