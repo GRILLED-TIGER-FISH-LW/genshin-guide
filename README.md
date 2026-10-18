@@ -4,8 +4,8 @@
 
 > 个人自用的原神攻略图制作工具集 · 纯前端 · 本地处理 · 不收集任何数据
 
-[![在线访问](https://img.shields.io/badge/在线访问-打开网站-5A76FC?style=flat-square\&logo=googlechrome\&logoColor=white)](https://grilled-tiger-fish-lw.github.io/genshin-guide/)
-[![最后更新](https://img.shields.io/github/last-commit/grilled-tiger-fish-lw/genshin-guide?style=flat-square\&label=最后更新\&color=5A76FC\&logo=github\&logoColor=white)](https://github.com/grilled-tiger-fish-lw/genshin-guide/commits)
+[![在线访问](https://img.shields.io/badge/在线访问-打开网站-9E6C47?style=flat-square\&logo=googlechrome\&logoColor=white)](https://grilled-tiger-fish-lw.github.io/genshin-guide/)
+[![最后更新](https://img.shields.io/github/last-commit/grilled-tiger-fish-lw/genshin-guide?style=flat-square\&label=最后更新\&color=9E6C47\&logo=github\&logoColor=white)](https://github.com/grilled-tiger-fish-lw/genshin-guide/commits)
 [![Tech Stack](https://img.shields.io/badge/Tech-Vanilla%20JS%20%7C%20HTML5-F4F1EA?style=flat-square)]()
 
 [工具列表](#tools) · [仓库结构](#structure) · [本地运行](#local) · [角色一图流](#character-tool) · [主题系统](#theme) · [更新记录](./CHANGELOG.md)
@@ -17,6 +17,7 @@
 > [!NOTE]
 > **2026 视觉重构已完成**：全站现已采用现代扁平化设计，彻底去除冗余内联样式与原生浏览器控件，统一使用半透明毛玻璃、极简边框与焦糖色系。视觉体验已全面对齐 2026 主流 Web 工具。
 
+<a id="tools" name="tools"></a>
 ## 🛠️ 工具列表
 
 主页为 Bento 网格布局，点击卡片进入工具。工具页面在 `iframe` 中运行（懒加载）。
@@ -32,6 +33,7 @@
 
 ---
 
+<a id="structure" name="structure"></a>
 ## 📁 仓库结构
 
 ```text
@@ -60,6 +62,7 @@ genshin-guide/
 
 ---
 
+<a id="local" name="local"></a>
 ## 🚀 本地运行
 
 纯静态项目，不需要构建。建议起一个本地服务器（直接用 `file://` 打开会有 CORS 限制）。
@@ -131,6 +134,17 @@ python -m http.server 8080
 2. **绝对禁止原生弹窗**：禁止使用 `alert()` / `confirm()`，统一使用 `shared/theme.css` 提供的 Toast 与自定义 Modal。
 3. **现代语法**：全面废弃 `var`，使用 `const` / `let` 和 `async/await`。精简代码，提交前必须自查冗余与缺失。
 4. **显隐控制**：交互显隐通过添加或移除 `.hidden` 类来控制，禁止直接用 JS 修改 `display`。
+
+---
+
+<a id="notes" name="notes"></a>
+## 📌 备注与致谢
+
+- **中文名查询**：[Project Amber](https://gi.yatta.moe)
+- **本地数据**：所有编辑数据存在浏览器本地（IndexedDB），字体也缓存一份。
+- **UI 图标**：[Phosphor Icons](https://yesicon.app/zh-Hans/ph)
+- **元素 / 圣遗物图标**：[iconfont · 原神图标库](https://www.iconfont.cn/collections/detail?cid=34264)（作者：SwordMasterJS）
+- **favicon**：AI 生成（豆包），工具箱 + 游戏手柄图标。
 
 ---
 
