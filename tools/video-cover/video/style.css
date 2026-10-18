@@ -1,5 +1,5 @@
 /* =========================================================================
- * 视频封面 · style.css (2026 现代扁平间距重构版)
+ * 视频封面 · style.css (2026 现代扁平 - 极致精简版)
  * ========================================================================= */
 
 body {
@@ -7,13 +7,29 @@ body {
   overflow-x: hidden;
 }
 
-/* 基础工具类 */
+/* 全局工具类 */
 .hidden { display: none !important; }
 .flex-1 { flex: 1; min-width: 0; }
 
-/* 统一间距类，与角色卡完全保持一致 */
+/* 表单容器 */
+.grid {
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  padding: 14px; 
+  max-width: 900px; 
+  margin: 0 auto; 
+  width: 100%;
+}
+/* 确保所有区块间距一致 */
+.grid > section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 统一间距类 */
 .row-pad { padding: 12px; }
-.grid { display: flex; flex-direction: column; gap: 12px; padding: 14px; max-width: 900px; margin: 0 auto; width: 100%; }
 
 /* 表单文字 */
 .upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
@@ -38,7 +54,10 @@ body {
 #svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
 /* 浮动素材头部 */
-.custom-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.custom-head { 
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; 
+  padding: 12px 12px 0 12px; /* 顶部留出 padding，下方由列表填补 */
+}
 .custom-head-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 .float-list { display: flex; flex-direction: column; gap: 12px; }
 
