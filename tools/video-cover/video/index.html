@@ -70,7 +70,6 @@
 </div>
 
 <main class="grid">
-  <!-- 字体 -->
   <section>
     <div class="ios-section-header">字体（仅作用于导出图片）</div>
     <div class="ios-group">
@@ -81,7 +80,6 @@
     </div>
   </section>
 
-  <!-- 游戏 Logo -->
   <section>
     <div class="ios-section-header">游戏 Logo</div>
     <div class="ios-group">
@@ -92,7 +90,6 @@
     </div>
   </section>
 
-  <!-- 画布背景 -->
   <section>
     <div class="ios-section-header">画布背景</div>
     <div class="ios-group">
@@ -120,17 +117,14 @@
     </div>
   </section>
 
-  <!-- 攻略模式 (拆分独立) -->
   <section>
     <div class="ios-section-header">攻略模式</div>
-    <!-- Tab 栏独立在外，不放在框里 -->
     <div class="tab-bar">
       <button type="button" class="tab-btn active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
       <button type="button" class="tab-btn" data-type="boss" onclick="App.setGuideType('boss')">Boss攻略</button>
       <button type="button" class="tab-btn" data-type="custom" onclick="App.setGuideType('custom')">自定义</button>
     </div>
 
-    <!-- 角色模式面板 (独立成框) -->
     <div id="characterPanel" class="ios-group">
       <div class="control-item row-pad">
         <div class="control-header"><span>立绘 X 位置</span></div>
@@ -141,7 +135,6 @@
       </div>
     </div>
 
-    <!-- 自定义面板 (独立成框) -->
     <div id="customPanel" class="ios-group hidden">
       <div class="ios-row custom-head">
         <span class="custom-head-label">浮动素材</span>
@@ -151,7 +144,6 @@
     </div>
   </section>
 
-  <!-- 胶囊标签 -->
   <section id="capSection">
     <div class="ios-section-header">胶囊标签</div>
     <div class="ios-group">
@@ -168,7 +160,6 @@
     </div>
   </section>
 
-  <!-- 主标题 -->
   <section id="mainSection">
     <div class="ios-section-header">主标题</div>
     <div class="ios-group">
@@ -178,7 +169,6 @@
     </div>
   </section>
 
-  <!-- 副标题 -->
   <section>
     <div class="ios-section-header">副标题</div>
     <div class="ios-group">
