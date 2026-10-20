@@ -5,6 +5,8 @@
  * 1. 彻底修复与 consts.js 重复声明 currentTab 导致的语法崩溃。
  * 2. 彻底消灭所有 var，全面采用 const / let。
  * 3. 补全所有必要的工具函数。
+ * 4. 修复 loadArtDict 相对路径多退一层导致沃雅妮莎/旅行者立绘 404。
+ * 5. 清除所有内联样式，显隐统一走 .hidden；动态色走 CSS 变量。
  * ========================================================================= */
 
 'use strict';
@@ -112,11 +114,7 @@ async function loadArtDict() {
       if (!line || line.startsWith('#')) return;
       const m = line.match(/^(\d+)\s+(\S+)\s*(.*)$/);
       if (!m) return;
-      let url = (m[3] || '').trim();
-      if (url.startsWith('../../shared/')) {
-        url = '../../../shared/' + url.slice('../../shared/'.length);
-      }
-      ART_DICT[m[2]] = url;
+      ART_DICT[m[2]] = (m[3] || '').trim();
     });
   } catch (e) { console.warn('character-art.txt 加载失败', e); }
 }
@@ -238,7 +236,7 @@ function openFontPicker() {
   if (fontSheetOpen) return;
   fontSheetOpen = true;
   if (!DOM.fontSheetList) return;
-  
+
   const curFile = State.data.fontFileName;
   let html = '<button type="button" class="tab-sheet-item ' + (curFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
     '<span>默认系统字体</span>' +
@@ -299,7 +297,7 @@ async function selectFont(index) {
     if (labelEl) labelEl.textContent = `[1/3] 正在下载二进制流...`;
     let res;
     try {
-      res = await fetch('../../shared/fonts/' + encodeURIComponent(f.file));
+      res = await fetch('../../shared/fonts/' + encodeURIComponent(f.file) + '?t=' + Date.now());
     } catch (netErr) {
       throw new Error(`跨域或网络受阻 (${netErr.message})`);
     }
@@ -511,7 +509,7 @@ function toggleCollapse(key) {
     if (txt) txt.textContent = collapsed ? '展开' : '收起';
   });
   document.querySelectorAll('[data-collapse-content="' + key + '"]').forEach(el => {
-    el.style.display = collapsed ? 'none' : '';
+    el.classList.toggle('hidden', collapsed);
   });
 }
 function isCollapsed(key) { return !!collapseState[key]; }
@@ -522,11 +520,14 @@ function renderColorPicker() {
   el.innerHTML = elementColors.map(([name, color, iconKey]) => {
     const isMatch = (State.data.theme || '').toLowerCase() === color.toLowerCase();
     const icon = ELEMENT_ICONS[iconKey] || '';
-    return `<div class="swatch-btn ${isMatch ? 'active' : ''}" onclick="App.setTheme('${color}')" style="color:${color};">
+    return `<div class="swatch-btn ${isMatch ? 'active' : ''}" data-color="${color}" onclick="App.setTheme('${color}')">
       <span class="swatch-icon-wrap">${icon}</span>
       <span class="swatch-name">${name}</span>
     </div>`;
   }).join('');
+  el.querySelectorAll('.swatch-btn').forEach(btn => {
+    btn.style.setProperty('--swatch-color', btn.dataset.color);
+  });
 }
 
 function renderConstellationEditor() {
@@ -563,7 +564,7 @@ function renderWeaponEditor() {
         <div class="item-row">
           <img src="${w.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
           <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchIconByType('weapons','${type}',${i},this.value)" class="flex-1" />
-          <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.weaponData['${type}'][${i}].img = v; State.data.weaponData['${type}'][${i}].imgManual = true; App.renderWeaponEditor(); App.mountPreview(); App.debouncedSave(); })" />
+          <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.weaponData['${type}'][${i}].img = v; State.data.weaponData['${type}'][${i}].imgManual = true; App.renderWeaponEditor(); App.mountPreview(); App.debouncedSave(); })" />
         </div>
       </div>`;
     }).join('');
@@ -577,7 +578,7 @@ function renderWeaponEditor() {
           </button>
         </div>
       </div>
-      <div data-collapse-content="${key}" class="group-content flex-col">
+      <div data-collapse-content="${key}" class="group-content flex-col ${collapsed ? 'hidden' : ''}">
         ${list || '<div class="empty-tip">暂无配置</div>'}
       </div>
     </div>`;
@@ -600,7 +601,7 @@ function renderArtifactEditor() {
   }
   const editorEl = document.getElementById('artifactEditor');
   if (!editorEl) return;
-  editorEl.style.display = isSectionCollapsed ? 'none' : 'flex';
+  editorEl.classList.toggle('hidden', isSectionCollapsed);
   editorEl.innerHTML = State.data.artifactData.map((a, i) => {
     if (a.type === 'double') {
       const t1 = `a_img1_${i}`, t2 = `a_img2_${i}`;
@@ -618,12 +619,12 @@ function renderArtifactEditor() {
           <div class="artifact-dual-item">
             <img src="${a.img1 || placeholder('')}" class="clickable-thumb" data-img-target="${t1}" onclick="App.triggerUpload('${t1}')" alt="" />
             <input type="text" value="${esc(a.name1)}" placeholder="圣遗物1" oninput="App.setArtifactName1(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},1,this.value)" class="flex-1" />
-            <input type="file" id="${t1}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img1 = v; State.data.artifactData[${i}].img1Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
+            <input type="file" id="${t1}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img1 = v; State.data.artifactData[${i}].img1Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
           <div class="artifact-dual-item">
             <img src="${a.img2 || placeholder('')}" class="clickable-thumb" data-img-target="${t2}" onclick="App.triggerUpload('${t2}')" alt="" />
             <input type="text" value="${esc(a.name2)}" placeholder="圣遗物2" oninput="App.setArtifactName2(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},2,this.value)" class="flex-1" />
-            <input type="file" id="${t2}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img2 = v; State.data.artifactData[${i}].img2Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
+            <input type="file" id="${t2}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img2 = v; State.data.artifactData[${i}].img2Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
         </div>
       </div>`;
@@ -641,7 +642,7 @@ function renderArtifactEditor() {
       <div class="item-row">
         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
         <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchIconByType('artifacts','${i}',null,this.value)" class="flex-1" />
-        <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img = v; State.data.artifactData[${i}].imgManual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
+        <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img = v; State.data.artifactData[${i}].imgManual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
       </div>
     </div>`;
   }).join('') || '<div class="empty-tip">暂无圣遗物</div>';
@@ -665,7 +666,7 @@ function renderTeamEditor() {
           <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}删除</button>
         </div>
       </div>
-      <div data-collapse-content="${teamKey}" class="group-content">
+      <div data-collapse-content="${teamKey}" class="group-content ${teamCollapsed ? 'hidden' : ''}">
         <input type="text" value="${esc(team.name)}" oninput="App.setTeamName(${ti},this.value)" placeholder="队伍名称" />
         <div class="flex-col">
           ${team.chars.slice(1, 4).map((c, idx) => {
@@ -684,11 +685,11 @@ function renderTeamEditor() {
                   </button>
                 </div>
               </div>
-              <div data-collapse-content="${charKey}" class="group-content">
+              <div data-collapse-content="${charKey}" class="group-content ${charCollapsed ? 'hidden' : ''}">
                 <div class="item-row">
                   <img src="${c.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
                   <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchIconByType('characters',${ti},${ci},this.value)" class="flex-1" />
-                  <input type="file" id="${targetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].img = v; State.data.teamData[${ti}].chars[${ci}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
+                  <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].img = v; State.data.teamData[${ti}].chars[${ci}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                 </div>
                 <div class="alt-list-wrap">
                   <div class="alt-header">
@@ -710,7 +711,7 @@ function renderTeamEditor() {
                       <div class="item-row">
                         <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
                         <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchIconByType('characters_alt',${ti},${ci},this.value,${ai})" class="flex-1" />
-                        <input type="file" id="${altTargetId}" accept="image/*" style="display:none" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
+                        <input type="file" id="${altTargetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                       </div>
                     </div>`;
                   }).join('')}
@@ -795,7 +796,7 @@ function triggerUpload(id) { document.getElementById(id)?.click(); }
 async function uploadImageHandler(input, setter) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
-  
+
   if (file.size > IMAGE_WARN_SIZE) {
     const ok = await showConfirm('图片较大', `该图片 ${formatBytes(file.size)}，可能影响保存速度。是否继续？`);
     if (!ok) {
@@ -803,14 +804,14 @@ async function uploadImageHandler(input, setter) {
       return;
     }
   }
-  
+
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
-    img.onload = () => { 
-      setter(e.target.result, img.width, img.height); 
-      mountPreview(); 
-      debouncedSave(); 
+    img.onload = () => {
+      setter(e.target.result, img.width, img.height);
+      mountPreview();
+      debouncedSave();
     };
     img.src = e.target.result;
   };
@@ -835,7 +836,7 @@ function updateImgXHint() {
 async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
   if (!window.ICON_LIB || !name || !name.trim()) return;
   const trimmed = name.trim();
-  
+
   if (type === 'weapons') {
     const cell = State.data.weaponData[arg1]?.[arg2];
     if (!cell) return;
@@ -845,7 +846,7 @@ async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
     } catch (e) { cell.img = ''; }
     cell.imgManual = false;
     document.querySelector(`[data-img-target="w_img_${arg1}_${arg2}"]`)?.setAttribute('src', cell.img || placeholder(''));
-  } 
+  }
   else if (type === 'artifacts') {
     const cell = State.data.artifactData[arg1];
     if (!cell) return;
@@ -880,8 +881,8 @@ async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
     cell.imgManual = false;
     document.querySelector(`[data-img-target="t_${arg1}_${arg2}_${altIndex}_img"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
-  
-  mountPreview(); 
+
+  mountPreview();
   debouncedSave();
 }
 
@@ -893,7 +894,7 @@ async function matchArtifactDoubleIcon(i, part, name) {
   const targetId = part === 1 ? `a_img1_${i}` : `a_img2_${i}`;
   const cell = State.data.artifactData[i];
   if (!cell) return;
-  
+
   try {
     const r = await ICON_LIB.fromName('artifacts', trimmed);
     cell[imgKey] = r?.dataURL || '';
@@ -910,7 +911,7 @@ async function matchCharAvatar(name) {
     State.data.teamCoreImg = '';
     State.data.teamCoreImgManual = false;
     resetThumb('thumbTeamCore', 'labelTeamCore', '主角色一号位头像（点击更换）');
-    mountPreview(); debouncedSave(); 
+    mountPreview(); debouncedSave();
     return;
   }
   try {
@@ -956,7 +957,7 @@ async function matchStyleImages(onlyEmpty) {
         return;
       }
       const artKeyWithEle = elementName ? name + '·' + elementName : '';
-      let artUrl = ART_DICT[artKeyWithEle] || ART_DICT[name] || '';
+      const artUrl = ART_DICT[artKeyWithEle] || ART_DICT[name] || '';
       if (artUrl) {
         const meta = await loadImageMeta(artUrl);
         if (meta) {
@@ -1041,7 +1042,7 @@ async function loadSaveFromRepo() {
   const filename = padOrder(order) + '.' + name + '.json';
   const url = '../../shared/saves/characters/' + filename;
   showToast('正在查找存档…', 'info');
-  
+
   try {
     const res = await fetch(url + '?t=' + Date.now());
     if (!res.ok) { showToast('未找到存档「' + filename + '」', 'error'); return; }
@@ -1581,10 +1582,10 @@ function bindPreviewTapToggle() {
 
   injectFloatIcons();
   tightenAllIconViewBoxes();
-  
+
   const saved = await loadStateFromIDB();
   State.data = normalizeState(saved || {});
-  
+
   await loadCharOrderTxt();
   await loadNamecards();
   await loadArtDict();
@@ -1597,7 +1598,7 @@ function bindPreviewTapToggle() {
   renderEditorsByKey();
   renderTabBar();
   mountPreview();
-  selectTab(currentTab); // 使用 consts.js 中的全局变量
+  selectTab(currentTab);
   bindPreviewTapToggle();
 
   document.body.classList.add('ready');
