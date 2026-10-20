@@ -8,6 +8,25 @@
 
 ---
 
+## 2026-10-20 · 全局 `.hidden` + 角色一图流合规清理
+
+**里程碑**：
+- `shared/theme.css` 模块 4 新增全局显隐类 `.hidden:not(.float-toolbar) { display: none !important; }`。此前全站没有通用显隐类，`theme.css` 只有 `.float-toolbar.hidden`（opacity 专用），所以各工具一直用内联 `style="display:none"`。
+- 角色一图流 4 文件合规清理：
+  - `index.html`：5 处内联 file input → `class="hidden"`；加载器 `var` → `const`/箭头函数/`async`。
+  - `app.js`：6 处内联 file input、2 处 `style.display`、1 处色块内联 → 全部改 `.hidden` / CSS 变量；字体 fetch 补 `?t=` 时间戳。
+  - `style.css`：`.swatch-btn` 增加 `--swatch-color` 支持，颜色由 JS 注入 CSS 变量，不再写内联。
+- **修复沃雅妮莎 / 旅行者立绘 404**：`app.js` 的 `loadArtDict()` 曾把字典里的 `../../shared/` 硬改写成 `../../../shared/`。一图流在 `tools/character/`（两层深），多退一层 → 相对路径条目全部 404，绝对 URL 条目不受影响。已删除该改写，保留字典原值。
+
+**备忘**：
+- `.hidden` 由共享层定义，用 `:not(.float-toolbar)` 避开模块 13 那条需要 opacity 过渡的专用规则。
+- `style.setProperty('--accent' / '--swatch-color')` 是设置 CSS 变量，不属于内联排版样式，合规。
+
+**待办**：
+- 其他工具（`video-cover`、`map-editor` 等）逐步迁移到 `class="hidden"`。**迁移前必须先搜各自 `style.css` 是否已定义 `.hidden`**：若语义是淡出/其他而非 `display:none`，先改名（如 `.fade-hidden`）或删除，再切换，避免与全局规则打架。
+
+---
+
 ## 2026-10-19 · 新增角色埃洛伊
 
 **里程碑**：
@@ -118,8 +137,11 @@
 - **缓存**：所有工具页都有资源加载器，CSS/JS 走时间戳 URL，不要删。
 - **字体**：加载慢，靠 IndexedDB 缓存。
 - **界面规范**：所有样式优先用 `theme.css` 里的类，工具自带 `style.css` 只写布局，严禁内联。
+- **显隐统一用 `.hidden`**：全局定义在 `theme.css` 模块 4，是 `display:none !important`。**不要再用 `style="display:none"` 或 `el.style.display`**。例外：`.float-toolbar.hidden` 是 opacity 过渡，被 `:not()` 排除，保持原样。
+- **迁移其他工具到 `.hidden` 前，先搜它的 `style.css` 有无同名 `.hidden`**，语义不同则先改名，否则会和全局规则打架。
 - **角色匹配**：工具实际按**角色名**查字典，编号仅为展示序号。但插入角色会导致后续编号整体位移，以编号为 key 的在线存档需手动同步。
 - **立绘看不见**：先查 `state.characterX` 是否被拖偏（持久化在 IndexedDB），别急着怀疑数据。
+- **相对路径字典值**：`character-art.txt` 里的 `../../shared/...` 是按**工具页所在层级**写的。`tools/character/` 两层深，原值直接可用，**不要再做 `../` 改写**。
 
 ---
 
@@ -128,3 +150,4 @@
 - `tools/image-tools.html` 拆分及加资源加载器。
 - `tools/chart.html` 拆分及加资源加载器。
 - `tools/tier.html` 是否拆分待定。
+- **其他工具迁移到全局 `.hidden`**（`video-cover`、`map-editor` 等），迁移前先查各自 `style.css` 是否已定义 `.hidden`，冲突则先改名。改动哪个工具就顺手清哪个，不批量。
