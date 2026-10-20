@@ -125,6 +125,9 @@ body {
 }
 button, input[type="button"], input[type="submit"] { -webkit-appearance: none; appearance: none; }
 
+/* 通用显隐：.hidden 走 display:none；.float-toolbar.hidden 保留 opacity 过渡（见模块 13） */
+.hidden:not(.float-toolbar) { display: none !important; }
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
@@ -473,7 +476,7 @@ label.ios-field { display: flex; flex-direction: column; gap: 4px; font-size: 12
 }
 
 /* ============================================================
- * 【CSS 模块 19】底部悬浮胶囊 (修复版)
+ * 【CSS 模块 19】底部悬浮胶囊
  * ============================================================ */
 .bottom-dock {
   position: fixed; 
@@ -484,7 +487,7 @@ label.ios-field { display: flex; flex-direction: column; gap: 4px; font-size: 12
   background: transparent !important;
   padding: 0;
   display: flex; align-items: center; justify-content: center;
-  pointer-events: none; /* 防止遮挡背后内容的点击 */
+  pointer-events: none;
 }
 @media (min-width: 1024px) { .bottom-dock { display: none; } }
 
