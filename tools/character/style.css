@@ -134,14 +134,15 @@
   display: flex; align-items: center; justify-content: center; gap: 6px;
   background: var(--bg-surface-2); border-radius: var(--radius-sm);
   height: var(--ctl-h); cursor: pointer; font-size: 12px; font-weight: 500;
-  color: var(--text-secondary); border: 1px solid var(--border-subtle);
+  color: var(--swatch-color, var(--text-secondary));
+  border: 1px solid var(--border-subtle);
   transition: all 0.2s var(--ease-spring);
 }
 .swatch-btn:hover { background: var(--bg-hover); }
 .swatch-btn.active { 
   border-color: var(--accent); 
   background: var(--bg-surface); 
-  color: var(--accent);
+  color: var(--swatch-color, var(--accent));
 }
 .swatch-icon { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; display: block; }
 .swatch-icon-wrap { display: inline-flex; width: 16px; height: 16px; }
