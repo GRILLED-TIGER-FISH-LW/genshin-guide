@@ -4,26 +4,36 @@
  *
  * 折叠图标由 app.js 切换（chevronDown / chevronUp），
  * 此处不再有任何 transform: rotate，避免和 JS 叠加。
+ *
+ * 所有尺寸/圆角/间距/字号/动画/边框走 theme.css 变量，无散值。
+ * 例外区（逐条注释，不进体系）：
+ *   · 主容器 max-width 1400px（超宽屏居中约束）
+ *   · 移动端预览框 max-height 32vh（响应式单位）
+ *   · 命座网格 600px 断点（媒体查询）
+ *   · 卡片字段 min-width 130 / 140px（窄屏可读性约束）
+ *   · 预览框 #121212 暗色底（模拟卡片最终渲染环境，主题无关）
+ *   · 强调色上的 #ffffff 反白文字（与 theme.css 的 btn-primary 一致）
+ *   · 100dvh / 100vh 视口高
  * ========================================================================= */
 
 /* =========================================================================
  * 1. 主容器布局
  * ========================================================================= */
 .app-container {
-  max-width: 1400px;
+  max-width: 1400px; /* 例外：超宽屏居中约束，不属于尺寸体系 */
   margin: 0 auto;
   padding: var(--space-sm) var(--space-lg);
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-lg);
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--h-md) + env(safe-area-inset-bottom));
 }
 @media (max-width: 1023px) {
   body { overflow: hidden; }
   .app-container {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
-    height: 100dvh;
+    height: 100dvh; /* 例外：视口高，动态单位 */
     padding: var(--space-sm) var(--space-lg) 0;
     padding-bottom: 0;
     gap: 0;
@@ -33,7 +43,7 @@
 @media (min-width: 1024px) {
   .app-container {
     grid-template-columns: minmax(480px, 1.2fr) minmax(440px, 1fr);
-    height: 100vh;
+    height: 100vh; /* 例外：视口高 */
     padding: var(--space-lg);
     overflow: hidden;
   }
@@ -49,7 +59,7 @@
     background: var(--bg-base);
     padding: 0 0 var(--space-sm) 0;
     margin: 0;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: var(--border-w) solid var(--border-subtle);
     flex-shrink: 0;
   }
 }
@@ -76,16 +86,17 @@
   .preview-header { display: none !important; }
 }
 .preview-header { display: flex; align-items: center; justify-content: space-between; padding: 0; }
-.preview-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.preview-title { font-size: var(--font-sm); font-weight: 500; color: var(--text-secondary); }
 
 .preview-frame {
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  border: var(--border-w) solid var(--border-subtle);
+  /* 例外：预览框暗色底，模拟卡片最终渲染环境，和主题无关 */
   background: #121212;
 }
 @media (max-width: 1023px) {
   .preview-frame {
-    max-height: 32vh;
+    max-height: 32vh; /* 例外：响应式视口高，控移动端预览占位 */
     width: auto;
     max-width: 100%;
     align-self: center;
@@ -125,11 +136,11 @@
     -webkit-overflow-scrolling: touch;
     flex: 1;
     min-height: 0;
-    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--h-md) + env(safe-area-inset-bottom));
   }
 }
 .tab-panel { display: none; flex-direction: column; gap: var(--space-lg); }
-.tab-panel.active { display: flex; }
+.tab-panel.active, .tab-panel.is-active { display: flex; }
 
 /* =========================================================================
  * 4. 命座网格
@@ -144,10 +155,10 @@
   background: var(--bg-surface-2);
   border-radius: var(--radius-sm);
   padding: var(--space-sm);
-  border: 1px solid var(--border-subtle);
-  transition: all 0.2s var(--ease-spring);
+  border: var(--border-w) solid var(--border-subtle);
+  transition: all var(--t-sm) var(--ease-spring);
 }
-.cons-item.active {
+.cons-item.active, .cons-item.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
@@ -155,17 +166,18 @@
   width: var(--size-md); height: var(--size-md);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600;
+  font-size: var(--font-sm); font-weight: 600;
   background: var(--bg-sunken);
-  border: 1px solid var(--border-default);
+  border: var(--border-w) solid var(--border-default);
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.2s var(--ease-spring);
+  transition: all var(--t-sm) var(--ease-spring);
 }
-.cons-item.active .cons-badge {
+.cons-item.active .cons-badge, .cons-item.is-active .cons-badge {
   background: var(--accent);
-  color: #fff;
+  /* 例外：强调色上的反白文字，与 theme.css 的 btn-primary 一致 */
+  color: #ffffff;
   border-color: var(--accent);
 }
 
@@ -182,13 +194,13 @@
   border-radius: var(--radius-sm);
   height: var(--size-lg);
   cursor: pointer;
-  font-size: 12px; font-weight: 500;
+  font-size: var(--font-sm); font-weight: 500;
   color: var(--swatch-color, var(--text-secondary));
-  border: 1px solid var(--border-subtle);
-  transition: all 0.2s var(--ease-spring);
+  border: var(--border-w) solid var(--border-subtle);
+  transition: all var(--t-sm) var(--ease-spring);
 }
 .swatch-btn:hover { background: var(--bg-hover); }
-.swatch-btn.active {
+.swatch-btn.active, .swatch-btn.is-active {
   border-color: var(--accent);
   background: var(--bg-surface);
   color: var(--swatch-color, var(--accent));
@@ -215,7 +227,7 @@
 .sub-stats-wrap { padding: 0 var(--space-lg) var(--space-lg) var(--space-lg); }
 
 .panel-primary-row { gap: var(--space-sm); flex-wrap: wrap; }
-.panel-primary-row .field { min-width: 130px; }
+.panel-primary-row .field { min-width: 130px; } /* 例外：字段最小可读宽，非体系档位 */
 
 .editor-list, .editor-list-large {
   display: flex; flex-direction: column; gap: var(--space-sm);
@@ -228,7 +240,7 @@
 }
 .group-title {
   flex: 1; min-width: 0;
-  font-size: 13px; font-weight: 600; color: var(--accent);
+  font-size: var(--font-sm); font-weight: 600; color: var(--accent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .group-actions {
@@ -244,19 +256,20 @@
 .item-header { margin-bottom: var(--space-sm); }
 
 .artifact-dual-row { display: flex; gap: var(--space-lg); flex-wrap: wrap; }
+/* 例外：双圣遗物最小宽，非体系档位 */
 .artifact-dual-item { flex: 1; display: flex; align-items: center; gap: var(--space-sm); min-width: 140px; }
 
 .alt-list-wrap {
   margin-left: var(--space-sm); padding-left: var(--space-sm);
-  border-left: 1px solid var(--border-subtle);
+  border-left: var(--border-w) solid var(--border-subtle);
   display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-sm);
 }
 .alt-header { display: flex; align-items: center; gap: var(--space-sm); }
-.alt-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.alt-count { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); }
 
 .sub-card {
   background: transparent;
-  border: 1px dashed var(--border-default);
+  border: var(--border-w) dashed var(--border-default);
   padding: var(--space-sm);
 }
 .sub-card:hover { border-color: var(--accent); }
