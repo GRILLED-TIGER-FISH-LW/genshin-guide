@@ -1,0 +1,159 @@
+/* ============================================================
+ * editor.css —— 编辑器
+ * 双栏布局、编辑器顶部条、左栏筛选、吸顶头、手机端切换
+ * 顶部条 50 高，左栏固定 320，断点 900 变单栏
+ * ============================================================ */
+
+:root {
+  --editor-sidebar-w: 320px;
+  --editor-header-h: 50px;
+  --editor-header-px: 16px;
+  --editor-main-p: 16px;
+  --editor-main-pb: 30px;
+  --editor-filter-p: 8px;
+  --editor-filter-gap: 8px;
+  --editor-font: 14px;
+  --editor-font-sm: 12px;
+  --editor-gap: 8px;
+  --editor-t: 0.3s;
+  --editor-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --editor-breakpoint: 900px;
+  --editor-mobile-back-h: 32px;
+  --editor-mobile-back-radius: calc(32px * 0.15);
+  --editor-sticky-bg: rgba(244, 241, 234, 0.85);
+  --editor-sticky-bg-dark: rgba(26, 24, 22, 0.85);
+}
+
+/* 双栏布局 */
+.editor-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--editor-sidebar-w) 1fr;
+  overflow: hidden;
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-main {
+  overflow-y: auto;
+  min-height: 0;
+  padding: var(--editor-main-p) var(--editor-main-p) var(--editor-main-pb);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 编辑器顶部条 */
+.editor-header {
+  height: var(--editor-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--editor-gap);
+  padding: 0 var(--editor-header-px);
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.editor-title {
+  font-size: var(--editor-font);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--editor-gap);
+  flex-shrink: 0;
+}
+
+/* 左栏筛选 */
+.editor-filters {
+  padding: var(--editor-filter-p);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editor-filter-gap);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.editor-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--editor-filter-gap);
+}
+.editor-filter-row.three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* 吸顶头 */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--editor-gap);
+  padding: var(--editor-main-p);
+  background: var(--editor-sticky-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+[data-theme="dark"] .sticky-header {
+  background: var(--editor-sticky-bg-dark);
+}
+
+/* 手机端切换 */
+.mobile-back {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  height: var(--editor-mobile-back-h);
+  padding: 0 var(--editor-filter-p);
+  margin-bottom: var(--editor-filter-p);
+  font-size: var(--editor-font-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--editor-mobile-back-radius);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+    position: relative;
+  }
+  .editor-sidebar {
+    border-right: 0;
+  }
+  .editor-sidebar.mobile-hidden {
+    display: none;
+  }
+  .editor-main {
+    display: none;
+    padding: var(--editor-main-p) var(--editor-main-p) var(--editor-main-pb);
+  }
+  .editor-main.mobile-visible {
+    display: block;
+  }
+  .mobile-back {
+    display: inline-flex;
+  }
+}
