@@ -33,6 +33,11 @@
  * 字体四档：
  *   --font-xs:10 / --font-sm:12 / --font-md:14 / --font-lg:16
  *
+ * 按钮语义约定：
+ *   .btn / .btn-sm  32px 高，带文字小按钮（手机端保留文字）
+ *   .btn-xs         32px 高，图标级按钮（手机端隐藏 .btn-text，变 32×32 正方形）
+ *   .btn-lg         48px 高，大按钮
+ *
  * 例外（不进体系，加注释）：
  *   · 模糊 4/10/16
  *   · danger 红晕、搜索框 inset 阴影
@@ -382,7 +387,8 @@ button:active:not(:disabled), .btn:active:not(:disabled) { background: var(--bg-
 button:disabled { opacity: var(--op-muted); cursor: not-allowed; }
 
 .btn-sm { height: var(--size-lg) !important; padding: 0 var(--space-sm) !important; font-size: var(--font-sm) !important; gap: var(--space-xs) !important; }
-.btn-xs { height: var(--size-md) !important; padding: 0 var(--space-sm) !important; font-size: var(--font-sm) !important; gap: var(--space-xs) !important; border-radius: var(--radius-sm) !important; }
+/* btn-xs：图标级按钮。32px 高，手机端隐藏 .btn-text 后变 32×32 正方形 */
+.btn-xs { height: var(--size-lg) !important; padding: 0 var(--space-sm) !important; font-size: var(--font-sm) !important; gap: var(--space-xs) !important; border-radius: var(--radius-sm) !important; }
 .btn-lg { height: var(--size-xl) !important; padding: 0 var(--space-lg) !important; font-size: var(--font-md) !important; font-weight: 600 !important; border-radius: var(--radius-pill) !important; }
 
 .btn-danger { background: var(--danger-bg) !important; color: var(--danger) !important; border-color: transparent !important; }
@@ -396,6 +402,11 @@ button:disabled { opacity: var(--op-muted); cursor: not-allowed; }
 }
 
 .file-btn input[type="file"] { display: none !important; }
+
+/* btn-xs 手机端单图标正方形：宽=高=32px，去掉 padding/gap，图标居中 */
+@media (max-width: 1023px) {
+  .btn-xs { width: var(--size-lg); padding: 0; gap: 0; }
+}
 
 /* ============================================================
  * 【模块 8】容器
