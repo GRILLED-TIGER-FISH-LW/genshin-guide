@@ -1,0 +1,87 @@
+/* ============================================================
+ * preview.css —— 预览区
+ * 预览区吸顶容器、预览框、浮动工具栏容器
+ * 预览框高度 32vh，桌面封顶 200 / 手机封顶 160
+ * 浮动工具栏显隐由各工具 app.js 切 .hidden，CSS 只管状态
+ * ============================================================ */
+
+:root {
+  --preview-sticky-bg: rgba(244, 241, 234, 0.85);
+  --preview-sticky-bg-dark: rgba(26, 24, 22, 0.85);
+  --preview-sticky-py: 8px;
+  --preview-sticky-px: 16px;
+
+  --preview-frame-h: 32vh;
+  --preview-frame-max-h: 200px;
+  --preview-frame-max-h-mobile: 160px;
+  --preview-frame-radius: 12px;
+  --preview-frame-bg: #121212;
+
+  --preview-toolbar-offset: 8px;
+  --preview-toolbar-gap: 8px;
+
+  --preview-t: 0.3s;
+  --preview-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 预览区吸顶容器 */
+.preview-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: var(--preview-sticky-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: var(--preview-sticky-py) var(--preview-sticky-px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+[data-theme="dark"] .preview-sticky {
+  background: var(--preview-sticky-bg-dark);
+}
+
+/* 预览框 */
+.preview-frame {
+  position: relative;
+  width: 100%;
+  height: var(--preview-frame-h);
+  max-height: var(--preview-frame-max-h);
+  background: var(--preview-frame-bg);
+  border-radius: var(--preview-frame-radius);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+@media (max-width: 1023px) {
+  .preview-frame {
+    max-height: var(--preview-frame-max-h-mobile);
+  }
+}
+
+.preview-frame > svg,
+.preview-frame > img,
+.preview-frame > canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+.preview-frame > img,
+.preview-frame > canvas {
+  object-fit: contain;
+}
+
+/* 浮动工具栏 */
+.float-toolbar {
+  position: absolute;
+  top: var(--preview-toolbar-offset);
+  right: var(--preview-toolbar-offset);
+  display: flex;
+  gap: var(--preview-toolbar-gap);
+  z-index: 15;
+  transition: opacity var(--preview-t) var(--preview-ease);
+}
+.float-toolbar.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
