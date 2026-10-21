@@ -1,86 +1,146 @@
 /* =========================================================================
- * 视频封面 · style.css (2026 现代扁平 - 极致精简版)
+ * 视频封面 · style.css
+ * 仅布局特化，通用控件（按钮/输入/卡片/缩略图/吸顶头/dropdown 等）见 theme.css
+ *
+ * 例外区（逐条注释，不进体系）：
+ *   · .video-preview-wrap 毛玻璃背景色（模拟 character .sticky-header 同色，主题无关）
+ *   · .preview-frame 移动端 max-height 32vh（响应式视口高）
+ *   · .preview-frame 的 #121212 暗底由 theme.css 模块 16 提供，此处不重复
+ *   · .video-form max-width 900px（对齐 theme.css .form-stack）
+ *
+ * 无散值：所有尺寸/圆角/间距/字号/动画/边框走 theme.css 变量。
  * ========================================================================= */
 
 body {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--h-md) + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* 全局工具类 */
-.hidden { display: none !important; }
-.flex-1 { flex: 1; min-width: 0; }
-
-/* 表单容器 */
-.grid {
-  display: flex; 
-  flex-direction: column; 
-  gap: 12px; 
-  padding: 14px; 
-  max-width: 900px; 
-  margin: 0 auto; 
-  width: 100%;
-}
-/* 确保所有区块间距一致 */
-.grid > section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* 统一间距类 */
-.row-pad { padding: 12px; }
-
-/* 表单文字 */
-.upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
-.font-label { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* 统一背景图和 Logo 的正方形尺寸 */
-.upload-row img.clickable-thumb,
-.ios-row img.clickable-thumb {
-  width: 40px; height: 40px; object-fit: cover; flex-shrink: 0;
-}
-
-/* 预览区毛玻璃 */
-.preview-sticky {
+/* =========================================================================
+ * 1. 预览区（毛玻璃吸顶）
+ * ========================================================================= */
+.video-preview-wrap {
   position: sticky; top: 0; z-index: 35;
+  /* 例外：毛玻璃底同 theme.css 模块 25 .sticky-header 的 rgba 值，与主题联动 */
   background: rgba(244, 241, 234, 0.85);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: var(--border-w) solid var(--border-subtle);
 }
-[data-theme="dark"] .preview-sticky { background: rgba(26, 24, 22, 0.85); }
-.preview-frame { width: 100%; height: auto; }
-#svgPreviewHost { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+[data-theme="dark"] .video-preview-wrap { background: rgba(26, 24, 22, 0.85); }
+
+/* 预览框：对齐 character（12px 圆角 + 边框）；#121212 暗底 / 16:9 比例由 theme.css 模块 16 提供 */
+.preview-frame {
+  border-radius: var(--radius-lg);
+  border: var(--border-w) solid var(--border-subtle);
+}
+@media (max-width: 1023px) {
+  .preview-frame {
+    max-height: 32vh; /* 例外：响应式视口高，控移动端预览占位 */
+    width: auto;
+    max-width: 100%;
+    align-self: center;
+    margin: 0 auto;
+  }
+}
+
+/* svg 撑满宿主（theme.css 只控制 .preview-frame 直接子元素） */
+#svgPreviewHost { display: block; }
 #svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
-/* 浮动素材头部 */
-.custom-head { 
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; 
-  padding: 12px 12px 0 12px; /* 顶部留出 padding，下方由列表填补 */
+/* =========================================================================
+ * 2. 表单主容器
+ * ========================================================================= */
+.video-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
 }
-.custom-head-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-.float-list { display: flex; flex-direction: column; gap: 12px; }
+.video-form > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* =========================================================================
+ * 3. 浮动素材列表
+ * ========================================================================= */
+
+/* .custom-head 是 .panel-row 子类，仅覆盖底部 padding 和横轴分布 */
+.custom-head {
+  padding-bottom: 0;
+  justify-content: space-between;
+}
+.custom-head-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.float-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
 
 .float-item {
-  background: var(--bg-surface); border-radius: var(--radius-md);
-  padding: 12px; display: flex; flex-direction: column; gap: 10px;
-  border: 1px solid var(--border-subtle);
-  transition: all 0.2s var(--ease-spring);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border: var(--border-w) solid var(--border-subtle);
 }
-.float-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.float-item-head-thumb { display: flex; align-items: center; gap: 8px; }
 
-/* 把浮动素材的缩略图也改成 40x40 正方形 */
+.float-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.float-item-head-thumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.float-item-head-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
 .float-thumb {
-  width: 40px; height: 40px; object-fit: cover;
-  border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
-  cursor: pointer; transition: opacity 0.2s;
+  width: var(--size-thumb);
+  height: var(--size-thumb);
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: var(--border-w) solid var(--border-subtle);
+  cursor: pointer;
+  transition: opacity var(--t-xs);
 }
 .float-thumb:hover { opacity: 0.8; }
-.float-thumb-meta { font-size: 12px; color: var(--text-secondary); }
-.float-item-head-actions { display: flex; gap: 4px; }
 
-.float-item label.under-middle-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+.float-thumb-meta {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.under-middle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* =========================================================================
+ * 4. 手机端：隐藏 .btn-text（video 无白名单）
+ * ========================================================================= */
+@media (max-width: 1023px) {
+  .btn-text { display: none; }
 }
