@@ -361,3 +361,16 @@ body {
 @media (max-width: 640px) {
   .panel-grid.three { grid-template-columns: 1fr; }
 }
+/* ============================================================
+ * 8. 卡片按钮组：强制按钮宽度由内容决定
+ * 解决 flex-wrap 下按钮被拉伸、宽度异常
+ * ============================================================ */
+
+.card-actions .btn,
+.group-actions .btn,
+.card-actions .btn-icon,
+.group-actions .btn-icon {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
