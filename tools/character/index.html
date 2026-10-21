@@ -71,10 +71,6 @@
         <button type="button" class="float-btn float-btn-danger" id="floatClearBtn" onclick="App.clearAllData()" title="清空全部数据"></button>
         <input type="file" id="importJsonInput" accept=".json" class="hidden" onchange="App.importConfig(this)" />
       </div>
-      <div class="preview-header">
-        <span class="preview-title">实时卡片渲染视口</span>
-        <button class="btn" onclick="App.exportPNG()" id="exportDesktopBtn">导出图片</button>
-      </div>
       <div class="preview-frame" id="previewFrame">
         <div id="svgPreviewHost"></div>
       </div>
@@ -120,6 +116,7 @@
               <div class="flex-1 ellipsis" id="labelCustomFont">默认标准字体</div>
               <div class="dropdown" id="fontDropdown">
                 <button type="button" class="dropdown-trigger" id="btnFontPicker">
+                  <span class="icon-slot" data-icon="font"></span>
                   <span class="dropdown-label">选择字体</span>
                   <span class="dropdown-arrow">
                     <span class="arrow-down" data-icon="chevronDown"></span>
