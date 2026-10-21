@@ -1,16 +1,5 @@
 /* =========================================================================
  * 原神一图流生成器 · app.js
- * =========================================================================
- * 2026 统一版：
- *   · 字体选择器对勾使用 ICONS.ui.check
- *   · 折叠按钮：收起→▼（chevron）展开→▲（chevronUp）
- *   · 面板区属性类型 .dropdown：初始化注入 ▼/▲ 双图标，
- *     open/close 只切 .is-open；.dropdown-panel.is-fixed 用 fixed 定位
- *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算，
- *     间隙从 --space-sm 变量读取，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐
- *   · 所有「SVG + 文字」按钮的文字包 .btn-text，手机端由 style.css 隐藏
- *   · 整套/散搭按钮用 btn-sm（32 高但手机端不变正方形），id 见 style.css 白名单
- *   · 元素主题色只存 State.data.theme，不覆盖全局 --accent（由 svg.js 渲染卡片时读取）
  * ========================================================================= */
 
 'use strict';
@@ -27,8 +16,6 @@ const DOM = {
   modalMessage: document.getElementById('modalMessage'),
   modalCancel: document.getElementById('modalCancel'),
   modalConfirm: document.getElementById('modalConfirm'),
-  fontSheetBackdrop: document.getElementById('fontSheetBackdrop'),
-  fontSheet: document.getElementById('fontSheet'),
   fontSheetList: document.getElementById('fontSheetList')
 };
 
@@ -70,7 +57,6 @@ function showConfirm(title, message) {
  * 【模块 3】基础数据加载
  * ========================================================================= */
 let FONT_LIST = [];
-let fontSheetOpen = false;
 let loadedFontFace = null;
 const FONT_CACHE_PREFIX = 'font_cache::';
 
@@ -168,12 +154,6 @@ async function urlExists(url) {
   }
 }
 
-/* 给 SVG 加尺寸（width/height 属性，非内联样式） */
-function svgWithSize(svg, size = 16) {
-  if (!svg) return '';
-  return svg.replace(/^<svg\s/, `<svg width="${size}" height="${size}" `);
-}
-
 /* =========================================================================
  * 【模块 4】字体核心逻辑
  * ========================================================================= */
@@ -242,44 +222,32 @@ async function installPreviewFont() {
   }
 }
 
-function openFontPicker() {
-  if (fontSheetOpen) return;
-  fontSheetOpen = true;
+function renderFontDropdown() {
   if (!DOM.fontSheetList) return;
-
   const curFile = State.data.fontFileName;
-  const checkSvg = (window.ICONS && ICONS.ui && ICONS.ui.check) || '';
-  const checkIcon = '<span class="tab-sheet-item-check">' + checkSvg + '</span>';
-
-  let html = '<button type="button" class="tab-sheet-item ' + (curFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
-    '<span>默认系统字体</span>' + checkIcon +
-  '</button>';
+  let html = `<button type="button" class="dropdown-item${curFile === '' ? ' is-active' : ''}" data-font-index="-1">默认系统字体</button>`;
   FONT_LIST.forEach((f, i) => {
     const isAct = curFile === f.file;
-    html += '<button type="button" class="tab-sheet-item ' + (isAct ? 'active' : '') + '" onclick="App.selectFont(' + i + ')">' +
-      '<span>' + esc(f.name) + '</span>' + checkIcon +
-    '</button>';
+    html += `<button type="button" class="dropdown-item${isAct ? ' is-active' : ''}" data-font-index="${i}">${esc(f.name)}</button>`;
   });
   DOM.fontSheetList.innerHTML = html;
-  DOM.fontSheetBackdrop.classList.add('is-visible');
-  DOM.fontSheet.classList.add('is-visible');
 }
 
-function closeFontPicker() {
-  if (!fontSheetOpen) return;
-  fontSheetOpen = false;
-  DOM.fontSheetBackdrop.classList.remove('is-visible');
-  DOM.fontSheet.classList.remove('is-visible');
+function updateFontDropdownActive(index) {
+  if (!DOM.fontSheetList) return;
+  DOM.fontSheetList.querySelectorAll('.dropdown-item').forEach(el => {
+    el.classList.toggle('is-active', Number(el.dataset.fontIndex) === index);
+  });
 }
 
 async function selectFont(index) {
-  closeFontPicker();
   const labelEl = document.getElementById('labelCustomFont');
 
   if (index === -1) {
     State.data.fontData = ''; State.data.fontFileName = ''; State.data.fontName = '';
     if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} loadedFontFace = null; }
     if (labelEl) labelEl.textContent = '默认标准字体';
+    updateFontDropdownActive(-1);
     mountPreview(); debouncedSave();
     return;
   }
@@ -288,6 +256,7 @@ async function selectFont(index) {
   if (!f) return;
   if (State.data.fontFileName === f.file && State.data.fontData) {
     if (labelEl) labelEl.textContent = '当前：' + f.name;
+    updateFontDropdownActive(index);
     return;
   }
 
@@ -300,6 +269,7 @@ async function selectFont(index) {
     State.data.fontName = f.name;
     await installPreviewFont();
     if (labelEl) labelEl.textContent = '当前：' + f.name;
+    updateFontDropdownActive(index);
     mountPreview(); debouncedSave();
     return;
   }
@@ -356,6 +326,7 @@ async function selectFont(index) {
     await putFontToCache(f.file, dataURL);
 
     if (labelEl) labelEl.textContent = '当前：' + f.name;
+    updateFontDropdownActive(index);
     mountPreview(); debouncedSave();
 
   } catch (err) {
@@ -366,6 +337,7 @@ async function selectFont(index) {
     State.data.fontData = '';
     State.data.fontFileName = '';
     State.data.fontName = '';
+    updateFontDropdownActive(-1);
     debouncedSave();
   }
 }
@@ -491,18 +463,18 @@ function syncInputs() {
 function renderTabBar() {
   if (!DOM.tabBar) return;
   DOM.tabBar.innerHTML = TAB_DEFS.map(t =>
-    `<button type="button" class="tab-btn ${t.key === currentTab ? 'active' : ''}" data-tab="${t.key}" onclick="App.selectTab('${t.key}')">${t.label}</button>`
+    `<button type="button" class="tab-btn ${t.key === currentTab ? 'is-active' : ''}" data-tab="${t.key}" onclick="App.selectTab('${t.key}')">${t.label}</button>`
   ).join('');
 }
 
 function selectTab(tabId) {
   if (!TAB_DEFS.find(t => t.key === tabId)) return;
   currentTab = tabId;
-  document.querySelectorAll('.tabs-content .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tabs-content .tab-panel').forEach(p => p.classList.remove('is-active'));
   const panel = document.getElementById(`tab-${tabId}`);
-  if (panel) panel.classList.add('active');
+  if (panel) panel.classList.add('is-active');
   document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tabId);
+    b.classList.toggle('is-active', b.dataset.tab === tabId);
   });
   const tc = document.querySelector('.tabs-content');
   if (tc) tc.scrollTop = 0;
@@ -510,7 +482,6 @@ function selectTab(tabId) {
 
 const collapseState = {};
 
-/* 折叠图标：收起状态显示 ▼（可往下展开），展开状态显示 ▲（可往上收起） */
 function collapseIconOf(collapsed) {
   return collapsed ? ICONS.chevron : (ICONS.chevronUp || ICONS.chevron);
 }
@@ -569,34 +540,34 @@ function renderWeaponEditor() {
       const downDisabled = !canMoveWeapon(type, i, 1);
       const targetId = `w_img_${type}_${i}`;
       return `
-      <div class="item-card">
-        <div class="item-header">
-          <span class="item-subtitle">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
-          <div class="item-actions">
-            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-            <button class="btn-xs btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-subtitle">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
+          <div class="card-actions">
+            <button class="btn" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button class="btn" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button class="btn btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
-        <div class="item-row">
-          <img src="${w.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
+        <div class="row">
+          <img src="${w.img || placeholder('')}" class="thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
           <input type="text" value="${esc(w.name)}" oninput="App.setWeaponName('${type}',${i},this.value)" onblur="App.matchIconByType('weapons','${type}',${i},this.value)" class="flex-1" />
           <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.weaponData['${type}'][${i}].img = v; State.data.weaponData['${type}'][${i}].imgManual = true; App.renderWeaponEditor(); App.mountPreview(); App.debouncedSave(); })" />
         </div>
       </div>`;
     }).join('');
-    return `<div class="ios-group group-card">
+    return `<div class="panel group-card">
       <div class="group-header">
         <span class="group-title">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
         <div class="group-actions">
-          <button class="btn-primary btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}<span class="btn-text">添加</span></button>
-          <button class="btn-xs collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
+          <button class="btn" onclick="App.addWeapon('${type}')">${ICONS.plus}<span class="btn-text">添加</span></button>
+          <button class="btn collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
             <span class="collapse-icon">${collapseIconOf(collapsed)}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
         </div>
       </div>
       <div data-collapse-content="${key}" class="group-content flex-col ${collapsed ? 'hidden' : ''}">
-        ${list || '<div class="empty-tip">暂无配置</div>'}
+        ${list || '<div class="empty-state">暂无配置</div>'}
       </div>
     </div>`;
   }).join('');
@@ -609,9 +580,9 @@ function renderArtifactEditor() {
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
       <div class="group-actions">
-        <button class="btn-primary btn-sm" id="btnAddArtifactSingle" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
-        <button class="btn-primary btn-sm" id="btnAddArtifactDouble" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
-        <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
+        <button class="btn" id="btnAddArtifactSingle" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
+        <button class="btn" id="btnAddArtifactDouble" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
+        <button class="btn collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
           <span class="collapse-icon">${collapseIconOf(isSectionCollapsed)}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
       </div>`;
@@ -622,24 +593,24 @@ function renderArtifactEditor() {
   editorEl.innerHTML = State.data.artifactData.map((a, i) => {
     if (a.type === 'double') {
       const t1 = `a_img1_${i}`, t2 = `a_img2_${i}`;
-      return `<div class="item-card">
-        <div class="item-header">
-          <span class="item-subtitle text-accent">散搭 #${i + 1}</span>
-          <div class="item-actions">
-            <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-            <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-            <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+      return `<div class="card">
+        <div class="card-header">
+          <span class="card-subtitle text-accent">散搭 #${i + 1}</span>
+          <div class="card-actions">
+            <button class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
         <input type="text" value="${esc(a.displayText)}" placeholder="卡片显示文本（可选，留空显示两个名字）" oninput="App.setArtifactDisplayText(${i},this.value)" />
         <div class="artifact-dual-row">
           <div class="artifact-dual-item">
-            <img src="${a.img1 || placeholder('')}" class="clickable-thumb" data-img-target="${t1}" onclick="App.triggerUpload('${t1}')" alt="" />
+            <img src="${a.img1 || placeholder('')}" class="thumb" data-img-target="${t1}" onclick="App.triggerUpload('${t1}')" alt="" />
             <input type="text" value="${esc(a.name1)}" placeholder="圣遗物1" oninput="App.setArtifactName1(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},1,this.value)" class="flex-1" />
             <input type="file" id="${t1}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img1 = v; State.data.artifactData[${i}].img1Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
           <div class="artifact-dual-item">
-            <img src="${a.img2 || placeholder('')}" class="clickable-thumb" data-img-target="${t2}" onclick="App.triggerUpload('${t2}')" alt="" />
+            <img src="${a.img2 || placeholder('')}" class="thumb" data-img-target="${t2}" onclick="App.triggerUpload('${t2}')" alt="" />
             <input type="text" value="${esc(a.name2)}" placeholder="圣遗物2" oninput="App.setArtifactName2(${i},this.value)" onblur="App.matchArtifactDoubleIcon(${i},2,this.value)" class="flex-1" />
             <input type="file" id="${t2}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img2 = v; State.data.artifactData[${i}].img2Manual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
           </div>
@@ -647,22 +618,22 @@ function renderArtifactEditor() {
       </div>`;
     }
     const targetId = `a_img_${i}`;
-    return `<div class="item-card">
-      <div class="item-header">
-        <span class="item-subtitle">整套 #${i + 1}</span>
-        <div class="item-actions">
-          <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-          <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-          <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+    return `<div class="card">
+      <div class="card-header">
+        <span class="card-subtitle">整套 #${i + 1}</span>
+        <div class="card-actions">
+          <button class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+          <button class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
-      <div class="item-row">
-        <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
+      <div class="row">
+        <img src="${a.img || placeholder('')}" class="thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
         <input type="text" value="${esc(a.name)}" oninput="App.setArtifactName(${i},this.value)" onblur="App.matchIconByType('artifacts','${i}',null,this.value)" class="flex-1" />
         <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.artifactData[${i}].img = v; State.data.artifactData[${i}].imgManual = true; App.renderArtifactEditor(); App.mountPreview(); App.debouncedSave(); })" />
       </div>
     </div>`;
-  }).join('') || '<div class="empty-tip">暂无圣遗物</div>';
+  }).join('') || '<div class="empty-state">暂无圣遗物</div>';
 }
 
 function renderTeamEditor() {
@@ -671,16 +642,16 @@ function renderTeamEditor() {
   el.innerHTML = State.data.teamData.map((team, ti) => {
     const teamKey = `team_${ti}`;
     const teamCollapsed = isCollapsed(teamKey);
-    return `<div class="ios-group group-card">
-      <div class="item-header ${teamCollapsed ? 'mb-0' : 'mb-8'}">
+    return `<div class="panel group-card">
+      <div class="card-header ${teamCollapsed ? 'mb-0' : 'mb-8'}">
         <span class="group-title">队伍 ${ti + 1}</span>
-        <div class="item-actions">
-          <button class="btn-xs" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-          <button class="btn-xs" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-          <button class="btn-xs collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
+        <div class="card-actions">
+          <button class="btn" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button class="btn" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+          <button class="btn collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
             <span class="collapse-icon">${collapseIconOf(teamCollapsed)}</span><span class="collapse-text">${teamCollapsed ? '展开' : '收起'}</span>
           </button>
-          <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}<span class="btn-text">删除</span></button>
+          <button class="btn btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
       <div data-collapse-content="${teamKey}" class="group-content ${teamCollapsed ? 'hidden' : ''}">
@@ -691,42 +662,42 @@ function renderTeamEditor() {
             const charKey = `team_${ti}_char_${ci}`;
             const charCollapsed = isCollapsed(charKey);
             const targetId = `t_${ti}_${ci}_img`;
-            return `<div class="item-card">
-              <div class="item-header">
-                <span class="item-subtitle text-accent">${ci + 1}号位主角色</span>
-                <div class="item-actions">
-                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-                  <button class="btn-xs collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
+            return `<div class="card">
+              <div class="card-header">
+                <span class="card-subtitle text-accent">${ci + 1}号位主角色</span>
+                <div class="card-actions">
+                  <button class="btn" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                  <button class="btn" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+                  <button class="btn collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
                     <span class="collapse-icon">${collapseIconOf(charCollapsed)}</span><span class="collapse-text">${charCollapsed ? '展开' : '收起'}</span>
                   </button>
                 </div>
               </div>
               <div data-collapse-content="${charKey}" class="group-content ${charCollapsed ? 'hidden' : ''}">
-                <div class="item-row">
-                  <img src="${c.img || placeholder('')}" class="clickable-thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
+                <div class="row">
+                  <img src="${c.img || placeholder('')}" class="thumb" data-img-target="${targetId}" onclick="App.triggerUpload('${targetId}')" alt="" />
                   <input type="text" value="${esc(c.name)}" oninput="App.setTeamCharName(${ti},${ci},this.value)" onblur="App.matchIconByType('characters',${ti},${ci},this.value)" class="flex-1" />
                   <input type="file" id="${targetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].img = v; State.data.teamData[${ti}].chars[${ci}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                 </div>
                 <div class="alt-list-wrap">
                   <div class="alt-header">
                     <span class="alt-count">备选角色 (${c.alts.length}/4)</span>
-                    <button class="btn-primary btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}<span class="btn-text">添加</span></button>
+                    <button class="btn ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}<span class="btn-text">添加</span></button>
                   </div>
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
                     return `
-                    <div class="item-card sub-card">
-                      <div class="item-header">
-                        <span class="item-subtitle">备选 #${ai + 1}</span>
-                        <div class="item-actions">
-                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-                          <button class="btn-xs btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
+                    <div class="card sub-card">
+                      <div class="card-header">
+                        <span class="card-subtitle">备选 #${ai + 1}</span>
+                        <div class="card-actions">
+                          <button class="btn" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                          <button class="btn" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+                          <button class="btn btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
                         </div>
                       </div>
-                      <div class="item-row">
-                        <img src="${a.img || placeholder('')}" class="clickable-thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
+                      <div class="row">
+                        <img src="${a.img || placeholder('')}" class="thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
                         <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchIconByType('characters_alt',${ti},${ci},this.value,${ai})" class="flex-1" />
                         <input type="file" id="${altTargetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                       </div>
@@ -740,7 +711,7 @@ function renderTeamEditor() {
         </div>
       </div>
     </div>`;
-  }).join('') || '<div class="empty-tip">暂未添加配队</div>';
+  }).join('') || '<div class="empty-state">暂未添加配队</div>';
 }
 
 function renderEditorsByKey() {
@@ -753,45 +724,13 @@ function renderEditorsByKey() {
 }
 
 /* =========================================================================
- * 【模块 6.5】面板区 · 属性类型下拉
- * 初始化：给 .arrow-down / .arrow-up 各注入一次图标
- * 打开：算 fixed 位置 → .is-open，由 CSS 控制显示哪个箭头
- * 关闭：移除 .is-open，清 inline 位置
+ * 【模块 6.5】面板区 · 属性类型下拉（渲染由本文件负责，开关由 dropdown.js 接管）
  * ========================================================================= */
 const PANEL_PRIMARY_OPTIONS = [
   { key: 'hp',  label: '生命值' },
   { key: 'atk', label: '攻击力' },
   { key: 'def', label: '防御力' }
 ];
-let panelPrimaryDropdownOpen = false;
-
-/* 一次性注入双箭头图标 */
-function initDropdownArrow(arrowEl) {
-  if (!arrowEl) return;
-  const down = arrowEl.querySelector('.arrow-down');
-  const up = arrowEl.querySelector('.arrow-up');
-  if (down) down.innerHTML = svgWithSize(ICONS.chevron, 16);
-  if (up) up.innerHTML = svgWithSize(ICONS.chevronUp || ICONS.chevron, 16);
-}
-
-/* 读 --space-sm 变量，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐 */
-function readSpaceSm() {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--space-sm');
-  const v = parseFloat(raw);
-  return Number.isFinite(v) ? v : 8;
-}
-
-/* fixed 定位下由 JS 计算面板位置，宽度跟 trigger 对齐 */
-function positionDropdownPanel() {
-  const trigger = document.getElementById('panelPrimaryKeyTrigger');
-  const panel = document.getElementById('panelPrimaryKeyPanel');
-  if (!trigger || !panel) return;
-  const rect = trigger.getBoundingClientRect();
-  const offset = readSpaceSm();
-  panel.style.top = (rect.bottom + offset) + 'px';
-  panel.style.left = rect.left + 'px';
-  panel.style.width = rect.width + 'px';
-}
 
 function renderPanelPrimaryDropdown() {
   const panel = document.getElementById('panelPrimaryKeyPanel');
@@ -803,65 +742,9 @@ function renderPanelPrimaryDropdown() {
   label.textContent = currentOpt.label;
 
   panel.innerHTML = PANEL_PRIMARY_OPTIONS.map(o =>
-    `<button type="button" class="dropdown-item ${o.key === current ? 'active' : ''}" data-value="${o.key}">${o.label}</button>`
+    `<button type="button" class="dropdown-item ${o.key === current ? 'is-active' : ''}" data-value="${o.key}">${o.label}</button>`
   ).join('');
-
-  panel.querySelectorAll('.dropdown-item').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      setPanelPrimaryKey(btn.dataset.value);
-      closePanelPrimaryDropdown();
-    });
-  });
 }
-
-function openPanelPrimaryDropdown() {
-  const wrap = document.getElementById('panelPrimaryKeyDropdown');
-  if (!wrap) return;
-  renderPanelPrimaryDropdown();
-  wrap.classList.add('is-open');
-  panelPrimaryDropdownOpen = true;
-  positionDropdownPanel();
-}
-
-function closePanelPrimaryDropdown() {
-  const wrap = document.getElementById('panelPrimaryKeyDropdown');
-  const panel = document.getElementById('panelPrimaryKeyPanel');
-  if (wrap) wrap.classList.remove('is-open');
-  if (panel) {
-    panel.style.top = '';
-    panel.style.left = '';
-    panel.style.width = '';
-  }
-  panelPrimaryDropdownOpen = false;
-}
-
-function togglePanelPrimaryDropdown(e) {
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
-  else openPanelPrimaryDropdown();
-}
-
-document.addEventListener('click', (e) => {
-  if (!panelPrimaryDropdownOpen) return;
-  const wrap = document.getElementById('panelPrimaryKeyDropdown');
-  if (wrap && !wrap.contains(e.target)) closePanelPrimaryDropdown();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
-});
-
-/* fixed 定位面板不跟随滚动 / resize，打开状态下滚动或缩放则关闭，避免错位 */
-window.addEventListener('scroll', () => {
-  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
-}, true);
-window.addEventListener('resize', () => {
-  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
-});
 
 /* =========================================================================
  * 【模块 7】上传与缩略图
@@ -1671,7 +1554,6 @@ function setPanelField(key, value) {
 const App = {
   selectTab, setField, setTheme, setPanelPrimaryKey, setPanelField,
   toggleCollapse, toggleConstellation, setConstellationDesc,
-  togglePanelPrimaryDropdown,
   addWeapon, removeWeapon, moveWeapon, setWeaponName,
   addArtifact, removeArtifact, moveArtifact, setArtifactName,
   addTeam, removeTeam, moveTeam, setTeamName, moveTeamChar, setTeamCharName,
@@ -1682,13 +1564,13 @@ const App = {
   exportPNG, exportConfig, importConfig, clearAllData,
   matchIconByType, matchArtifactDoubleIcon, setArtifactName1, setArtifactName2, setArtifactDisplayText,
   matchCharAvatar, matchStyleImages, loadSaveFromRepo,
-  openFontPicker, closeFontPicker, selectFont
+  selectFont
 };
 window.App = App;
 
 function injectFloatIcons() {
   const S = window.ICONS || { ui: {} };
-  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon', 'btnFontPickerIcon'];
+  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
   icons.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1696,7 +1578,6 @@ function injectFloatIcons() {
     if (id.includes('Import') || id.includes('LoadSave')) el.innerHTML = S.ui.import;
     if (id.includes('Clear') || id.includes('Del')) el.innerHTML = S.ui.trash;
     if (id.includes('AddTeam') || id.includes('MatchStyle')) el.innerHTML = S.ui.plus;
-    if (id.includes('FontPicker')) el.innerHTML = S.ui.textFont;
   });
 }
 
@@ -1706,6 +1587,19 @@ function bindPreviewTapToggle() {
   if (!frame || !toolbar) return;
   frame.addEventListener('click', () => toolbar.classList.toggle('hidden'));
 }
+
+/* 全局点击委托：字体 / 面板属性类型 */
+document.addEventListener('click', (e) => {
+  const fontItem = e.target.closest('#fontSheetList .dropdown-item');
+  if (fontItem && fontItem.dataset.fontIndex !== undefined) {
+    selectFont(Number(fontItem.dataset.fontIndex));
+    return;
+  }
+  const panelItem = e.target.closest('#panelPrimaryKeyPanel .dropdown-item');
+  if (panelItem) {
+    setPanelPrimaryKey(panelItem.dataset.value);
+  }
+});
 
 (async function init() {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
@@ -1727,13 +1621,10 @@ function bindPreviewTapToggle() {
   syncInputs();
   renderEditorsByKey();
   renderTabBar();
+  renderFontDropdown();
   mountPreview();
   selectTab(currentTab);
   bindPreviewTapToggle();
-
-  /* 初始化面板区下拉双箭头：各注入一次 ▼ / ▲，之后仅切 .is-open */
-  const panelArrow = document.getElementById('panelPrimaryKeyArrow');
-  if (panelArrow) initDropdownArrow(panelArrow);
 
   document.body.classList.add('ready');
 })();
