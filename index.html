@@ -83,7 +83,6 @@
 <aside class="sidebar-drawer" id="sidebarDrawer">
   <div class="sidebar-header">
     <h3>工具导航</h3>
-    <button type="button" class="nav-btn" id="btnClose" aria-label="关闭菜单"></button>
   </div>
   <nav class="sidebar-menu" id="sidebarMenu"></nav>
 </aside>
@@ -172,7 +171,6 @@ const loadingMask     = document.getElementById('loadingMask');
 const navIcon         = document.getElementById('navIcon');
 const navText         = document.getElementById('navText');
 const btnMenu         = document.getElementById('btnMenu');
-const btnClose        = document.getElementById('btnClose');
 const btnTheme        = document.getElementById('btnTheme');
 
 const frameCache = new Map();
@@ -463,7 +461,6 @@ window.addEventListener('message', (e) => {
 });
 
 btnMenu.addEventListener('click', openSidebar);
-btnClose.addEventListener('click', closeSidebar);
 sidebarBackdrop.addEventListener('click', closeSidebar);
 btnTheme.addEventListener('click', toggleTheme);
 
@@ -483,8 +480,7 @@ window.addEventListener('hashchange', () => {
 (async function init() {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
-  btnMenu.innerHTML  = ICONS.app.hamburger;
-  btnClose.innerHTML = ICONS.ui.close;
+  btnMenu.innerHTML = ICONS.app.hamburger;
 
   const sunEl  = btnTheme.querySelector('[data-theme-icon="sun"]');
   const moonEl = btnTheme.querySelector('[data-theme-icon="moon"]');
