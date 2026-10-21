@@ -1,6 +1,6 @@
 /* ============================================================
  * overlays.css —— 弹窗和提示
- * 提示条（右上角）、确认弹窗（中间）
+ * 提示条（右上角）、确认弹窗（中间）、底部状态胶囊
  * 抽屉已删除，改用下拉
  * ============================================================ */
 
@@ -23,6 +23,15 @@
 
   --modal-btn-h: 48px;
   --modal-btn-font: 14px;
+
+  --status-bottom: 16px;
+  --status-py: 8px;
+  --status-px: 16px;
+  --status-font: 12px;
+  --status-radius: 999px;
+  --status-bg: rgba(35, 35, 40, 0.85);
+  --status-ok: #82A79A;
+  --status-err: #DE8075;
 
   --overlay-t: 0.3s;
   --overlay-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -152,3 +161,30 @@
   background: var(--accent-dark);
   border-color: var(--accent-dark);
 }
+
+/* 底部状态胶囊 */
+.status-bar {
+  position: fixed;
+  bottom: calc(var(--status-bottom) + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: var(--status-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  font-size: var(--status-font);
+  font-weight: 500;
+  padding: var(--status-py) var(--status-px);
+  border-radius: var(--status-radius);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--overlay-t) var(--overlay-ease);
+}
+.status-bar.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.status-bar.ok { color: var(--status-ok); }
+.status-bar.err { color: var(--status-err); }
