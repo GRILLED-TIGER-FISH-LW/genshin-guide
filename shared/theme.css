@@ -688,7 +688,6 @@ label.ios-field, label.field {
 .row-pad, .form-pad, .panel-padding { padding: var(--space-lg); }
 .row-pad-t, .form-pad-t { padding: var(--space-lg) var(--space-lg) 0; }
 
-/* 工具类 */
 .mb-0 { margin-bottom: 0 !important; }
 .mb-8 { margin-bottom: var(--space-sm); }
 .ml-auto { margin-left: auto; }
@@ -706,7 +705,6 @@ label.ios-field, label.field {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* 上传行 */
 .upload-row {
   cursor: pointer;
   transition: background 0.2s var(--ease-spring);
@@ -734,7 +732,6 @@ label.ios-field, label.field {
 [data-theme="dark"] .preview-sticky,
 [data-theme="dark"] .sticky-head { background: rgba(26, 24, 22, 0.85); }
 
-/* 工具顶栏（固定高、单行、非 sticky） */
 .tool-header, .ed-header, .gs-header {
   height: 56px;
   display: flex; align-items: center; justify-content: space-between;
@@ -832,12 +829,12 @@ label.ios-field, label.field {
 .dropdown-arrow, .ed-dropdown-arrow, .gs-dropdown-arrow {
   width: var(--size-sm); height: var(--size-sm); flex-shrink: 0;
   color: var(--text-secondary);
-  transition: transform 0.2s var(--ease-spring);
+  display: inline-flex; align-items: center; justify-content: center;
 }
-.dropdown-wrap.open .dropdown-arrow,
-.dropdown.is-open .dropdown-arrow,
-.ed-dropdown-trigger.active .ed-dropdown-arrow,
-.gs-dropdown-wrap.open .gs-dropdown-arrow { transform: rotate(180deg); }
+.dropdown-arrow svg, .ed-dropdown-arrow svg, .gs-dropdown-arrow svg {
+  width: 100%; height: 100%; display: block;
+}
+
 .dropdown-wrap.open .dropdown-trigger,
 .dropdown.is-open .dropdown-trigger,
 .ed-dropdown-trigger.active,
@@ -1323,9 +1320,9 @@ label.ios-field, label.field {
   width: var(--size-sm); height: var(--size-sm); flex-shrink: 0;
   color: var(--text-tertiary);
   display: inline-flex; align-items: center; justify-content: center;
-  transition: transform 0.25s var(--ease-spring);
 }
-.menu-main.expanded .menu-main-arrow { transform: rotate(180deg); }
+.menu-main-arrow svg { width: 100%; height: 100%; display: block; }
+.menu-main.expanded .menu-main-arrow svg { transform: rotate(180deg); }
 .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s var(--ease-spring); }
 .menu-sub.open { max-height: 600px; }
 .menu-sub-inner { padding: 4px 0 6px; display: flex; flex-direction: column; gap: 2px; }
@@ -1423,7 +1420,6 @@ label.ios-field, label.field {
 /* ============================================================
  * 【模块 43】例外值（不进体系，明确标注）
  * ============================================================ */
-/* 2:1 套装缩略图 */
 .gs-set-thumb, .pg-list-thumb {
   height: 28px;
   aspect-ratio: 2 / 1;
@@ -1437,7 +1433,6 @@ label.ios-field, label.field {
   width: 100%; height: 100%; object-fit: contain; display: block;
 }
 
-/* 预览框：桌面 160 高 / 移动 100 高 */
 .pg-preview-frame {
   height: 160px;
   aspect-ratio: 2 / 1;
