@@ -1,18 +1,17 @@
 /* ============================================================
  * 原神攻略工具集 · 共享主题（入口）
  * ============================================================
- * 本文件只含：颜色调色板 + 主题切换 + 全局重置
+ * 本文件只含：颜色调色板 + 主题切换 + 全局重置 + 布局小工具
  * 控件尺寸/圆角/字号/边框/间距/阴影/动画由各控件文件自己定义
  * ============================================================ */
 
 @import url('buttons.css');
-@import url('forms.css');
-@import url('dropdowns.css');
+@import url('inputs.css');
 @import url('panels.css');
 @import url('preview.css');
-@import url('navigation.css');
+@import url('editor.css');
 @import url('overlays.css');
-@import url('utilities.css');
+@import url('home.css');
 
 /* 变量 · 浅色 */
 :root {
@@ -126,3 +125,56 @@ button, input[type="button"], input[type="submit"] {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+
+/* 布局小工具 */
+.flex-1 { flex: 1; min-width: 0; }
+.flex-col, .stack { display: flex; flex-direction: column; gap: 8px; }
+.inline { display: inline-flex; align-items: center; gap: 4px; }
+.row { display: flex; align-items: center; gap: 8px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.form-stack, .form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 16px;
+}
+.row-pad { padding: 16px; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-8 { margin-bottom: 8px; }
+.ml-auto { margin-left: auto; }
+.text-accent { color: var(--accent); }
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.font-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* 细滚动条（局部容器） */
+.scroll-thin::-webkit-scrollbar { width: 6px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+.scroll-thin::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* 页面滚动 */
+.page-scroll { -webkit-overflow-scrolling: touch; }
