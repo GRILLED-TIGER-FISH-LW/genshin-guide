@@ -249,11 +249,13 @@
           <div class="panel">
             <div class="panel-row panel-primary-row">
               <label class="field flex-1">属性类型
-                <select id="panelPrimaryKey" onchange="App.setPanelPrimaryKey(this.value)">
-                  <option value="hp">生命值</option>
-                  <option value="atk">攻击力</option>
-                  <option value="def">防御力</option>
-                </select>
+  <div class="dropdown" id="panelPrimaryKeyDropdown" data-value="hp">
+    <button type="button" class="dropdown-trigger" onclick="App.togglePanelPrimaryDropdown(event)">
+      <span class="dropdown-label" id="panelPrimaryKeyLabel">生命值</span>
+      <span class="dropdown-arrow" id="panelPrimaryKeyArrow"></span>
+    </button>
+    <div class="dropdown-panel" id="panelPrimaryKeyPanel"></div>
+  </div>
               </label>
               <label class="field flex-1">数值
                 <input type="text" id="panelPrimaryValue" placeholder="留空显示「任意」" oninput="App.setPanelField('primaryValue', this.value)" />
