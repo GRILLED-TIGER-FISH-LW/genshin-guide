@@ -91,7 +91,7 @@
       </div>
       <div class="preview-header">
         <span class="preview-title">实时卡片渲染视口</span>
-        <button class="btn-primary btn-sm" onclick="App.exportPNG()" id="exportDesktopBtn">导出 4K PNG</button>
+        <button class="btn-primary btn-sm" onclick="App.exportPNG()" id="exportDesktopBtn">导出图片</button>
       </div>
       <div class="preview-frame" id="previewFrame">
         <div id="svgPreviewHost"></div>
@@ -122,10 +122,10 @@
           <div class="panel">
             <div class="action-row">
               <button type="button" class="btn-primary btn-sm flex-1" id="btnMatchStyle" onclick="App.matchStyleImages()">
-                <span class="icon-only" id="btnMatchStyleIcon"></span>匹配样式图
+                <span class="icon-only" id="btnMatchStyleIcon"></span><span class="btn-text">匹配样式图</span>
               </button>
               <button type="button" class="btn-sm flex-1" id="btnLoadSave" onclick="App.loadSaveFromRepo()">
-                <span class="icon-only" id="btnLoadSaveIcon"></span>载入在线存档
+                <span class="icon-only" id="btnLoadSaveIcon"></span><span class="btn-text">载入在线存档</span>
               </button>
             </div>
           </div>
@@ -139,7 +139,9 @@
           <div class="panel">
             <div class="panel-row">
               <div class="flex-1 ellipsis" id="labelCustomFont">默认标准字体</div>
-              <button type="button" class="btn-primary btn-sm" onclick="App.openFontPicker()">选择字体</button>
+              <button type="button" class="btn-primary btn-sm" id="btnFontPicker" onclick="App.openFontPicker()">
+                <span class="icon-only" id="btnFontPickerIcon"></span><span class="btn-text">选择字体</span>
+              </button>
             </div>
           </div>
         </div>
@@ -157,7 +159,7 @@
                 <div class="upload-text" id="labelCharImg">点击上传立绘</div>
               </div>
               <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
-                <span class="icon-only" id="btnDelCharImg"></span>删除
+                <span class="icon-only" id="btnDelCharImg"></span><span class="btn-text">删除</span>
               </button>
               <input type="file" id="inputCharImg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.charImg = v; State.data.charImgMeta = { w, h }; State.data.charImgDeleted = false; State.data.charImgManual = true; App.updateImgXHint(); App.updateThumb('thumbCharImg', 'labelCharImg', v, '已载入立绘（点击更换）'); })" />
             </div>
@@ -176,7 +178,7 @@
                 <div class="upload-text" id="labelNameBg">点击上传元素图</div>
               </div>
               <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
-                <span class="icon-only" id="btnDelNameBg"></span>删除
+                <span class="icon-only" id="btnDelNameBg"></span><span class="btn-text">删除</span>
               </button>
               <input type="file" id="inputNameBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.nameBgImg = v; State.data.nameBgImgMeta = { w, h }; State.data.nameBgImgDeleted = false; State.data.nameBgImgManual = true; App.updateThumb('thumbNameBg', 'labelNameBg', v, '已载入元素图（点击更换）'); })" />
             </div>
@@ -187,7 +189,7 @@
                 <div class="upload-text" id="labelBg">默认暗黑原力色</div>
               </div>
               <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
-                <span class="icon-only" id="btnDelBg"></span>删除
+                <span class="icon-only" id="btnDelBg"></span><span class="btn-text">删除</span>
               </button>
               <input type="file" id="inputBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.bgImg = v; State.data.bgImgDeleted = false; State.data.bgImgManual = true; App.updateThumb('thumbBg', 'labelBg', v, '已载入大背景（点击更换）'); })" />
             </div>
@@ -203,7 +205,7 @@
         </div>
       </div>
 
-      <!-- 4.4 圣遗物区（关键：加 data-collapse-content="artifact_section"） -->
+      <!-- 4.4 圣遗物区 -->
       <div class="tab-panel" id="tab-artifact">
         <div>
           <div class="panel-header" id="artifactSectionHead"></div>
@@ -242,7 +244,7 @@
         </div>
       </div>
 
-      <!-- 4.7 面板区（关键：dropdown-panel 加 is-fixed） -->
+      <!-- 4.7 面板区 -->
       <div class="tab-panel" id="tab-panel">
         <div>
           <div class="panel-header">主属性（三选一）</div>
@@ -298,7 +300,7 @@
                 <div class="upload-text" id="labelTeamCore">主角色一号位头像（点击更换）</div>
               </div>
               <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
-                <span class="icon-only" id="btnDelTeamCore"></span>删除
+                <span class="icon-only" id="btnDelTeamCore"></span><span class="btn-text">删除</span>
               </button>
               <input type="file" id="inputTeamCore" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamCoreImg = v; State.data.teamCoreImgManual = true; App.updateThumb('thumbTeamCore', 'labelTeamCore', v, '已载入1号位头像（点击更换）'); })" />
             </div>
@@ -308,7 +310,7 @@
           <div class="panel-header">
             <span>配队参考方案（最多 3 组）</span>
             <button class="btn-primary btn-xs" id="btnAddTeam" onclick="App.addTeam()">
-              <span class="icon-only" id="btnAddTeamIcon"></span>添加
+              <span class="icon-only" id="btnAddTeamIcon"></span><span class="btn-text">添加</span>
             </button>
           </div>
           <div id="teamEditor" class="editor-list-large"></div>
