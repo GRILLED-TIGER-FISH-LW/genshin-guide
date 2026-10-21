@@ -8,6 +8,7 @@
  *     open/close 只切 .is-open；.dropdown-panel.is-fixed 用 fixed 定位
  *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算，
  *     间隙从 --space-sm 变量读取，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐
+ *   · 所有「SVG + 文字」按钮的文字包 .btn-text，手机端由 style.css 隐藏
  * ========================================================================= */
 
 'use strict';
@@ -572,9 +573,9 @@ function renderWeaponEditor() {
         <div class="item-header">
           <span class="item-subtitle">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
           <div class="item-actions">
-            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}上移</button>
-            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}下移</button>
-            <button class="btn-xs btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}删除</button>
+            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button class="btn-xs" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button class="btn-xs btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
         <div class="item-row">
@@ -588,7 +589,7 @@ function renderWeaponEditor() {
       <div class="group-header">
         <span class="group-title">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
         <div class="group-actions">
-          <button class="btn-primary btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}添加</button>
+          <button class="btn-primary btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}<span class="btn-text">添加</span></button>
           <button class="btn-xs collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
             <span class="collapse-icon">${collapseIconOf(collapsed)}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
@@ -608,8 +609,8 @@ function renderArtifactEditor() {
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
       <div class="group-actions">
-        <button class="btn-primary btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}整套</button>
-        <button class="btn-primary btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}散搭</button>
+        <button class="btn-primary btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
+        <button class="btn-primary btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
         <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
           <span class="collapse-icon">${collapseIconOf(isSectionCollapsed)}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
@@ -625,9 +626,9 @@ function renderArtifactEditor() {
         <div class="item-header">
           <span class="item-subtitle text-accent">散搭 #${i + 1}</span>
           <div class="item-actions">
-            <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
-            <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
-            <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}删除</button>
+            <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
         <input type="text" value="${esc(a.displayText)}" placeholder="卡片显示文本（可选，留空显示两个名字）" oninput="App.setArtifactDisplayText(${i},this.value)" />
@@ -650,9 +651,9 @@ function renderArtifactEditor() {
       <div class="item-header">
         <span class="item-subtitle">整套 #${i + 1}</span>
         <div class="item-actions">
-          <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
-          <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
-          <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}删除</button>
+          <button class="btn-xs" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button class="btn-xs" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+          <button class="btn-xs btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
       <div class="item-row">
@@ -674,12 +675,12 @@ function renderTeamEditor() {
       <div class="item-header ${teamCollapsed ? 'mb-0' : 'mb-8'}">
         <span class="group-title">队伍 ${ti + 1}</span>
         <div class="item-actions">
-          <button class="btn-xs" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
-          <button class="btn-xs" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
+          <button class="btn-xs" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button class="btn-xs" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
           <button class="btn-xs collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
             <span class="collapse-icon">${collapseIconOf(teamCollapsed)}</span><span class="collapse-text">${teamCollapsed ? '展开' : '收起'}</span>
           </button>
-          <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}删除</button>
+          <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
       <div data-collapse-content="${teamKey}" class="group-content ${teamCollapsed ? 'hidden' : ''}">
@@ -694,8 +695,8 @@ function renderTeamEditor() {
               <div class="item-header">
                 <span class="item-subtitle text-accent">${ci + 1}号位主角色</span>
                 <div class="item-actions">
-                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}上移</button>
-                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}下移</button>
+                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                  <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
                   <button class="btn-xs collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
                     <span class="collapse-icon">${collapseIconOf(charCollapsed)}</span><span class="collapse-text">${charCollapsed ? '展开' : '收起'}</span>
                   </button>
@@ -710,7 +711,7 @@ function renderTeamEditor() {
                 <div class="alt-list-wrap">
                   <div class="alt-header">
                     <span class="alt-count">备选角色 (${c.alts.length}/4)</span>
-                    <button class="btn-primary btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}添加</button>
+                    <button class="btn-primary btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}<span class="btn-text">添加</span></button>
                   </div>
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
@@ -719,9 +720,9 @@ function renderTeamEditor() {
                       <div class="item-header">
                         <span class="item-subtitle">备选 #${ai + 1}</span>
                         <div class="item-actions">
-                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
-                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
-                          <button class="btn-xs btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}删除</button>
+                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                          <button class="btn-xs" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+                          <button class="btn-xs btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
                         </div>
                       </div>
                       <div class="item-row">
@@ -1689,7 +1690,7 @@ window.App = App;
 
 function injectFloatIcons() {
   const S = window.ICONS || { ui: {} };
-  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
+  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon', 'btnFontPickerIcon'];
   icons.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1697,6 +1698,7 @@ function injectFloatIcons() {
     if (id.includes('Import') || id.includes('LoadSave')) el.innerHTML = S.ui.import;
     if (id.includes('Clear') || id.includes('Del')) el.innerHTML = S.ui.trash;
     if (id.includes('AddTeam') || id.includes('MatchStyle')) el.innerHTML = S.ui.plus;
+    if (id.includes('FontPicker')) el.innerHTML = S.ui.textFont;
   });
 }
 
