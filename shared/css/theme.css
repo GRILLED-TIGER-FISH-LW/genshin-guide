@@ -34,6 +34,7 @@
   --accent-dark: #805535;
   --accent-hover: #805535;
   --accent-soft: rgba(158, 108, 71, 0.1);
+  --on-accent: #F4F1EA;
 
   --danger: #C7665C;
   --danger-bg: #F6ECE9;
@@ -68,6 +69,7 @@
   --accent-dark: #BD8B66;
   --accent-hover: #E5B695;
   --accent-soft: rgba(216, 164, 127, 0.15);
+  --on-accent: #1A1816;
 
   --danger: #DE8075;
   --danger-bg: rgba(222, 128, 117, 0.14);
