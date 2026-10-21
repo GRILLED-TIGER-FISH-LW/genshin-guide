@@ -9,6 +9,7 @@
  *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算，
  *     间隙从 --space-sm 变量读取，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐
  *   · 所有「SVG + 文字」按钮的文字包 .btn-text，手机端由 style.css 隐藏
+ *   · 整套/散搭按钮用 btn-sm（32 高但手机端不变正方形），id 见 style.css 白名单
  * ========================================================================= */
 
 'use strict';
@@ -609,8 +610,8 @@ function renderArtifactEditor() {
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
       <div class="group-actions">
-        <button class="btn-primary btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
-        <button class="btn-primary btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
+        <button class="btn-primary btn-sm" id="btnAddArtifactSingle" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
+        <button class="btn-primary btn-sm" id="btnAddArtifactDouble" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
         <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
           <span class="collapse-icon">${collapseIconOf(isSectionCollapsed)}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
