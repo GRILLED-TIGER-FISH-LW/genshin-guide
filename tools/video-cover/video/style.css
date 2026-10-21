@@ -1,89 +1,46 @@
 /* =========================================================================
  * 视频封面 · style.css
- * 仅布局特化，通用控件（按钮/输入/卡片/缩略图/吸顶头/dropdown 等）见 theme.css
- *
- * 例外区（逐条注释，不进体系）：
- *   · .video-preview-wrap 毛玻璃背景色（模拟 character .sticky-header 同色，主题无关）
- *   · .preview-frame 移动端 max-height 32vh（响应式视口高）
- *   · .preview-frame 的 #121212 暗底由 theme.css 模块 16 提供，此处不重复
- *   · .video-form max-width 900px（对齐 theme.css .form-stack）
- *
- * 无散值：所有尺寸/圆角/间距/字号/动画/边框走 theme.css 变量。
+ * 仅视频封面特化。通用控件在 shared/css/ 各文件。
  * ========================================================================= */
 
+/* 底部留白：导出按钮 48 + 底距 16 + 呼吸 16 = 80 */
 body {
-  padding-bottom: calc(var(--h-md) + env(safe-area-inset-bottom));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* =========================================================================
- * 1. 预览区（毛玻璃吸顶）
- * ========================================================================= */
-.video-preview-wrap {
-  position: sticky; top: 0; z-index: 35;
-  /* 例外：毛玻璃底同 theme.css 模块 25 .sticky-header 的 rgba 值，与主题联动 */
-  background: rgba(244, 241, 234, 0.85);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  padding: var(--space-sm) var(--space-lg);
-  border-bottom: var(--border-w) solid var(--border-subtle);
-}
-[data-theme="dark"] .video-preview-wrap { background: rgba(26, 24, 22, 0.85); }
-
-/* 预览框：对齐 character（12px 圆角 + 边框）；#121212 暗底 / 16:9 比例由 theme.css 模块 16 提供 */
-.preview-frame {
-  border-radius: var(--radius-lg);
-  border: var(--border-w) solid var(--border-subtle);
-}
-@media (max-width: 1023px) {
-  .preview-frame {
-    max-height: 32vh; /* 例外：响应式视口高，控移动端预览占位 */
-    width: auto;
-    max-width: 100%;
-    align-self: center;
-    margin: 0 auto;
-  }
-}
-
-/* svg 撑满宿主（theme.css 只控制 .preview-frame 直接子元素） */
-#svgPreviewHost { display: block; }
-#svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
-
-/* =========================================================================
- * 2. 表单主容器
- * ========================================================================= */
-.video-form {
+/* 表单内 section 结构
+ * .form 在 theme.css 控制 section 之间（gap 16），
+ * 每个 section 内部（header + panel）需要 8px 间距，此处补。
+ * 注：后续 character 迁移时若也用 .form > section，可考虑提升到 theme.css
+ */
+.form > section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
-  max-width: 900px;
-  margin: 0 auto;
+  gap: 8px;
+}
+
+/* 预览宿主撑满预览框，内部 svg 按比例缩放居中 */
+#svgPreviewHost {
   width: 100%;
-}
-.video-form > section {
+  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+  align-items: center;
+  justify-content: center;
+}
+#svgPreviewHost > svg {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
 }
 
-/* 首 section 顶部补偿：theme.css 的 .panel-header 上下各 8px，
-   首 section 已有 form padding 16px 兜底，再叠加 8px 会让顶部偏松，
-   抵消后顶部 = 16px，与底部对称 */
-.video-form > section:first-child > .panel-header {
-  padding-top: 0;
-}
-
-/* =========================================================================
- * 3. 浮动素材列表
- * ========================================================================= */
-
-/* .custom-head 是 .panel-row 子类，仅覆盖底部 padding 和横轴分布 */
+/* 浮动素材 */
 .custom-head {
   padding-bottom: 0;
   justify-content: space-between;
 }
 .custom-head-label {
-  font-size: var(--font-sm);
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -91,64 +48,56 @@ body {
 .float-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 16px;
 }
 
 .float-item {
   background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border-radius: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  border: var(--border-w) solid var(--border-subtle);
+  gap: 8px;
+  border: 1px solid var(--border-subtle);
 }
 
 .float-item-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 8px;
 }
 .float-item-head-thumb {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 8px;
 }
 .float-item-head-actions {
   display: flex;
-  gap: var(--space-xs);
+  gap: 4px;
 }
 
 .float-thumb {
-  width: var(--size-thumb);
-  height: var(--size-thumb);
+  width: 40px;
+  height: 40px;
   object-fit: cover;
-  border-radius: var(--radius-md);
-  border: var(--border-w) solid var(--border-subtle);
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: opacity var(--t-xs);
+  transition: opacity 0.1s;
 }
 .float-thumb:hover { opacity: 0.8; }
 
 .float-thumb-meta {
-  font-size: var(--font-sm);
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
 .under-middle-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-sm);
+  gap: 8px;
+  font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
-}
-
-/* =========================================================================
- * 4. 手机端：隐藏 .btn-text（video 白名单仅「选择字体」）
- * ========================================================================= */
-@media (max-width: 1023px) {
-  .btn-text { display: none; }
-  #btnFontPicker .btn-text { display: inline; }
 }
