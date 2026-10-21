@@ -278,9 +278,11 @@
  * 8. 手机端按钮文字隐藏（≤1023px）
  * 规则：所有「左 SVG + 右文字」的按钮，手机端只显示 SVG，隐藏文字。
  * 例外（保持 SVG + 文字）：
- *   · #btnMatchStyle  「匹配样式图」
- *   · #btnLoadSave    「载入在线存档」
- *   · #btnFontPicker  「选择字体」
+ *   · #btnMatchStyle         「匹配样式图」
+ *   · #btnLoadSave           「载入在线存档」
+ *   · #btnFontPicker         「选择字体」
+ *   · #btnAddArtifactSingle  「整套」
+ *   · #btnAddArtifactDouble  「散搭」
  * 电脑端（≥1024px）不变。
  * ========================================================================= */
 @media (max-width: 1023px) {
@@ -289,5 +291,7 @@
 
   #btnMatchStyle .btn-text,
   #btnLoadSave .btn-text,
-  #btnFontPicker .btn-text { display: inline; }
+  #btnFontPicker .btn-text,
+  #btnAddArtifactSingle .btn-text,
+  #btnAddArtifactDouble .btn-text { display: inline; }
 }
