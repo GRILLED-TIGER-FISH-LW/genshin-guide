@@ -1,0 +1,154 @@
+/* ============================================================
+ * overlays.css —— 弹窗和提示
+ * 提示条（右上角）、确认弹窗（中间）
+ * 抽屉已删除，改用下拉
+ * ============================================================ */
+
+:root {
+  --toast-top: 80px;
+  --toast-right: 16px;
+  --toast-max-w: 320px;
+  --toast-radius: 12px;
+  --toast-p: 16px;
+  --toast-font: 12px;
+  --toast-gap: 8px;
+
+  --modal-radius: 12px;
+  --modal-p: 16px;
+  --modal-max-w: 480px;
+  --modal-max-h: 80vh;
+  --modal-gap: 16px;
+  --modal-title-font: 16px;
+  --modal-msg-font: 12px;
+
+  --modal-btn-h: 48px;
+  --modal-btn-font: 14px;
+
+  --overlay-t: 0.3s;
+  --overlay-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 提示条 */
+.toast-container {
+  position: fixed;
+  top: var(--toast-top);
+  right: var(--toast-right);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--toast-gap);
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--toast-radius);
+  padding: var(--toast-p);
+  font-size: var(--toast-font);
+  color: var(--text-primary);
+  max-width: var(--toast-max-w);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(16px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transition: opacity var(--overlay-t) var(--overlay-ease), transform var(--overlay-t) var(--overlay-ease);
+}
+.toast.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.toast-error {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+.toast-success {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 弹窗遮罩 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: var(--mask);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--overlay-t) var(--overlay-ease);
+}
+.modal-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 弹窗本体 */
+.modal-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--modal-radius);
+  padding: var(--modal-p);
+  max-width: var(--modal-max-w);
+  width: calc(100% - 32px);
+  max-height: var(--modal-max-h);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--modal-gap);
+  transform: translateY(8px);
+  transition: transform var(--overlay-t) var(--overlay-ease);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.modal-backdrop.is-visible .modal-box {
+  transform: translateY(0);
+}
+
+.modal-title {
+  font-size: var(--modal-title-font);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-message {
+  font-size: var(--modal-msg-font);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--toast-gap);
+  margin-top: 4px;
+}
+
+.modal-actions button {
+  flex: 1;
+  height: var(--modal-btn-h);
+  font-size: var(--modal-btn-font);
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--overlay-t) var(--overlay-ease);
+}
+.modal-actions button:hover {
+  background: var(--bg-hover);
+}
+
+.modal-actions button.modal-confirm {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+.modal-actions button.modal-confirm:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
