@@ -1568,6 +1568,7 @@ const App = {
 };
 window.App = App;
 
+/* 按硬编码 id 注入图标（这些按钮的 HTML 里没有 data-icon） */
 function injectFloatIcons() {
   const S = window.ICONS || { ui: {} };
   const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
@@ -1578,6 +1579,27 @@ function injectFloatIcons() {
     if (id.includes('Import') || id.includes('LoadSave')) el.innerHTML = S.ui.import;
     if (id.includes('Clear') || id.includes('Del')) el.innerHTML = S.ui.trash;
     if (id.includes('AddTeam') || id.includes('MatchStyle')) el.innerHTML = S.ui.plus;
+  });
+}
+
+/* 按 data-icon 属性注入图标（面板下拉箭头、字体下拉箭头、字体按钮图标） */
+function injectIcons() {
+  const ui = window.ICONS?.ui ?? {};
+  const iconMap = {
+    export: ui.export ?? '',
+    import: ui.import ?? '',
+    trash: ui.trash ?? '',
+    plus: ui.plus ?? '',
+    up: ui.arrowUp ?? '',
+    down: ui.arrowDown ?? '',
+    font: ui.textFont ?? '',
+    guides: ui.guides ?? '',
+    chevronDown: ui.chevronDown ?? '',
+    chevronUp: ui.chevronUp ?? ''
+  };
+  document.querySelectorAll('[data-icon]').forEach(el => {
+    const icon = iconMap[el.dataset.icon];
+    if (icon) el.innerHTML = icon;
   });
 }
 
@@ -1605,6 +1627,7 @@ document.addEventListener('click', (e) => {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   injectFloatIcons();
+  injectIcons();
   tightenAllIconViewBoxes();
 
   const saved = await loadStateFromIDB();
