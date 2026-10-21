@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <!-- =========================================================================
-     原神攻略工具集 · index.html (2026 现代扁平焦糖版)
+     原神攻略工具集 · index.html
      =========================================================================
      HTML 模块导航：
        【HTML 模块 0】 head / 资源加载器
-       【HTML 模块 1】 全局样式 (扁平外壳 + 首页网格)
+       【HTML 模块 1】 启动遮罩 + 外壳布局
        【HTML 模块 2】 启动遮罩
        【HTML 模块 3】 顶部导航栏
        【HTML 模块 4】 侧边菜单抽屉
-       【HTML 模块 5】 首页 (Dashboard 网格)
+       【HTML 模块 5】 首页 (Bento 网格)
        【HTML 模块 6】 iframe 容器 + loading
        【HTML 模块 7】 JS 引用
      ========================================================================= -->
@@ -23,36 +23,31 @@
 <link rel="apple-touch-icon" href="favicon.ico">
 
 <script>
-(function () {
-  var ts = Date.now();
+/* 资源加载器（带时间戳，动态加载） */
+(() => {
+  const ts = Date.now();
   window.__pageLoadTs = ts;
 
-  function withTs(url) {
-    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
-  }
+  const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
 
-  function loadStyle(href) {
-    return new Promise(function (resolve, reject) {
-      var l = document.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = withTs(href);
-      l.onload = resolve;
-      l.onerror = function () { reject(new Error('加载失败：' + href)); };
-      var firstStyle = document.head.querySelector('style');
-      if (firstStyle) document.head.insertBefore(l, firstStyle);
-      else document.head.appendChild(l);
-    });
-  }
+  const loadStyle = (href) => new Promise((resolve, reject) => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = withTs(href);
+    l.onload = resolve;
+    l.onerror = () => reject(new Error('加载失败：' + href));
+    const firstStyle = document.head.querySelector('style');
+    if (firstStyle) document.head.insertBefore(l, firstStyle);
+    else document.head.appendChild(l);
+  });
 
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = withTs(src);
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error('加载失败：' + src)); };
-      document.head.appendChild(s);
-    });
-  }
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = withTs(src);
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('加载失败：' + src));
+    document.head.appendChild(s);
+  });
 
   window.__bootPromise = Promise.all([
     loadStyle('shared/theme.css'),
@@ -61,182 +56,29 @@
 })();
 </script>
 
-<!-- 【HTML 模块 1】全局样式 (扁平外壳 + 首页网格) -->
+<!-- 【HTML 模块 1】启动遮罩 + 外壳布局 -->
 <style>
-/* ---------- 全局重置 ---------- */
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; height: 100dvh; }
-html, body, button { font-family: var(--std-font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-body {
-  background: var(--bg-base);
-  color: var(--text-primary);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  letter-spacing: 0;
-}
+  /* 启动遮罩：theme.css 加载前的兜底显示，加载完成后随 body.ready 消失 */
+  body { visibility: hidden; }
+  body.ready { visibility: visible; }
+  .boot-loading {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-base, #F4F1EA);
+    color: var(--text-tertiary, #A69E95);
+    font-size: 13px;
+    font-family: var(--std-font, system-ui, sans-serif);
+    visibility: visible;
+  }
+  body.ready .boot-loading { display: none; }
 
-/* ---------- 启动遮罩 ---------- */
-body { visibility: hidden; }
-body.ready { visibility: visible; }
-.boot-loading {
-  position: fixed; inset: 0; z-index: 99999;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--bg-base); color: var(--text-tertiary);
-  font-size: 13px; visibility: visible;
-}
-body.ready .boot-loading { display: none; }
-
-/* ---------- 主题切换瞬间：禁用所有过渡 ---------- */
-html.theme-switching, html.theme-switching body, html.theme-switching *,
-html.theme-switching *::before, html.theme-switching *::after {
-  transition: none !important; animation: none !important;
-}
-
-/* ---------- 顶部导航栏 (扁平悬浮) ---------- */
-.app-navbar {
-  flex: none; height: 56px; padding: 0 16px;
-  background: var(--bg-base); /* 和背景融为一体 */
-  display: flex; align-items: center; gap: 12px; z-index: 40;
-}
-.nav-btn {
-  width: 36px; height: 36px;
-  background: var(--bg-surface); border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm); color: var(--text-primary); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  transition: background 0.2s var(--ease-spring); padding: 0; flex-shrink: 0;
-}
-.nav-btn:hover { background: var(--bg-hover); }
-.nav-btn:active { background: var(--bg-sunken); }
-.nav-btn svg { width: 18px; height: 18px; display: block; }
-
-.nav-title {
-  flex: 1; min-width: 0; font-size: 16px; font-weight: 600; color: var(--text-primary);
-  display: flex; align-items: center; gap: 8px; padding: 0 4px;
-}
-.nav-title-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--accent); }
-.nav-title-icon svg { width: 100%; height: 100%; display: block; }
-/* 关键：如果图标为空，则隐藏它，让标题完美左对齐 */
-.nav-title-icon:empty { display: none; }
-
-.nav-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-title-sep { color: var(--text-tertiary); font-weight: 400; margin: 0 2px; }
-
-/* ---------- 侧边抽屉 (扁平化) ---------- */
-.sidebar-backdrop {
-  position: fixed; inset: 0; background: var(--mask); z-index: 90;
-  opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease-spring);
-}
-.sidebar-backdrop.active { opacity: 1; pointer-events: auto; }
-
-.sidebar-drawer {
-  position: fixed; top: 0; bottom: 0; left: 0; width: 270px; max-width: 85vw;
-  background: var(--bg-base); z-index: 100;
-  display: flex; flex-direction: column;
-  transform: translateX(-100%); transition: transform 0.3s var(--ease-spring);
-  border-right: 1px solid var(--border-subtle);
-}
-.sidebar-drawer.open { transform: translateX(0); }
-
-.sidebar-header {
-  padding: 16px; display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
-}
-.sidebar-header h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
-
-.sidebar-menu { padding: 12px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
-
-/* 一级菜单 (扁平化激活) */
-.menu-main {
-  width: 100%; display: flex; align-items: center; gap: 12px;
-  padding: 12px; border-radius: var(--radius-sm);
-  background: transparent; border: 1px solid transparent;
-  color: var(--text-secondary); font-size: 14px; font-weight: 500;
-  cursor: pointer; text-align: left; transition: all 0.2s var(--ease-spring);
-  margin-top: 4px;
-}
-.menu-main:first-child { margin-top: 0; }
-.menu-main:hover { color: var(--text-primary); background: var(--bg-hover); }
-.menu-main.active {
-  color: var(--text-primary); font-weight: 600;
-  background: var(--bg-surface); border-color: var(--border-subtle);
-}
-.menu-main-icon { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
-.menu-main-icon svg { width: 20px; height: 20px; display: block; }
-.menu-main.active .menu-main-icon { color: var(--accent); }
-.menu-main-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-main-arrow { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-tertiary); display: inline-flex; align-items: center; justify-content: center; transition: transform 0.25s var(--ease-spring); }
-.menu-main-arrow svg { width: 100%; height: 100%; display: block; }
-.menu-main.expanded .menu-main-arrow { transform: rotate(180deg); }
-
-/* 二级菜单 */
-.menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s var(--ease-spring); }
-.menu-sub.open { max-height: 600px; }
-.menu-sub-inner { padding: 4px 0 6px 0; display: flex; flex-direction: column; gap: 2px; }
-.menu-sub-item {
-  width: 100%; display: flex; align-items: center; justify-content: flex-start;
-  padding: 10px 12px 10px 46px; border-radius: var(--radius-sm);
-  background: transparent; border: 0; color: var(--text-secondary);
-  font-size: 13px; font-weight: 500; cursor: pointer; text-align: left;
-  transition: color 0.15s; position: relative;
-}
-.menu-sub-item:hover { color: var(--text-primary); background: var(--bg-hover); }
-.menu-sub-item.active { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
-.menu-sub-item .dot {
-  position: absolute; left: 24px; top: 50%; transform: translateY(-50%);
-  width: 6px; height: 6px; border-radius: 50%; background: var(--border-default); transition: background 0.15s;
-}
-.menu-sub-item.active .dot { background: var(--accent); }
-
-/* ---------- 首页 (Dashboard Bento 网格) ---------- */
-.home-view {
-  flex: 1; overflow-y: auto; padding: 16px;
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
-  align-content: start;
-}
-@media (min-width: 768px) {
-  .home-view { grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; }
-}
-@media (min-width: 1024px) {
-  .home-view { grid-template-columns: repeat(4, 1fr); }
-}
-.home-view.hidden { display: none; }
-
-.dash-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 20px 16px;
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px;
-  cursor: pointer; transition: all 0.2s var(--ease-spring);
-  position: relative; overflow: hidden;
-}
-.dash-card:hover { background: var(--bg-hover); }
-.dash-card:active { transform: scale(0.96); background: var(--bg-sunken); }
-.dash-card-icon { width: 32px; height: 32px; color: var(--accent); display: flex; align-items: center; justify-content: flex-start; }
-.dash-card-icon svg { width: 100%; height: 100%; display: block; }
-.dash-card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
-.dash-card-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
-
-/* ---------- iframe 容器 ---------- */
-.frame-container { flex: 1; position: relative; overflow: hidden; background: var(--bg-base); display: none; }
-.frame-container.active { display: block; }
-.frame-view { position: absolute; inset: 0; display: none; }
-.frame-view.active { display: block; }
-.frame-view iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg-base); }
-
-/* ---------- Loading ---------- */
-.loading-mask {
-  position: absolute; inset: 0; z-index: 20;
-  display: none; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; background: var(--bg-base); color: var(--text-secondary); font-size: 13px; pointer-events: none;
-}
-.loading-mask.show { display: flex; }
-.spinner {
-  width: 24px; height: 24px; border: 2px solid var(--border-subtle); border-top-color: var(--accent);
-  border-radius: 50%; animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+  /* 外壳基础布局（导航/抽屉/Bento/loading 样式在 theme.css） */
+  html, body { height: 100%; height: 100dvh; }
+  body {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 </style>
 </head>
 <body>
@@ -251,7 +93,10 @@ html.theme-switching *::before, html.theme-switching *::after {
     <span class="nav-title-icon" id="navIcon"></span>
     <span class="nav-title-text" id="navText">原神攻略工具集</span>
   </div>
-  <button type="button" class="nav-btn" id="btnTheme" aria-label="切换主题"></button>
+  <button type="button" class="nav-btn" id="btnTheme" aria-label="切换主题">
+    <span class="theme-icon" data-theme-icon="sun"></span>
+    <span class="theme-icon" data-theme-icon="moon"></span>
+  </button>
 </header>
 
 <!-- 【HTML 模块 4】侧边菜单抽屉 -->
@@ -264,7 +109,7 @@ html.theme-switching *::before, html.theme-switching *::after {
   <nav class="sidebar-menu" id="sidebarMenu"></nav>
 </aside>
 
-<!-- 【HTML 模块 5】首页 (Dashboard 网格) -->
+<!-- 【HTML 模块 5】首页 (Bento 网格) -->
 <main class="home-view" id="homeView"></main>
 
 <!-- 【HTML 模块 6】iframe 容器 + loading -->
@@ -364,14 +209,8 @@ let isHome        = true;
 let activeTool    = '';
 let activeSubtool = '';
 
-function cacheKeyOf(tool, sub) {
-  if (sub && sub.src) return tool.key + '::' + sub.key;
-  return tool.key;
-}
-function srcOf(tool, sub) {
-  if (sub && sub.src) return sub.src;
-  return tool.src;
-}
+const cacheKeyOf = (tool, sub) => (sub && sub.src) ? (tool.key + '::' + sub.key) : tool.key;
+const srcOf = (tool, sub) => (sub && sub.src) ? sub.src : tool.src;
 
 /* 【JS 模块 3】主题切换 */
 function applyTheme(theme) {
@@ -382,7 +221,7 @@ function applyTheme(theme) {
   frameCache.forEach(record => {
     if (!record.loaded) return;
     try {
-      var doc = record.iframe.contentDocument;
+      const doc = record.iframe.contentDocument;
       if (doc && doc.documentElement) {
         doc.documentElement.classList.add('theme-switching');
         doc.documentElement.setAttribute('data-theme', currentTheme);
@@ -398,7 +237,6 @@ function applyTheme(theme) {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', currentTheme === 'dark' ? '#1A1816' : '#F4F1EA');
 
-  btnTheme.innerHTML = currentTheme === 'dark' ? ICONS.app.moonBold : ICONS.app.sunBold;
   try { localStorage.setItem(THEME_KEY, currentTheme); } catch (e) {}
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -406,7 +244,7 @@ function applyTheme(theme) {
     frameCache.forEach(record => {
       if (!record.loaded) return;
       try {
-        var doc = record.iframe.contentDocument;
+        const doc = record.iframe.contentDocument;
         if (doc && doc.documentElement) doc.documentElement.classList.remove('theme-switching');
       } catch (e) {}
     });
@@ -427,11 +265,10 @@ function closeSidebar() {
   sidebarBackdrop.classList.remove('active');
 }
 
-/* 【JS 模块 5】菜单渲染 (加入首页入口) */
+/* 【JS 模块 5】菜单渲染 */
 function renderMenu() {
   sidebarMenu.innerHTML = '';
 
-  // --- 首页入口 ---
   const homeBtn = document.createElement('button');
   homeBtn.type = 'button';
   homeBtn.className = 'menu-main' + (isHome ? ' active' : '');
@@ -442,7 +279,6 @@ function renderMenu() {
   homeBtn.addEventListener('click', goHome);
   sidebarMenu.appendChild(homeBtn);
 
-  // --- 工具列表 ---
   TOOLS.forEach(tool => {
     const subs = tool.subtools || [];
     const isActive = !isHome && tool.key === activeTool;
@@ -451,7 +287,7 @@ function renderMenu() {
     const mainBtn = document.createElement('button');
     mainBtn.type = 'button';
     mainBtn.className = 'menu-main' + (isActive ? ' active' : '') + (isExpanded && subs.length ? ' expanded' : '');
-    
+
     const iconKey = isActive ? tool.iconBold : tool.icon;
     const iconSvg = (ICONS.nav && ICONS.nav[iconKey]) || '';
 
@@ -540,7 +376,7 @@ function ensureFrame(tool, sub) {
     record.loaded = true;
     if (view.classList.contains('active')) loadingMask.classList.remove('show');
     try {
-      var doc = iframe.contentDocument;
+      const doc = iframe.contentDocument;
       if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', currentTheme);
     } catch (e) {}
     try {
@@ -684,7 +520,12 @@ window.addEventListener('hashchange', () => {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
   btnMenu.innerHTML  = ICONS.app.hamburger;
-  btnClose.innerHTML = ICONS.app.close;
+  btnClose.innerHTML = ICONS.ui.close;
+
+  const sunEl  = btnTheme.querySelector('[data-theme-icon="sun"]');
+  const moonEl = btnTheme.querySelector('[data-theme-icon="moon"]');
+  if (sunEl)  sunEl.innerHTML  = ICONS.app.sunBold  || '';
+  if (moonEl) moonEl.innerHTML = ICONS.app.moonBold || '';
 
   let savedTheme = 'light';
   try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
