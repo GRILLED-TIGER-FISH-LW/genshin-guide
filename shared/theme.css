@@ -879,6 +879,14 @@ label.ios-field, label.field {
 .dropdown.is-open .dropdown-panel,
 .gs-dropdown-wrap.open .gs-dropdown-panel { opacity: 1; visibility: visible; pointer-events: auto; }
 
+/* fixed 定位修饰类：绕过所有祖先 overflow 裁剪，位置由 JS 按 trigger 计算 */
+.dropdown-panel.is-fixed {
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: auto;
+}
+
 .dropdown-item, .ed-dropdown-item, .gs-dropdown-item {
   display: block; width: 100%; padding: var(--space-sm) 4px;
   border-radius: var(--radius-sm);
