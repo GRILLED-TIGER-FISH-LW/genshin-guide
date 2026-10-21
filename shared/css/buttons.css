@@ -1,0 +1,123 @@
+/* ============================================================
+ * buttons.css —— 按钮
+ * 宽度自适应，不锁死。圆角 = 高度 × 15%。
+ * 图标 = 按钮高度的 70%。文字永远显示，不省略。
+ * ============================================================ */
+
+/* 尺寸变量 */
+:root {
+  --btn-h: 32px;
+  --btn-h-export: 48px;
+  --btn-radius-ratio: 0.15;
+  --btn-icon-ratio: 0.7;
+  --btn-font: 12px;
+  --btn-font-export: 14px;
+  --btn-px: 16px;
+  --btn-gap: 8px;
+  --btn-border: 1px;
+  --btn-t: 0.3s;
+  --btn-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --btn-op-muted: 0.5;
+  --btn-bottom: 16px;
+  --btn-shadow-export: 0 8px 24px rgba(158, 108, 71, 0.3);
+}
+
+/* 基础（所有按钮共享） */
+.btn, .btn-icon, .float-btn, .export-btn {
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--btn-t) var(--btn-ease);
+  user-select: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: var(--btn-border) solid var(--border-default);
+}
+
+/* 图标尺寸 */
+.btn svg,
+.btn-icon svg,
+.float-btn svg {
+  width: calc(var(--btn-h) * var(--btn-icon-ratio));
+  height: calc(var(--btn-h) * var(--btn-icon-ratio));
+  display: block;
+  flex-shrink: 0;
+}
+
+/* 标准按钮 */
+.btn {
+  height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  font-size: var(--btn-font);
+  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+}
+.btn:hover:not(:disabled) { background: var(--bg-hover); }
+.btn:active:not(:disabled) { background: var(--bg-sunken); }
+.btn:disabled { opacity: var(--btn-op-muted); cursor: not-allowed; }
+
+/* 图标按钮 */
+.btn-icon {
+  width: var(--btn-h);
+  height: var(--btn-h);
+  padding: 0;
+  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+}
+.btn-icon:hover:not(:disabled) { background: var(--bg-hover); }
+.btn-icon:active:not(:disabled) { background: var(--bg-sunken); }
+.btn-icon:disabled { opacity: var(--btn-op-muted); cursor: not-allowed; }
+
+/* 危险颜色（叠加用） */
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: transparent;
+}
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+
+/* 浮动按钮 */
+.float-btn {
+  width: var(--btn-h);
+  height: var(--btn-h);
+  padding: 0;
+  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+}
+.float-btn:hover:not(:disabled) { background: var(--bg-hover); }
+
+/* 浮动危险颜色（叠加用） */
+.float-btn-danger {
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+.float-btn-danger:hover:not(:disabled) { background: var(--danger-bg); }
+
+/* 导出按钮 */
+.export-btn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--btn-bottom) + env(safe-area-inset-bottom));
+  z-index: 40;
+  height: var(--btn-h-export);
+  padding: 0 calc(var(--btn-px) * 2);
+  font-size: var(--btn-font-export);
+  font-weight: 600;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: var(--btn-shadow-export);
+  backdrop-filter: blur(10px);
+}
+.export-btn:active:not(:disabled) { background: var(--accent-dark); }
+
+@media (min-width: 1024px) {
+  .export-btn { display: none; }
+}
