@@ -7,24 +7,20 @@
 <title>视频封面</title>
 
 <script>
-(function () {
+(() => {
   const ts = Date.now();
-  function withTs(url) { return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts; }
-  function loadStyle(href) {
-    return new Promise(function (resolve, reject) {
-      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = withTs(href);
-      l.onload = resolve; l.onerror = function () { reject(new Error('加载失败：' + href)); };
-      document.head.appendChild(l);
-    });
-  }
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      const s = document.createElement('script'); s.src = withTs(src);
-      s.onload = resolve; s.onerror = function () { reject(new Error('加载失败：' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-  window.__bootPromise = (async function () {
+  const withTs = url => url + (url.includes('?') ? '&' : '?') + `t=${ts}`;
+  const loadNode = (tag, attrs) => new Promise((resolve, reject) => {
+    const el = document.createElement(tag);
+    Object.assign(el, attrs);
+    el.onload = resolve;
+    el.onerror = () => reject(new Error(`加载失败：${attrs.href || attrs.src}`));
+    document.head.appendChild(el);
+  });
+  const loadScript = src => loadNode('script', { src: withTs(src) });
+  const loadStyle = href => loadNode('link', { rel: 'stylesheet', href: withTs(href) });
+
+  window.__bootPromise = (async () => {
     await Promise.all([
       loadScript('../../../shared/ui-icons.js'),
       loadStyle('../../../shared/theme.css'),
@@ -36,6 +32,7 @@
     ]);
     await loadScript('app.js');
   })();
+  window.__bootPromise.catch(e => console.error('[Boot]', e));
 })();
 </script>
 
@@ -46,7 +43,7 @@
     position: fixed; inset: 0; z-index: 99999;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
-    font-size: 13px; font-family: var(--std-font, sans-serif);
+    font-size: var(--font-sm, 12px); font-family: var(--std-font, sans-serif);
     visibility: visible;
   }
   body.ready .boot-loading { display: none; }
