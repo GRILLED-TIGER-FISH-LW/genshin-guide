@@ -203,11 +203,11 @@
         </div>
       </div>
 
-      <!-- 4.4 圣遗物区 -->
+      <!-- 4.4 圣遗物区（关键：加 data-collapse-content="artifact_section"） -->
       <div class="tab-panel" id="tab-artifact">
         <div>
           <div class="panel-header" id="artifactSectionHead"></div>
-          <div id="artifactEditor" class="editor-list"></div>
+          <div id="artifactEditor" class="editor-list" data-collapse-content="artifact_section"></div>
         </div>
       </div>
 
@@ -242,7 +242,7 @@
         </div>
       </div>
 
-      <!-- 4.7 面板区 -->
+      <!-- 4.7 面板区（关键：dropdown-panel 加 is-fixed） -->
       <div class="tab-panel" id="tab-panel">
         <div>
           <div class="panel-header">主属性（三选一）</div>
@@ -257,7 +257,7 @@
                       <span class="arrow-up"></span>
                     </span>
                   </button>
-                  <div class="dropdown-panel" id="panelPrimaryKeyPanel"></div>
+                  <div class="dropdown-panel is-fixed" id="panelPrimaryKeyPanel"></div>
                 </div>
               </label>
               <label class="field flex-1">数值
