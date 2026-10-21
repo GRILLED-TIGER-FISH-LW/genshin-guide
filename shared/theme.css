@@ -464,10 +464,10 @@ label.ios-field, label.field {
 .num-box .unit-tag { font-size: var(--font-sm); color: var(--text-tertiary); margin-left: var(--space-xs); flex-shrink: 0; }
 
 /* ============================================================
- * 【模块 10】缩略图
+ * 【模块 10】缩略图（48px，四档特大尺寸）
  * ============================================================ */
 .clickable-thumb, .thumb {
-  width: var(--size-lg); height: var(--size-lg);
+  width: var(--size-xl); height: var(--size-xl);
   border-radius: var(--radius-sm);
   background: var(--bg-sunken); border: var(--border-w) solid var(--border-subtle);
   object-fit: cover; flex-shrink: 0; cursor: pointer;
