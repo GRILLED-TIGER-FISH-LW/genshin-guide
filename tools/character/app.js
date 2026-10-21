@@ -2,8 +2,9 @@
  * 原神一图流生成器 · app.js
  * =========================================================================
  * 2026 统一版：
- *   · 全部内联样式清除，显隐走 .hidden，动态色走 CSS 变量
- *   · 字体选择器对勾改用 ICONS.ui.check（不再手写 SVG）
+ *   · 字体选择器对勾使用 ICONS.ui.check
+ *   · 折叠按钮图标按状态切换（展开▼ / 收起▲）
+ *   · 面板区属性类型改用 .dropdown 组件（不再用原生 select）
  * ========================================================================= */
 
 'use strict';
@@ -461,15 +462,15 @@ function syncInputs() {
   if (elImgX && document.activeElement !== elImgX) elImgX.value = State.data.imgX ?? 0;
   if (sImgX && document.activeElement !== sImgX) sImgX.value = State.data.imgX ?? 0;
   const p = State.data.panel || {};
-  const panelMap = {
-    panelPrimaryKey: p.primaryKey || 'hp',
+  const textMap = {
     panelPrimaryValue: p.primaryValue || '',
     panelCr: p.cr || '', panelCd: p.cd || '', panelEm: p.em || '', panelEr: p.er || ''
   };
-  Object.keys(panelMap).forEach(id => {
+  Object.keys(textMap).forEach(id => {
     const el = document.getElementById(id);
-    if (el && document.activeElement !== el) el.value = panelMap[id];
+    if (el && document.activeElement !== el) el.value = textMap[id];
   });
+  renderPanelPrimaryDropdown();
   document.documentElement.style.setProperty('--accent', State.data.theme);
   document.documentElement.style.setProperty('--accent-dark', darken(State.data.theme, 50));
 }
@@ -498,6 +499,11 @@ function selectTab(tabId) {
 }
 
 const collapseState = {};
+
+function collapseIconOf(collapsed) {
+  return collapsed ? (ICONS.chevronUp || ICONS.chevron) : ICONS.chevron;
+}
+
 function toggleCollapse(key) {
   collapseState[key] = !collapseState[key];
   const collapsed = collapseState[key];
@@ -505,6 +511,8 @@ function toggleCollapse(key) {
     btn.classList.toggle('collapsed', collapsed);
     const txt = btn.querySelector('.collapse-text');
     if (txt) txt.textContent = collapsed ? '展开' : '收起';
+    const icon = btn.querySelector('.collapse-icon');
+    if (icon) icon.innerHTML = collapseIconOf(collapsed);
   });
   document.querySelectorAll('[data-collapse-content="' + key + '"]').forEach(el => {
     el.classList.toggle('hidden', collapsed);
@@ -572,7 +580,7 @@ function renderWeaponEditor() {
         <div class="group-actions">
           <button class="btn-primary btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}添加</button>
           <button class="btn-xs collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
-            <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
+            <span class="collapse-icon">${collapseIconOf(collapsed)}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
         </div>
       </div>
@@ -593,7 +601,7 @@ function renderArtifactEditor() {
         <button class="btn-primary btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}整套</button>
         <button class="btn-primary btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}散搭</button>
         <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
-          <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
+          <span class="collapse-icon">${collapseIconOf(isSectionCollapsed)}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
       </div>`;
   }
@@ -659,7 +667,7 @@ function renderTeamEditor() {
           <button class="btn-xs" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}上移</button>
           <button class="btn-xs" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}下移</button>
           <button class="btn-xs collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
-            <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${teamCollapsed ? '展开' : '收起'}</span>
+            <span class="collapse-icon">${collapseIconOf(teamCollapsed)}</span><span class="collapse-text">${teamCollapsed ? '展开' : '收起'}</span>
           </button>
           <button class="btn-xs btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}删除</button>
         </div>
@@ -679,7 +687,7 @@ function renderTeamEditor() {
                   <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}上移</button>
                   <button class="btn-xs" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}下移</button>
                   <button class="btn-xs collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
-                    <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${charCollapsed ? '展开' : '收起'}</span>
+                    <span class="collapse-icon">${collapseIconOf(charCollapsed)}</span><span class="collapse-text">${charCollapsed ? '展开' : '收起'}</span>
                   </button>
                 </div>
               </div>
@@ -730,7 +738,77 @@ function renderEditorsByKey() {
   renderArtifactEditor();
   renderConstellationEditor();
   renderTeamEditor();
+  renderPanelPrimaryDropdown();
 }
+
+/* =========================================================================
+ * 【模块 6.5】面板区 · 属性类型下拉
+ * ========================================================================= */
+const PANEL_PRIMARY_OPTIONS = [
+  { key: 'hp',  label: '生命值' },
+  { key: 'atk', label: '攻击力' },
+  { key: 'def', label: '防御力' }
+];
+let panelPrimaryDropdownOpen = false;
+
+function renderPanelPrimaryDropdown() {
+  const panel = document.getElementById('panelPrimaryKeyPanel');
+  const label = document.getElementById('panelPrimaryKeyLabel');
+  const arrow = document.getElementById('panelPrimaryKeyArrow');
+  if (!panel || !label) return;
+
+  const current = State.data.panel?.primaryKey || 'hp';
+  const currentOpt = PANEL_PRIMARY_OPTIONS.find(o => o.key === current) || PANEL_PRIMARY_OPTIONS[0];
+  label.textContent = currentOpt.label;
+
+  panel.innerHTML = PANEL_PRIMARY_OPTIONS.map(o =>
+    `<button type="button" class="dropdown-item ${o.key === current ? 'active' : ''}" data-value="${o.key}">${o.label}</button>`
+  ).join('');
+
+  panel.querySelectorAll('.dropdown-item').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      setPanelPrimaryKey(btn.dataset.value);
+      closePanelPrimaryDropdown();
+    });
+  });
+
+  if (arrow && !panelPrimaryDropdownOpen) arrow.innerHTML = ICONS.chevron;
+}
+
+function openPanelPrimaryDropdown() {
+  const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  const arrow = document.getElementById('panelPrimaryKeyArrow');
+  if (!wrap) return;
+  renderPanelPrimaryDropdown();
+  wrap.classList.add('open');
+  panelPrimaryDropdownOpen = true;
+  if (arrow) arrow.innerHTML = ICONS.chevronUp;
+}
+
+function closePanelPrimaryDropdown() {
+  const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  const arrow = document.getElementById('panelPrimaryKeyArrow');
+  if (wrap) wrap.classList.remove('open');
+  panelPrimaryDropdownOpen = false;
+  if (arrow) arrow.innerHTML = ICONS.chevron;
+}
+
+function togglePanelPrimaryDropdown(e) {
+  if (e) e.stopPropagation();
+  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
+  else openPanelPrimaryDropdown();
+}
+
+document.addEventListener('click', (e) => {
+  if (!panelPrimaryDropdownOpen) return;
+  const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  if (wrap && !wrap.contains(e.target)) closePanelPrimaryDropdown();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
+});
 
 /* =========================================================================
  * 【模块 7】上传与缩略图
@@ -829,7 +907,7 @@ function updateImgXHint() {
 }
 
 /* =========================================================================
- * 【模块 8】核心匹配逻辑 (高度封装)
+ * 【模块 8】核心匹配逻辑
  * ========================================================================= */
 async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
   if (!window.ICON_LIB || !name || !name.trim()) return;
@@ -1526,6 +1604,7 @@ function setTheme(color) {
 }
 function setPanelPrimaryKey(key) {
   State.data.panel.primaryKey = PANEL_PRIMARY_KEYS.includes(key) ? key : 'hp';
+  renderPanelPrimaryDropdown();
   mountPreview(); debouncedSave();
 }
 function setPanelField(key, value) {
@@ -1541,6 +1620,7 @@ function setPanelField(key, value) {
 const App = {
   selectTab, setField, setTheme, setPanelPrimaryKey, setPanelField,
   toggleCollapse, toggleConstellation, setConstellationDesc,
+  togglePanelPrimaryDropdown,
   addWeapon, removeWeapon, moveWeapon, setWeaponName,
   addArtifact, removeArtifact, moveArtifact, setArtifactName,
   addTeam, removeTeam, moveTeam, setTeamName, moveTeamChar, setTeamCharName,
