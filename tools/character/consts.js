@@ -2,12 +2,13 @@
  * 原神一图流生成器 · consts.js
  * =========================================================================
  * 2026 统一版：
- *   · ICONS.down 改为独立 arrowDown，不再用 arrowUp + CSS 翻转
- *   · PLUS_ICON_PATH 统一从 shared/ui-icons.js 的 card 段取
+ *   · down 用独立 arrowDown，不再翻转
+ *   · 新增 chevronUp，供折叠按钮展开/收起切换
+ *   · PLUS_ICON_PATH 从 shared/ui-icons.js 的 card 段取
  * ========================================================================= */
 
 /* =========================================================================
- * 【C1】图标常量（依赖 shared/ui-icons.js 已加载）
+ * 【C1】图标常量
  * ========================================================================= */
 const SHARED = window.ICONS || {
   ui: {}, element: {}, artifact: {}, nav: {}, app: {}, handbook: {}, card: {}
@@ -18,6 +19,7 @@ const ICONS = {
   down: SHARED.ui.arrowDown || '',
   trash: SHARED.ui.trash || '',
   chevron: SHARED.ui.chevronDown || '',
+  chevronUp: SHARED.ui.chevronUp || '',
   plus: SHARED.ui.plus || '',
   export: SHARED.ui.export || '',
   import: SHARED.ui.import || ''
