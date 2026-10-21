@@ -196,9 +196,9 @@ function showToast(message, type = 'info') {
   el.className = 'toast' + (type === 'error' ? ' toast-error' : type === 'success' ? ' toast-success' : '');
   el.textContent = message;
   container.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
+  requestAnimationFrame(() => el.classList.add('is-visible'));
   setTimeout(() => {
-    el.classList.remove('show');
+    el.classList.remove('is-visible');
     setTimeout(() => el.remove(), 300);
   }, 2400);
 }
@@ -216,7 +216,7 @@ function showConfirm(title, message) {
     if (msgEl) msgEl.textContent = message;
 
     const cleanup = (result) => {
-      backdrop.classList.remove('show');
+      backdrop.classList.remove('is-visible');
       cancelBtn.onclick = null;
       confirmBtn.onclick = null;
       backdrop.onclick = null;
@@ -225,7 +225,7 @@ function showConfirm(title, message) {
     cancelBtn.onclick = () => cleanup(false);
     confirmBtn.onclick = () => cleanup(true);
     backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(false); };
-    backdrop.classList.add('show');
+    backdrop.classList.add('is-visible');
   });
 }
 
@@ -239,7 +239,9 @@ function injectIcons() {
     up: ui.arrowUp ?? '',
     down: ui.arrowDown ?? '',
     font: ui.textFont ?? '',
-    guides: ui.guides ?? ''
+    guides: ui.guides ?? '',
+    chevronDown: ui.chevronDown ?? '',
+    chevronUp: ui.chevronUp ?? ''
   };
   document.querySelectorAll('[data-icon]').forEach(el => {
     const icon = iconMap[el.dataset.icon];
@@ -540,7 +542,7 @@ function applyModeUI() {
   if (csp) csp.classList.toggle('hidden', type !== 'custom');
 
   document.querySelectorAll('.tab-bar .tab-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.type === type);
+    b.classList.toggle('is-active', b.dataset.type === type);
   });
 
   const sub1SizeRow = $('sub1SizeRow');
@@ -607,10 +609,8 @@ async function setGuideType(type) {
   const bgThumb = $('bgThumb');
   if (bgThumb) bgThumb.removeAttribute('src');
 
-  const s1 = $('sub1Select');
-  const s2 = $('sub2Select');
-  if (s1) s1.value = String(state.sub1Size);
-  if (s2) s2.value = String(state.sub2Size);
+  updateSizeDropdown('sub1', state.sub1Size);
+  updateSizeDropdown('sub2', state.sub2Size);
 
   applyModeUI();
   await loadBgImage();
@@ -782,30 +782,30 @@ function renderFloatList() {
           <span class="float-thumb-meta">${o.w}×${o.h}</span>
         </div>
         <div class="float-item-head-actions">
-          <button class="btn-xs" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
-          <button class="btn-xs" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
-          <button class="btn-xs btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
+          <button class="btn-icon" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
+          <button class="btn-icon" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
+          <button class="btn-icon btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
         </div>
       </div>
-      <div class="control-item">
-        <div class="control-header"><span>X 位置</span></div>
+      <div class="slider-group">
+        <div class="slider-label"><span>X 位置</span></div>
         <div class="slider-row">
           <input type="range" min="0" max="3840" value="${o.x}" oninput="App.setFloat('${o.id}','x',Number(this.value))">
-          <div class="num-box"><input type="number" value="${Math.round(o.x)}" oninput="App.setFloat('${o.id}','x',Number(this.value))"><span class="unit-tag">px</span></div>
+          <div class="number-box"><input type="number" value="${Math.round(o.x)}" oninput="App.setFloat('${o.id}','x',Number(this.value))"><span class="number-unit">px</span></div>
         </div>
       </div>
-      <div class="control-item">
-        <div class="control-header"><span>缩放</span></div>
+      <div class="slider-group">
+        <div class="slider-label"><span>缩放</span></div>
         <div class="slider-row">
           <input type="range" min="10" max="200" value="${Math.round(o.scale*100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)">
-          <div class="num-box"><input type="number" min="10" max="200" value="${Math.round(o.scale*100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)"><span class="unit-tag">%</span></div>
+          <div class="number-box"><input type="number" min="10" max="200" value="${Math.round(o.scale*100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)"><span class="number-unit">%</span></div>
         </div>
       </div>
-      <div class="control-item">
-        <div class="control-header"><span>圆角</span></div>
+      <div class="slider-group">
+        <div class="slider-label"><span>圆角</span></div>
         <div class="slider-row">
           <input type="range" min="0" max="100" value="${Math.round(o.rounded||0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))">
-          <div class="num-box"><input type="number" min="0" max="100" value="${Math.round(o.rounded||0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))"><span class="unit-tag">%</span></div>
+          <div class="number-box"><input type="number" min="0" max="100" value="${Math.round(o.rounded||0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))"><span class="number-unit">%</span></div>
         </div>
       </div>
       <label class="under-middle-row">
@@ -872,35 +872,66 @@ async function installFont() {
   }
 }
 
-function openFontPicker() {
-  const listEl = $('fontSheetList');
-  if (!listEl) return;
+function renderFontDropdown() {
+  const panel = $('fontDropdownPanel');
+  if (!panel) return;
   const curFile = state.fontFileName;
-  const checkSvg = (window.ICONS?.ui?.check ?? '')
-    .replace('<svg ', '<svg class="tab-sheet-item-check" ');
-  let html = '<button type="button" class="tab-sheet-item ' + (curFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
-    '<span>默认系统字体</span>' +
-    checkSvg +
-  '</button>';
+  let html = `<button type="button" class="dropdown-item${curFile === '' ? ' is-active' : ''}" data-font-index="-1">默认系统字体</button>`;
   FONT_LIST.forEach((f, i) => {
     const isAct = curFile === f.file;
-    html += '<button type="button" class="tab-sheet-item ' + (isAct ? 'active' : '') + '" onclick="App.selectFont(' + i + ')">' +
-      '<span>' + esc(f.name) + '</span>' +
-      checkSvg +
-    '</button>';
+    html += `<button type="button" class="dropdown-item${isAct ? ' is-active' : ''}" data-font-index="${i}">${esc(f.name)}</button>`;
   });
-  listEl.innerHTML = html;
-  $('fontSheetBackdrop')?.classList.add('show');
-  $('fontSheet')?.classList.add('show');
+  panel.innerHTML = html;
 }
 
-function closeFontPicker() {
-  $('fontSheetBackdrop')?.classList.remove('show');
-  $('fontSheet')?.classList.remove('show');
+function updateFontDropdownActive(index) {
+  const panel = $('fontDropdownPanel');
+  if (!panel) return;
+  panel.querySelectorAll('.dropdown-item').forEach(el => {
+    el.classList.toggle('is-active', Number(el.dataset.fontIndex) === index);
+  });
+}
+
+function renderLogoDropdown() {
+  const panel = $('logoDropdownPanel');
+  if (!panel) return;
+  const currentFile = (state.capLogo && state.capLogo.startsWith(LOGO_BASE_URL))
+    ? state.capLogo.replace(LOGO_BASE_URL, '')
+    : '';
+  const logoFiles = LOGO_LIST.map(l => l.file);
+  if (!logoFiles.includes(currentFile) && LOGO_LIST.length) {
+    state.capLogo = LOGO_BASE_URL + LOGO_LIST[0].file;
+  }
+  const finalFile = state.capLogo.replace(LOGO_BASE_URL, '');
+  panel.innerHTML = LOGO_LIST.map(l => {
+    const isAct = l.file === finalFile;
+    return `<button type="button" class="dropdown-item${isAct ? ' is-active' : ''}" data-logo-file="${esc(l.file)}">${esc(l.name)}</button>`;
+  }).join('');
+
+  const label = $('logoDropdownLabel');
+  const cur = LOGO_LIST.find(l => l.file === finalFile);
+  if (label && cur) label.textContent = cur.name;
+
+  const t = $('logoThumb');
+  if (t) t.src = state.capLogo;
+}
+
+function updateSizeDropdown(target, size) {
+  const dropdown = $(target + 'SizeDropdown');
+  if (!dropdown) return;
+  const panel = dropdown.querySelector('.dropdown-panel');
+  if (!panel) return;
+  panel.querySelectorAll('.dropdown-item').forEach(el => {
+    const isAct = String(el.dataset.value) === String(size);
+    el.classList.toggle('is-active', isAct);
+    if (isAct) {
+      const label = $(target + 'SizeLabel');
+      if (label) label.textContent = el.textContent;
+    }
+  });
 }
 
 async function selectFont(index) {
-  closeFontPicker();
   const labelEl = $('labelVideoFont');
 
   if (index === -1) {
@@ -908,6 +939,7 @@ async function selectFont(index) {
     if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} loadedFontFace = null; }
     clearFontStyle();
     if (labelEl) labelEl.textContent = '默认系统字体';
+    updateFontDropdownActive(-1);
     mountPreview(); persist();
     return;
   }
@@ -916,6 +948,7 @@ async function selectFont(index) {
   if (!f) return;
   if (state.fontFileName === f.file && state.fontData) {
     if (labelEl) labelEl.textContent = '当前：' + f.name;
+    updateFontDropdownActive(index);
     return;
   }
 
@@ -968,6 +1001,7 @@ async function selectFont(index) {
     applyFontStyle();
 
     if (labelEl) labelEl.textContent = '当前：' + f.name;
+    updateFontDropdownActive(index);
     mountPreview(); persist();
 
   } catch (err) {
@@ -978,6 +1012,7 @@ async function selectFont(index) {
     state.fontData = '';
     state.fontFileName = '';
     state.fontName = '';
+    updateFontDropdownActive(-1);
     persist();
   }
 }
@@ -1145,20 +1180,13 @@ function syncInputsFromState() {
     if (el) el.value = value ?? '';
   });
 
-  const s1 = $('sub1Select');
-  const s2 = $('sub2Select');
-  if (s1) s1.value = String(state.sub1Size);
-  if (s2) s2.value = String(state.sub2Size);
+  updateSizeDropdown('sub1', state.sub1Size);
+  updateSizeDropdown('sub2', state.sub2Size);
 
   const lv = $('labelVideoFont');
   if (lv) lv.textContent = state.fontName ? '当前：' + state.fontName : '默认系统字体';
 
-  const logoSelect = $('logoSelect');
-  if (logoSelect && state.capLogo) {
-    logoSelect.value = state.capLogo.replace(LOGO_BASE_URL, '');
-  }
-  const t = $('logoThumb');
-  if (t && state.capLogo) t.src = state.capLogo;
+  renderLogoDropdown();
 
   const bgThumb = $('bgThumb');
   const bgNameEl = $('bgFileName');
@@ -1230,6 +1258,47 @@ function bindEvents() {
   $('capTextInput')?.addEventListener('input', e => {
     state.capText = e.target.value;
     mountPreview(); persist();
+  });
+
+  // 下拉项点击（Logo / 字号 / 字体）
+  document.addEventListener('click', e => {
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+
+    if (item.dataset.logoFile) {
+      state.capLogo = LOGO_BASE_URL + item.dataset.logoFile;
+      const t = $('logoThumb');
+      if (t) t.src = state.capLogo;
+      const label = $('logoDropdownLabel');
+      if (label) label.textContent = item.textContent;
+      const panel = $('logoDropdownPanel');
+      if (panel) {
+        panel.querySelectorAll('.dropdown-item').forEach(el => {
+          el.classList.toggle('is-active', el === item);
+        });
+      }
+      mountPreview(); persist();
+      return;
+    }
+
+    if (item.dataset.target) {
+      const line = item.dataset.target === 'sub1' ? 1 : 2;
+      App.setSubSize(line, item.dataset.value);
+      const label = $(item.dataset.target + 'SizeLabel');
+      if (label) label.textContent = item.textContent;
+      const panel = item.closest('.dropdown-panel');
+      if (panel) {
+        panel.querySelectorAll('.dropdown-item').forEach(el => {
+          el.classList.toggle('is-active', el === item);
+        });
+      }
+      return;
+    }
+
+    if (item.dataset.fontIndex !== undefined) {
+      selectFont(Number(item.dataset.fontIndex));
+      return;
+    }
   });
 }
 
@@ -1312,8 +1381,6 @@ const App = {
     input.click();
   },
 
-  openFontPicker,
-  closeFontPicker,
   selectFont,
 
   exportPNG,
@@ -1339,33 +1406,8 @@ window.App = App;
   try { await installFont(); } catch(e) {}
   try { await loadBgImage(); } catch(e) {}
 
-  const logoSelect = $('logoSelect');
-  if (logoSelect) {
-    logoSelect.innerHTML = LOGO_LIST.map(l =>
-      '<option value="' + esc(l.file) + '">' + esc(l.name) + '</option>'
-    ).join('');
-
-    const logoFiles = LOGO_LIST.map(l => l.file);
-    const currentLogoFile = (state.capLogo && state.capLogo.startsWith(LOGO_BASE_URL))
-      ? state.capLogo.replace(LOGO_BASE_URL, '')
-      : '';
-    if (!logoFiles.includes(currentLogoFile)) {
-      state.capLogo = LOGO_BASE_URL + LOGO_LIST[0].file;
-    }
-
-    logoSelect.value = state.capLogo.replace(LOGO_BASE_URL, '');
-
-    logoSelect.addEventListener('change', function () {
-      state.capLogo = LOGO_BASE_URL + this.value;
-      const t = $('logoThumb');
-      if (t) t.src = state.capLogo;
-      mountPreview(); persist();
-    });
-    const t = $('logoThumb');
-    if (t) t.src = state.capLogo;
-  }
-
   syncInputsFromState();
+  renderFontDropdown();
   applyModeUI();
   renderFloatList();
   bindEvents();
