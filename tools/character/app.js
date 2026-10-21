@@ -3,8 +3,8 @@
  * =========================================================================
  * 2026 统一版：
  *   · 字体选择器对勾使用 ICONS.ui.check
- *   · 折叠按钮图标按状态切换：收起→▼ 展开→▲
- *   · 面板区属性类型改用 .dropdown 组件（is-open 状态类）
+ *   · 折叠按钮：收起→▼（chevron）展开→▲（chevronUp）
+ *   · 面板区属性类型 .dropdown 组件，open/close 手动切 SVG 箭头
  * ========================================================================= */
 
 'use strict';
@@ -162,7 +162,7 @@ async function urlExists(url) {
   }
 }
 
-/* 辅助：给 SVG 加尺寸（width/height 是 SVG 属性，非内联样式） */
+/* 给 SVG 加尺寸（width/height 属性，非内联样式） */
 function svgWithSize(svg, size = 16) {
   if (!svg) return '';
   return svg.replace(/^<svg\s/, `<svg width="${size}" height="${size}" `);
@@ -506,7 +506,7 @@ function selectTab(tabId) {
 
 const collapseState = {};
 
-/* 折叠图标：收起状态显示 ▼（提示可展开），展开状态显示 ▲（提示可收起） */
+/* 折叠图标：收起状态显示 ▼（可往下展开），展开状态显示 ▲（可往上收起） */
 function collapseIconOf(collapsed) {
   return collapsed ? ICONS.chevron : (ICONS.chevronUp || ICONS.chevron);
 }
@@ -750,6 +750,7 @@ function renderEditorsByKey() {
 
 /* =========================================================================
  * 【模块 6.5】面板区 · 属性类型下拉
+ * 箭头靠 JS 切 SVG：open → chevronUp（▲） / close → chevronDown（▼）
  * ========================================================================= */
 const PANEL_PRIMARY_OPTIONS = [
   { key: 'hp',  label: '生命值' },
@@ -758,10 +759,15 @@ const PANEL_PRIMARY_OPTIONS = [
 ];
 let panelPrimaryDropdownOpen = false;
 
+function setDropdownArrow(arrowEl, up) {
+  if (!arrowEl) return;
+  const svg = up ? (ICONS.chevronUp || ICONS.chevron) : ICONS.chevron;
+  arrowEl.innerHTML = svgWithSize(svg, 16);
+}
+
 function renderPanelPrimaryDropdown() {
   const panel = document.getElementById('panelPrimaryKeyPanel');
   const label = document.getElementById('panelPrimaryKeyLabel');
-  const arrow = document.getElementById('panelPrimaryKeyArrow');
   if (!panel || !label) return;
 
   const current = State.data.panel?.primaryKey || 'hp';
@@ -779,25 +785,24 @@ function renderPanelPrimaryDropdown() {
       closePanelPrimaryDropdown();
     });
   });
-
-  if (arrow && !arrow.dataset.initialized) {
-    arrow.innerHTML = svgWithSize(ICONS.chevron, 16);
-    arrow.dataset.initialized = '1';
-  }
 }
 
 function openPanelPrimaryDropdown() {
   const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  const arrow = document.getElementById('panelPrimaryKeyArrow');
   if (!wrap) return;
   renderPanelPrimaryDropdown();
   wrap.classList.add('is-open');
   panelPrimaryDropdownOpen = true;
+  setDropdownArrow(arrow, true);  // ▲
 }
 
 function closePanelPrimaryDropdown() {
   const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  const arrow = document.getElementById('panelPrimaryKeyArrow');
   if (wrap) wrap.classList.remove('is-open');
   panelPrimaryDropdownOpen = false;
+  setDropdownArrow(arrow, false); // ▼
 }
 
 function togglePanelPrimaryDropdown(e) {
@@ -1687,6 +1692,10 @@ function bindPreviewTapToggle() {
   mountPreview();
   selectTab(currentTab);
   bindPreviewTapToggle();
+
+  /* 初始化面板区下拉箭头：默认关闭状态 → ▼ */
+  const panelArrow = document.getElementById('panelPrimaryKeyArrow');
+  if (panelArrow) setDropdownArrow(panelArrow, false);
 
   document.body.classList.add('ready');
 })();
