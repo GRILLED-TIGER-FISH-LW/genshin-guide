@@ -10,6 +10,7 @@
  *     间隙从 --space-sm 变量读取，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐
  *   · 所有「SVG + 文字」按钮的文字包 .btn-text，手机端由 style.css 隐藏
  *   · 整套/散搭按钮用 btn-sm（32 高但手机端不变正方形），id 见 style.css 白名单
+ *   · 元素主题色只存 State.data.theme，不覆盖全局 --accent（由 svg.js 渲染卡片时读取）
  * ========================================================================= */
 
 'use strict';
@@ -482,8 +483,6 @@ function syncInputs() {
     if (el && document.activeElement !== el) el.value = textMap[id];
   });
   renderPanelPrimaryDropdown();
-  document.documentElement.style.setProperty('--accent', State.data.theme);
-  document.documentElement.style.setProperty('--accent-dark', darken(State.data.theme, 50));
 }
 
 /* =========================================================================
@@ -1652,8 +1651,6 @@ function setConstellationDesc(i, value) {
 }
 function setTheme(color) {
   State.data.theme = color;
-  document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty('--accent-dark', darken(color, 50));
   renderColorPicker(); mountPreview(); debouncedSave();
 }
 function setPanelPrimaryKey(key) {
