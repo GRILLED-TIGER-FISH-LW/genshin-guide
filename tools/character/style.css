@@ -89,7 +89,7 @@
 .preview-title { font-size: var(--font-sm); font-weight: 500; color: var(--text-secondary); }
 
 .preview-frame {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: var(--border-w) solid var(--border-subtle);
   /* 例外：预览框暗色底，模拟卡片最终渲染环境，和主题无关 */
   background: #121212;
