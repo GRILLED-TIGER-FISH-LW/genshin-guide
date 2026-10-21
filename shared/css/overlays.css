@@ -154,7 +154,7 @@
 
 .modal-actions button.modal-confirm {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 .modal-actions button.modal-confirm:hover {
