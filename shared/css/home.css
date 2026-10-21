@@ -1,6 +1,6 @@
 /* ============================================================
  * home.css —— 首页
- * 首页导航栏、Bento 卡片、侧边抽屉、iframe 容器、加载遮罩
+ * 首页导航栏、Bento 卡片、侧边抽屉、iframe 容器、加载遮罩、主题图标切换
  * 导航按钮 40×40，图标 28，圆角 6
  * ============================================================ */
 
@@ -117,6 +117,12 @@
   color: var(--text-tertiary);
   font-weight: 400;
 }
+
+/* 主题图标切换 */
+.theme-icon { display: none !important; }
+.theme-icon[data-theme-icon="sun"] { display: inline-flex !important; }
+[data-theme="dark"] .theme-icon[data-theme-icon="sun"] { display: none !important; }
+[data-theme="dark"] .theme-icon[data-theme-icon="moon"] { display: inline-flex !important; }
 
 /* Bento 首页 */
 .home-view {
