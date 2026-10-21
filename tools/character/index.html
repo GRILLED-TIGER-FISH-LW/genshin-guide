@@ -1,41 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<!-- =========================================================================
-     原神一图流生成器 · index.html
-     =========================================================================
-     HTML 模块导航：
-       【HTML 模块 0】 资源加载器
-       【HTML 模块 1】 主容器 app-container
-       【HTML 模块 2】 预览区（工具栏 + 实时视口）
-       【HTML 模块 3】 编辑区 / 横向 Tab 栏
-       【HTML 模块 4】 Tab 内容容器
-       【HTML 模块 5】 移动端底部导出按钮
-       【HTML 模块 6】 Toast / Modal / Font Sheet
-     ========================================================================= -->
 <head>
-<!-- 【HTML 模块 0】资源加载器 -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>原神一图流生成器</title>
 
 <style>
-  /* 极简启动遮罩，颜色直接使用全局变量 */
   body { visibility: hidden; }
   body.ready { visibility: visible; }
   .boot-loading {
     position: fixed; inset: 0; z-index: 99999;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
-    font-size: 13px; font-family: var(--std-font, sans-serif);
+    font-size: 12px; font-family: var(--std-font, sans-serif);
     visibility: visible;
   }
   body.ready .boot-loading { display: none; }
 </style>
 
 <script>
-/* =========================================================================
- * 资源加载器（带时间戳，动态加载）
- * ========================================================================= */
 (() => {
   const ts = Date.now();
   const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
@@ -60,7 +43,8 @@
   window.__bootPromise = (async () => {
     await Promise.all([
       loadScript('../../shared/ui-icons.js'),
-      loadStyle('../../shared/theme.css'),
+      loadScript('../../shared/css/dropdown.js'),
+      loadStyle('../../shared/css/theme.css'),
       loadStyle('style.css')
     ]);
     await Promise.all([
@@ -78,9 +62,7 @@
 <body>
 <div class="boot-loading">正在载入角色一图流…</div>
 
-<!-- 【HTML 模块 1】主容器 -->
 <main class="app-container">
-  <!-- 【HTML 模块 2】预览区 -->
   <section class="preview-pane">
     <div class="preview-card">
       <div class="float-toolbar" id="floatToolbar">
@@ -91,7 +73,7 @@
       </div>
       <div class="preview-header">
         <span class="preview-title">实时卡片渲染视口</span>
-        <button class="btn-primary btn-sm" onclick="App.exportPNG()" id="exportDesktopBtn">导出图片</button>
+        <button class="btn" onclick="App.exportPNG()" id="exportDesktopBtn">导出图片</button>
       </div>
       <div class="preview-frame" id="previewFrame">
         <div id="svgPreviewHost"></div>
@@ -99,17 +81,14 @@
     </div>
   </section>
 
-  <!-- 【HTML 模块 3】编辑区 -->
   <section class="inspector-pane">
-    <div class="tabs" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
-    <!-- 【HTML 模块 4】Tab 内容容器 -->
+    <div class="tab-bar" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
     <div class="tabs-content">
-      <!-- 4.1 外观样式 -->
-      <div class="tab-panel active" id="tab-style">
+      <div class="tab-panel is-active" id="tab-style">
         <div>
           <div class="panel-header">角色信息</div>
           <div class="panel">
-            <div class="field-grid">
+            <div class="panel-grid">
               <label class="field">角色名称<input type="text" id="charName" oninput="App.setField('charName', this.value)" onblur="App.matchCharAvatar(this.value)" /></label>
               <label class="field">适用版本<input type="text" id="version" oninput="App.setField('version', this.value)" /></label>
               <label class="field">制作日期<input type="text" id="date" oninput="App.setField('date', this.value)" /></label>
@@ -121,11 +100,11 @@
           <div class="panel-header">样式图（立绘 / 元素 / 名片）</div>
           <div class="panel">
             <div class="action-row">
-              <button type="button" class="btn-primary btn-sm flex-1" id="btnMatchStyle" onclick="App.matchStyleImages()">
-                <span class="icon-only" id="btnMatchStyleIcon"></span><span class="btn-text">匹配样式图</span>
+              <button type="button" class="btn flex-1" id="btnMatchStyle" onclick="App.matchStyleImages()">
+                <span class="icon-slot" id="btnMatchStyleIcon"></span><span class="btn-text">匹配样式图</span>
               </button>
-              <button type="button" class="btn-sm flex-1" id="btnLoadSave" onclick="App.loadSaveFromRepo()">
-                <span class="icon-only" id="btnLoadSaveIcon"></span><span class="btn-text">载入在线存档</span>
+              <button type="button" class="btn flex-1" id="btnLoadSave" onclick="App.loadSaveFromRepo()">
+                <span class="icon-slot" id="btnLoadSaveIcon"></span><span class="btn-text">载入在线存档</span>
               </button>
             </div>
           </div>
@@ -139,57 +118,59 @@
           <div class="panel">
             <div class="panel-row">
               <div class="flex-1 ellipsis" id="labelCustomFont">默认标准字体</div>
-              <button type="button" class="btn-primary btn-sm" id="btnFontPicker" onclick="App.openFontPicker()">
-                <span class="icon-only" id="btnFontPickerIcon"></span><span class="btn-text">选择字体</span>
-              </button>
+              <div class="dropdown" id="fontDropdown">
+                <button type="button" class="dropdown-trigger" id="btnFontPicker">
+                  <span class="dropdown-label">选择字体</span>
+                  <span class="dropdown-arrow">
+                    <span class="arrow-down" data-icon="chevronDown"></span>
+                    <span class="arrow-up" data-icon="chevronUp"></span>
+                  </span>
+                </button>
+                <div class="dropdown-panel" id="fontSheetList"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 4.2 立绘区 -->
       <div class="tab-panel" id="tab-base">
         <div>
           <div class="panel-header">图片素材（点击缩略图更换）</div>
           <div class="panel">
-            <!-- 立绘 -->
-            <div class="panel-row upload-row" onclick="App.onThumbClick('inputCharImg', 'charImg')">
-              <img id="thumbCharImg" class="clickable-thumb" title="点击上传立绘" alt="" />
+            <div class="panel-row">
+              <img id="thumbCharImg" class="thumb" title="点击上传立绘" alt="" onclick="App.onThumbClick('inputCharImg', 'charImg')" />
               <div class="flex-1">
                 <div class="upload-text" id="labelCharImg">点击上传立绘</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
-                <span class="icon-only" id="btnDelCharImg"></span><span class="btn-text">删除</span>
+              <button class="btn-icon btn-danger" onclick="App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
+                <span class="icon-slot" id="btnDelCharImg"></span>
               </button>
               <input type="file" id="inputCharImg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.charImg = v; State.data.charImgMeta = { w, h }; State.data.charImgDeleted = false; State.data.charImgManual = true; App.updateImgXHint(); App.updateThumb('thumbCharImg', 'labelCharImg', v, '已载入立绘（点击更换）'); })" />
             </div>
-            <!-- 立绘偏移 -->
-            <div class="control-item slider-wrap">
-              <div class="control-header"><span id="imgXHint">立绘偏移（左右移动）</span></div>
+            <div class="slider-group slider-wrap">
+              <div class="slider-label"><span id="imgXHint">立绘偏移（左右移动）</span></div>
               <div class="slider-row">
                 <input type="range" min="-400" max="400" value="0" id="imgXSlider" oninput="App.setField('imgX', this.value)" />
-                <div class="num-box"><input type="number" id="imgX" value="0" oninput="App.setField('imgX', this.value)" /><span class="unit-tag">px</span></div>
+                <div class="number-box"><input type="number" id="imgX" value="0" oninput="App.setField('imgX', this.value)" /><span class="number-unit">px</span></div>
               </div>
             </div>
-            <!-- 元素图 -->
-            <div class="panel-row upload-row" onclick="App.onThumbClick('inputNameBg', 'nameBgImg')">
-              <img id="thumbNameBg" class="clickable-thumb" title="点击上传元素图" alt="" />
+            <div class="panel-row">
+              <img id="thumbNameBg" class="thumb" title="点击上传元素图" alt="" onclick="App.onThumbClick('inputNameBg', 'nameBgImg')" />
               <div class="flex-1">
                 <div class="upload-text" id="labelNameBg">点击上传元素图</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
-                <span class="icon-only" id="btnDelNameBg"></span><span class="btn-text">删除</span>
+              <button class="btn-icon btn-danger" onclick="App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
+                <span class="icon-slot" id="btnDelNameBg"></span>
               </button>
               <input type="file" id="inputNameBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.nameBgImg = v; State.data.nameBgImgMeta = { w, h }; State.data.nameBgImgDeleted = false; State.data.nameBgImgManual = true; App.updateThumb('thumbNameBg', 'labelNameBg', v, '已载入元素图（点击更换）'); })" />
             </div>
-            <!-- 大背景 -->
-            <div class="panel-row upload-row" onclick="App.onThumbClick('inputBg', 'bgImg')">
-              <img id="thumbBg" class="clickable-thumb" title="点击上传大背景" alt="" />
+            <div class="panel-row">
+              <img id="thumbBg" class="thumb" title="点击上传大背景" alt="" onclick="App.onThumbClick('inputBg', 'bgImg')" />
               <div class="flex-1">
                 <div class="upload-text" id="labelBg">默认暗黑原力色</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
-                <span class="icon-only" id="btnDelBg"></span><span class="btn-text">删除</span>
+              <button class="btn-icon btn-danger" onclick="App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
+                <span class="icon-slot" id="btnDelBg"></span>
               </button>
               <input type="file" id="inputBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.bgImg = v; State.data.bgImgDeleted = false; State.data.bgImgManual = true; App.updateThumb('thumbBg', 'labelBg', v, '已载入大背景（点击更换）'); })" />
             </div>
@@ -197,7 +178,6 @@
         </div>
       </div>
 
-      <!-- 4.3 武器区 -->
       <div class="tab-panel" id="tab-weapon">
         <div>
           <div class="panel-header">武器推荐</div>
@@ -205,7 +185,6 @@
         </div>
       </div>
 
-      <!-- 4.4 圣遗物区 -->
       <div class="tab-panel" id="tab-artifact">
         <div>
           <div class="panel-header" id="artifactSectionHead"></div>
@@ -213,12 +192,11 @@
         </div>
       </div>
 
-      <!-- 4.5 天赋区 -->
       <div class="tab-panel" id="tab-talent">
         <div>
           <div class="panel-header">天赋加点优先级</div>
           <div class="panel">
-            <div class="field-grid three">
+            <div class="panel-grid three">
               <label class="field">普通攻击<input type="text" id="talentA" oninput="App.setField('talentA', this.value)" /></label>
               <label class="field">元素战技<input type="text" id="talentE" oninput="App.setField('talentE', this.value)" /></label>
               <label class="field">元素爆发<input type="text" id="talentQ" oninput="App.setField('talentQ', this.value)" /></label>
@@ -227,12 +205,11 @@
         </div>
       </div>
 
-      <!-- 4.6 词条区 -->
       <div class="tab-panel" id="tab-stats">
         <div>
           <div class="panel-header">主副词条推荐</div>
           <div class="panel">
-            <div class="field-grid three">
+            <div class="panel-grid three">
               <label class="field">时之沙<input type="text" id="sandMain" oninput="App.setField('sandMain', this.value)" /></label>
               <label class="field">空之杯<input type="text" id="gobMain" oninput="App.setField('gobMain', this.value)" /></label>
               <label class="field">理之冠<input type="text" id="cirMain" oninput="App.setField('cirMain', this.value)" /></label>
@@ -244,7 +221,6 @@
         </div>
       </div>
 
-      <!-- 4.7 面板区 -->
       <div class="tab-panel" id="tab-panel">
         <div>
           <div class="panel-header">主属性（三选一）</div>
@@ -252,14 +228,14 @@
             <div class="panel-row panel-primary-row">
               <label class="field flex-1">属性类型
                 <div class="dropdown" id="panelPrimaryKeyDropdown">
-                  <button type="button" class="dropdown-trigger" id="panelPrimaryKeyTrigger" onclick="App.togglePanelPrimaryDropdown(event)">
+                  <button type="button" class="dropdown-trigger" id="panelPrimaryKeyTrigger">
                     <span class="dropdown-label" id="panelPrimaryKeyLabel">生命值</span>
                     <span class="dropdown-arrow" id="panelPrimaryKeyArrow">
-                      <span class="arrow-down"></span>
-                      <span class="arrow-up"></span>
+                      <span class="arrow-down" data-icon="chevronDown"></span>
+                      <span class="arrow-up" data-icon="chevronUp"></span>
                     </span>
                   </button>
-                  <div class="dropdown-panel is-fixed" id="panelPrimaryKeyPanel"></div>
+                  <div class="dropdown-panel" id="panelPrimaryKeyPanel"></div>
                 </div>
               </label>
               <label class="field flex-1">数值
@@ -271,7 +247,7 @@
         <div>
           <div class="panel-header">副属性面板</div>
           <div class="panel">
-            <div class="field-grid">
+            <div class="panel-grid">
               <label class="field">暴击率<input type="text" id="panelCr" placeholder="留空显示「任意」" oninput="App.setPanelField('cr', this.value)" /></label>
               <label class="field">暴击伤害<input type="text" id="panelCd" placeholder="留空显示「任意」" oninput="App.setPanelField('cd', this.value)" /></label>
               <label class="field">元素精通<input type="text" id="panelEm" placeholder="留空显示「任意」" oninput="App.setPanelField('em', this.value)" /></label>
@@ -281,7 +257,6 @@
         </div>
       </div>
 
-      <!-- 4.8 命座区 -->
       <div class="tab-panel" id="tab-cons">
         <div>
           <div class="panel-header">核心命座说明（点击圆圈点亮）</div>
@@ -289,18 +264,17 @@
         </div>
       </div>
 
-      <!-- 4.9 配队区 -->
       <div class="tab-panel" id="tab-team">
         <div>
           <div class="panel-header">1号位主角色头像</div>
           <div class="panel">
-            <div class="panel-row upload-row" onclick="App.triggerUpload('inputTeamCore')">
-              <img id="thumbTeamCore" class="clickable-thumb" title="点击上传1号位头像" alt="" />
+            <div class="panel-row">
+              <img id="thumbTeamCore" class="thumb" title="点击上传1号位头像" alt="" onclick="App.triggerUpload('inputTeamCore')" />
               <div class="flex-1">
                 <div class="upload-text" id="labelTeamCore">主角色一号位头像（点击更换）</div>
               </div>
-              <button class="btn-xs btn-danger" onclick="event.stopPropagation(); App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
-                <span class="icon-only" id="btnDelTeamCore"></span><span class="btn-text">删除</span>
+              <button class="btn-icon btn-danger" onclick="App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
+                <span class="icon-slot" id="btnDelTeamCore"></span>
               </button>
               <input type="file" id="inputTeamCore" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamCoreImg = v; State.data.teamCoreImgManual = true; App.updateThumb('thumbTeamCore', 'labelTeamCore', v, '已载入1号位头像（点击更换）'); })" />
             </div>
@@ -309,8 +283,8 @@
         <div>
           <div class="panel-header">
             <span>配队参考方案（最多 3 组）</span>
-            <button class="btn-primary btn-xs" id="btnAddTeam" onclick="App.addTeam()">
-              <span class="icon-only" id="btnAddTeamIcon"></span><span class="btn-text">添加</span>
+            <button class="btn" id="btnAddTeam" onclick="App.addTeam()">
+              <span class="icon-slot" id="btnAddTeamIcon"></span><span class="btn-text">添加</span>
             </button>
           </div>
           <div id="teamEditor" class="editor-list-large"></div>
@@ -320,12 +294,8 @@
   </section>
 </main>
 
-<!-- 【HTML 模块 5】移动端底部导出按钮 -->
-<div class="bottom-dock">
-  <button class="export-btn-main" onclick="App.exportPNG()" id="exportMobileBtn">导出图片</button>
-</div>
+<button class="export-btn" onclick="App.exportPNG()" id="exportMobileBtn">导出图片</button>
 
-<!-- 【HTML 模块 6】Toast / Modal / Font Sheet -->
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal-box">
@@ -333,15 +303,9 @@
     <div class="modal-message" id="modalMessage"></div>
     <div class="modal-actions">
       <button type="button" id="modalCancel">取消</button>
-      <button type="button" class="btn-primary" id="modalConfirm">确定</button>
+      <button type="button" class="modal-confirm" id="modalConfirm">确定</button>
     </div>
   </div>
-</div>
-<div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
-<div class="tab-sheet" id="fontSheet" role="dialog" aria-modal="true">
-  <div class="tab-sheet-handle" aria-hidden="true"></div>
-  <div class="tab-sheet-header">选择导出字体</div>
-  <div class="tab-sheet-list" id="fontSheetList"></div>
 </div>
 </body>
 </html>
