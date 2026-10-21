@@ -1,18 +1,21 @@
 /* =========================================================================
- * 原神一图流生成器 · consts.js (一级40%黑 + 二级30%白)
+ * 原神一图流生成器 · consts.js
  * =========================================================================
- * 核心修改：
- *   二级面板 innerBoxFill 调整为 rgba(255, 255, 255, 0.3)
+ * 2026 统一版：
+ *   · ICONS.down 改为独立 arrowDown，不再用 arrowUp + CSS 翻转
+ *   · PLUS_ICON_PATH 统一从 shared/ui-icons.js 的 card 段取
  * ========================================================================= */
 
 /* =========================================================================
  * 【C1】图标常量（依赖 shared/ui-icons.js 已加载）
  * ========================================================================= */
-const SHARED = window.ICONS || { ui: {}, element: {}, artifact: {}, nav: {}, app: {} };
+const SHARED = window.ICONS || {
+  ui: {}, element: {}, artifact: {}, nav: {}, app: {}, handbook: {}, card: {}
+};
 
 const ICONS = {
   up: SHARED.ui.arrowUp || '',
-  down: '<span class="icon-flip-y">' + (SHARED.ui.arrowUp || '') + '</span>',
+  down: SHARED.ui.arrowDown || '',
   trash: SHARED.ui.trash || '',
   chevron: SHARED.ui.chevronDown || '',
   plus: SHARED.ui.plus || '',
@@ -22,8 +25,7 @@ const ICONS = {
 
 const ELEMENT_ICONS = SHARED.element || {};
 const ARTIFACT_ICON_PATHS = SHARED.artifact || {};
-
-const PLUS_ICON_PATH = 'M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5z';
+const PLUS_ICON_PATH = SHARED.card?.plusPath || '';
 
 /* =========================================================================
  * 【C2】基础常量
@@ -67,11 +69,9 @@ const LAYOUT = {
   team: { w: 270, gap: 15, mainSize: 35, mainGap: 20, altSize: 25, altGap: 10, altRowGap: 5, nameFs: 12, nameOffsetY: 16, mainOffsetY: 27, altOffsetY: 67, altLabelPadL: 20, altRangePadR: 20 },
   plusSize: 14, plusStrokeW: 1.5,
   charInfo: { padL: 20, padB: 20, lineGap: 15 },
-  
-  /* === 视觉核心变量 === */
   radius: { panel: 16, inner: 8, slotFactor: 0.15 },
-  labelColor: '#FFE898', // 标签保持淡黄色
-  innerBoxFill: 'rgba(255, 255, 255, 0.3)' // 二级面板：30% 白
+  labelColor: '#FFE898',
+  innerBoxFill: 'rgba(255, 255, 255, 0.3)'
 };
 const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY;
 
@@ -90,7 +90,7 @@ const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手'
 const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' };
 const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def'];
 const PANEL_EMPTY_TEXT = '任意';
-const EMPTY_FILL = '#A19A92'; // 中灰色，完全不透明
+const EMPTY_FILL = '#A19A92';
 
 /* =========================================================================
  * 【C5】Tab 定义 + 运行期全局变量
@@ -206,23 +206,23 @@ function moveItem(arr, from, dir) {
 }
 function padOrder(n) { return String(n).padStart(3, '0'); }
 function themeToElementName() {
-  var t = (State.data.theme || '').toLowerCase();
-  for (var i = 0; i < elementColors.length; i++) {
-    if (elementColors[i][1].toLowerCase() === t) return elementColors[i][0];
+  const t = (State.data.theme || '').toLowerCase();
+  for (const [name, color] of elementColors) {
+    if (color.toLowerCase() === t) return name;
   }
   return '';
 }
 async function urlExists(url) {
   try {
-    var res = await fetch(url, { method: 'HEAD' });
+    const res = await fetch(url, { method: 'HEAD' });
     if (res.ok) return true;
     if (res.status === 405) {
-      var res2 = await fetch(url);
+      const res2 = await fetch(url);
       return res2.ok;
     }
     return false;
   } catch (e) {
-    try { var res3 = await fetch(url); return res3.ok; } catch (e2) { return false; }
+    try { const res3 = await fetch(url); return res3.ok; } catch (e2) { return false; }
   }
 }
 function loadImageMeta(url) {
