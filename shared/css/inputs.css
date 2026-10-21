@@ -1,6 +1,6 @@
 /* ============================================================
  * inputs.css —— 输入区
- * 输入框、滑条、表单字段、表单头部、下拉、搜索、联想、特殊输入、计数徽标、Tab 切换
+ * 输入框、滑条、表单字段、表单头部、下拉、搜索、联想、特殊输入、计数徽标、Tab 切换、分段控件
  * 宽度自适应（100% 或固定，不锁中间值）。
  * 圆角 = 高度 × 15%。纯文字不写 padding。
  * ============================================================ */
@@ -38,6 +38,12 @@
   --tab-px: 16px;
   --tab-gap: 8px;
   --tab-font: 12px;
+
+  --seg-h: 24px;
+  --seg-px: 8px;
+  --seg-gap: 4px;
+  --seg-p: 4px;
+  --seg-font: 12px;
 }
 
 /* 基础输入 */
@@ -645,4 +651,38 @@ input[type="range"]::-moz-range-thumb {
   color: var(--bg-surface);
   border-color: var(--text-primary);
   font-weight: 500;
+}
+
+/* 分段控件 */
+.seg-control {
+  display: flex;
+  background: var(--bg-sunken);
+  padding: var(--seg-p);
+  border-radius: var(--input-radius);
+  gap: var(--seg-gap);
+  border: 1px solid var(--border-subtle);
+}
+
+.seg-btn {
+  min-width: 0;
+  height: var(--seg-h);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--input-radius);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--seg-font);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 var(--seg-px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--input-t) var(--input-ease);
+}
+.seg-btn.is-active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--border-subtle);
 }
