@@ -1,14 +1,14 @@
 /* ============================================================
  * buttons.css —— 按钮
  * 宽度自适应（padding 撑开），不锁死。圆角 = 高度 × 15%。
- * 图标 = 按钮高度的 70%。文字永远显示，不省略。
+ * 图标 = 按钮高度的 60%。文字永远显示，不省略。
  * ============================================================ */
 
 :root {
   --btn-h: 32px;
   --btn-h-export: 48px;
   --btn-radius-ratio: 0.15;
-  --btn-icon-ratio: 0.7;
+  --btn-icon-ratio: 0.6;
   --btn-font: 12px;
   --btn-font-export: 14px;
   --btn-px: 16px;
@@ -41,7 +41,7 @@
   border: var(--btn-border) solid var(--border-default);
 }
 
-/* 图标尺寸 */
+/* 按钮内所有 svg（直接放或包在 .icon-slot 里） */
 .btn svg,
 .btn-icon svg,
 .float-btn svg {
@@ -49,6 +49,31 @@
   height: calc(var(--btn-h) * var(--btn-icon-ratio));
   display: block;
   flex-shrink: 0;
+}
+
+/* .icon-slot 基础（非按钮场景，如菜单图标） */
+.icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* .icon-slot 在按钮内跟随按钮高 */
+.btn .icon-slot,
+.btn-icon .icon-slot,
+.float-btn .icon-slot {
+  width: calc(var(--btn-h) * var(--btn-icon-ratio));
+  height: calc(var(--btn-h) * var(--btn-icon-ratio));
+}
+
+/* .icon-slot 内 svg 撑满 */
+.icon-slot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* 标准按钮 */
@@ -111,27 +136,8 @@
   border: none;
   border-radius: 999px;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   box-shadow: var(--btn-shadow-export);
   backdrop-filter: blur(10px);
 }
 .export-btn:active:not(:disabled) { background: var(--accent-dark); }
-
-@media (min-width: 1024px) {
-  .export-btn { display: none; }
-}
-
-/* 图标容器（按钮内包图标的 span） */
-.icon-slot {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 16px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
-}
-.icon-slot svg {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-}
