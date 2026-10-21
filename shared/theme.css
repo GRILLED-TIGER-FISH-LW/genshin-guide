@@ -835,6 +835,27 @@ label.ios-field, label.field {
   width: 100%; height: 100%; display: block;
 }
 
+/* 双箭头：HTML 放 .arrow-down 和 .arrow-up，CSS 按打开状态切显示 */
+.dropdown-arrow .arrow-down, .dropdown-arrow .arrow-up,
+.ed-dropdown-arrow .arrow-down, .ed-dropdown-arrow .arrow-up,
+.gs-dropdown-arrow .arrow-down, .gs-dropdown-arrow .arrow-up {
+  width: 100%; height: 100%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dropdown-arrow .arrow-up,
+.ed-dropdown-arrow .arrow-up,
+.gs-dropdown-arrow .arrow-up { display: none; }
+
+.dropdown.is-open .dropdown-arrow .arrow-down,
+.dropdown-wrap.open .dropdown-arrow .arrow-down,
+.ed-dropdown-trigger.active .ed-dropdown-arrow .arrow-down,
+.gs-dropdown-wrap.open .gs-dropdown-arrow .arrow-down { display: none; }
+
+.dropdown.is-open .dropdown-arrow .arrow-up,
+.dropdown-wrap.open .dropdown-arrow .arrow-up,
+.ed-dropdown-trigger.active .ed-dropdown-arrow .arrow-up,
+.gs-dropdown-wrap.open .gs-dropdown-arrow .arrow-up { display: inline-flex; }
+
 .dropdown-wrap.open .dropdown-trigger,
 .dropdown.is-open .dropdown-trigger,
 .ed-dropdown-trigger.active,
