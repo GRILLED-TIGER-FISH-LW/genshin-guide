@@ -5,11 +5,14 @@
  *
  * 【尺寸体系】
  * ────────────────────────────────────────────────────────────
- * 四档基础尺寸（控件高 / 缩略图 / 图标只用这四个值）：
+ * 四档基础尺寸（控件高 / 图标 / 头像只用这四个值）：
  *   --size-sm:  16px   小    图标、chip 内小件、圆点
  *   --size-md:  24px   中    小按钮、列表头像、chip 头像、按钮图标
  *   --size-lg:  32px   大    标准按钮、输入框、搜索框、列表缩略图
- *   --size-xl:  48px   特大  大按钮、底部胶囊、大缩略图、角色格头像
+ *   --size-xl:  48px   特大  大按钮、底部胶囊、角色格头像
+ *
+ * 缩略图专用（不进四档体系，独立语义）：
+ *   --size-thumb: 40px   正方形缩略图边长；2:1 缩略图的高度
  *
  * 圆角四档（小 / 中 / 大 / 特大）：
  *   --radius-sm:    4px   按钮、输入框、checkbox、滚动条
@@ -84,6 +87,9 @@
   --size-md: 24px;
   --size-lg: 32px;
   --size-xl: 48px;
+
+  /* 缩略图专用（独立语义，不属于四档体系） */
+  --size-thumb: 40px;
 
   /* 间距 3 档 */
   --space-xs: 4px;
@@ -466,10 +472,10 @@ label.ios-field, label.field {
 .num-box .unit-tag { font-size: var(--font-sm); color: var(--text-tertiary); margin-left: var(--space-xs); flex-shrink: 0; }
 
 /* ============================================================
- * 【模块 10】缩略图（48px 特大尺寸 + 8px 中圆角）
+ * 【模块 10】缩略图（正方形 40×40，8px 圆角）
  * ============================================================ */
 .clickable-thumb, .thumb {
-  width: var(--size-xl); height: var(--size-xl);
+  width: var(--size-thumb); height: var(--size-thumb);
   border-radius: var(--radius-md);
   background: var(--bg-sunken); border: var(--border-w) solid var(--border-subtle);
   object-fit: cover; flex-shrink: 0; cursor: pointer;
@@ -1562,9 +1568,9 @@ label.ios-field, label.field {
   width: 100%; height: 100%; object-fit: contain; display: block;
 }
 
-/* 2:1 套装缩略图（受 aspect-ratio 约束） */
+/* 2:1 缩略图（高 = --size-thumb，宽 = 高 × 2） */
 .gs-set-thumb, .pg-list-thumb {
-  height: var(--h-xs);
+  height: var(--size-thumb);
   aspect-ratio: 2 / 1;
   border-radius: var(--radius-sm);
   background: var(--bg-sunken);
