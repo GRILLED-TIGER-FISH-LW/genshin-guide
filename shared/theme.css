@@ -3,11 +3,10 @@
  * ============================================================
  * 2026 现代扁平焦糖版 · 统一重构
  *
- * 【尺寸体系速查】
+ * 【尺寸体系】
  * ────────────────────────────────────────────────────────────
- * 四档基础尺寸（所有控件高度 / 缩略图 / 图标只能用这四个值）：
- *
- *   --size-sm:  16px   小    小图标、chip 内小件、圆点
+ * 四档基础尺寸（控件高 / 缩略图 / 图标只用这四个值）：
+ *   --size-sm:  16px   小    图标、chip 内小件、圆点
  *   --size-md:  24px   中    小按钮、列表头像、chip 头像、按钮图标
  *   --size-lg:  32px   大    标准按钮、输入框、搜索框、列表缩略图
  *   --size-xl:  48px   特大  大按钮、底部胶囊、大缩略图、角色格头像
@@ -21,23 +20,10 @@
  *   --space-sm:  8px   小间距（内部 gap、紧凑 padding）
  *   --space-lg: 16px   大间距（区块之间、标准 padding）
  *
- * 原值 → 新值映射：
- *   28～38 高度      → 32（标准按钮 / 输入统一）
- *   40 高度          → 32（大搜索框统一）
- *   44 高度          → 48（底部胶囊）
- *   20～28 缩略图    → 24（chip、小头像）
- *   36 缩略图        → 32（列表缩略图）
- *   38～44 缩略图    → 48（角色格、表单头）
- *   10～16 图标      → 16（小图标）
- *   18～20 图标      → 24（菜单、浮动图标）
- *   4～10 间距       → 8（小间距）
- *   12～24 间距      → 16（大间距）
- *   10 / 14 圆角     → 12（统一中圆角）
- *
- * 例外（不进体系，保留原值）：
+ * 例外（不进体系，保留字面值）：
  *   · 2:1 缩略图 56×28（套装卡片）
  *   · 预览框 160 高（桌面）/ 100 高（移动）
- *   · 底部胶囊按钮内边距
+ *   · 底部胶囊按钮水平内边距 32px
  *   · --select-arrow 的 data URI（CSS 内嵌 SVG，无法走 JS 注入）
  * ============================================================ */
 
@@ -557,7 +543,7 @@ label.ios-field, label.field {
 
 .export-btn-main {
   pointer-events: auto; width: auto !important;
-  padding: 0 var(--space-xl, 32px) !important;
+  padding: 0 32px !important;
   height: var(--size-xl) !important; font-size: 15px !important; font-weight: 600 !important;
   background: var(--accent) !important; color: #ffffff !important;
   border: none !important; border-radius: var(--radius-pill) !important;
@@ -577,7 +563,7 @@ label.ios-field, label.field {
 }
 .toast {
   background: var(--bg-surface); border: 1px solid var(--border-default);
-  border-radius: var(--radius-md); padding: var(--space-md, 12px) var(--space-lg);
+  border-radius: var(--radius-md); padding: var(--space-lg);
   font-size: 13px; color: var(--text-primary); max-width: 320px;
   pointer-events: auto; opacity: 0; transform: translateX(20px);
   transition: opacity 0.3s var(--ease-spring), transform 0.3s var(--ease-spring);
@@ -624,14 +610,14 @@ label.ios-field, label.field {
   overscroll-behavior: contain; font-family: inherit;
   left: 0; right: 0; bottom: 0; border-radius: var(--radius-md) var(--radius-md) 0 0;
   max-height: 80dvh;
-  padding: var(--space-sm) 0 calc(var(--space-md, 12px) + env(safe-area-inset-bottom));
+  padding: var(--space-sm) 0 calc(var(--space-sm) + env(safe-area-inset-bottom));
   transform: translateY(100%); transition: transform 0.35s var(--ease-spring);
 }
 .tab-sheet.is-visible, .tab-sheet.show { transform: translateY(0); }
 @media (min-width: 1024px) {
   .tab-sheet {
     left: 50%; right: auto; bottom: auto; top: 50%; width: 340px; max-height: 70vh;
-    border-radius: var(--radius-md); padding: var(--space-sm) 0 var(--space-md, 12px);
+    border-radius: var(--radius-md); padding: var(--space-sm) 0 var(--space-sm);
     transform: translate(-50%, -48%) scale(0.96); opacity: 0;
     transition: transform 0.3s var(--ease-spring), opacity 0.3s var(--ease-spring);
   }
@@ -649,7 +635,7 @@ label.ios-field, label.field {
 }
 .tab-sheet-list { display: flex; flex-direction: column; padding: 0 var(--space-sm); }
 .tab-sheet-item {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-md, 12px);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
   width: 100%; height: var(--size-xl); padding: 0 var(--space-lg);
   background: transparent; border: 0; border-radius: var(--radius-sm);
   font-family: inherit; font-size: 14px; font-weight: 500;
@@ -694,23 +680,50 @@ label.ios-field, label.field {
 .row { display: flex; align-items: center; gap: var(--space-sm); }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm); }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); }
-.form-stack, .grid {
+.form-stack, .grid, .form {
   display: flex; flex-direction: column; gap: var(--space-lg);
   max-width: 900px; margin: 0 auto; width: 100%;
   padding: var(--space-lg);
 }
-.form-stack > section { display: flex; flex-direction: column; gap: var(--space-md, 12px); }
-.row-pad, .form-pad, .panel-padding { padding: var(--space-md, 12px); }
-.row-pad-t, .form-pad-t { padding: var(--space-md, 12px) var(--space-md, 12px) 0; }
+.row-pad, .form-pad, .panel-padding { padding: var(--space-lg); }
+.row-pad-t, .form-pad-t { padding: var(--space-lg) var(--space-lg) 0; }
+
+/* 工具类 */
+.mb-0 { margin-bottom: 0 !important; }
+.mb-8 { margin-bottom: var(--space-sm); }
+.ml-auto { margin-left: auto; }
+.text-accent { color: var(--accent); }
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.ellipsis {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px;
+}
+.font-label {
+  flex: 1; min-width: 0;
+  font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 上传行 */
+.upload-row {
+  cursor: pointer;
+  transition: background 0.2s var(--ease-spring);
+}
+.upload-row:hover { background: var(--bg-hover); }
+.upload-text {
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+}
 
 /* ============================================================
  * 【模块 25】吸顶头
  * ============================================================ */
-.sticky-header, .app-header, .preview-sticky, .sticky-head, .ed-header, .gs-header {
+.sticky-header, .app-header, .preview-sticky, .sticky-head {
   position: sticky; top: 0; z-index: 35;
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-md, 12px);
-  padding: var(--space-md, 12px) var(--space-lg);
+  gap: var(--space-sm);
+  padding: var(--space-lg);
   background: rgba(244, 241, 234, 0.85);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
@@ -720,6 +733,17 @@ label.ios-field, label.field {
 [data-theme="dark"] .app-header,
 [data-theme="dark"] .preview-sticky,
 [data-theme="dark"] .sticky-head { background: rgba(26, 24, 22, 0.85); }
+
+/* 工具顶栏（固定高、单行、非 sticky） */
+.tool-header, .ed-header, .gs-header {
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg);
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
 
 .header-title-wrap, .ed-title-wrap { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
 .header-title, .ed-title {
@@ -905,7 +929,7 @@ label.ios-field, label.field {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .list-footer, .ed-list-footer {
-  padding: var(--space-sm) var(--space-md, 12px) calc(var(--space-sm) + env(safe-area-inset-bottom));
+  padding: var(--space-sm) var(--space-lg) calc(var(--space-sm) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle); flex-shrink: 0;
 }
 .list-add-btn, .ed-add-btn {
@@ -918,13 +942,13 @@ label.ios-field, label.field {
  * ============================================================ */
 .empty-state, .empty-tip, .ed-list-empty, .ed-form-empty,
 .gs-empty, .form-empty {
-  padding: var(--space-xl, 48px) var(--space-lg);
+  padding: 32px var(--space-lg);
   text-align: center;
   font-size: 13px; color: var(--text-tertiary); line-height: 1.7;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--space-sm);
 }
-.empty-state-icon, .empty-tip .big-icon, .ed-form-empty .ic, .gs-empty .ic {
+.empty-state-icon, .ed-form-empty .ic, .gs-empty .ic {
   width: var(--size-xl); height: var(--size-xl); opacity: 0.5;
   display: block;
 }
@@ -945,7 +969,7 @@ label.ios-field, label.field {
 .field-hint.warn, .field-hint.is-warn { color: var(--danger); }
 
 .form-row, .ed-row-2 {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md, 12px);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm);
 }
 @media (max-width: 900px) { .form-row, .ed-row-2 { grid-template-columns: 1fr; } }
 
@@ -984,7 +1008,39 @@ label.ios-field, label.field {
 .mobile-back .ic, .ed-mobile-back .ic { width: var(--size-sm); height: var(--size-sm); }
 
 /* ============================================================
- * 【模块 31】Combobox
+ * 【模块 31】表单头部（头像 + 标题）
+ * ============================================================ */
+.form-heading, .ed-form-heading {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+.form-heading-avatar, .ed-form-heading-avatar {
+  width: var(--size-xl); height: var(--size-xl);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 600; color: var(--text-secondary);
+  position: relative;
+}
+.form-heading-avatar img, .ed-form-heading-avatar img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.form-heading-info, .ed-form-heading-info {
+  flex: 1; min-width: 0;
+}
+.form-heading-name, .ed-form-heading-name {
+  font-size: 15px; font-weight: 600; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.form-heading-sub, .ed-form-heading-sub {
+  font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px;
+}
+
+/* ============================================================
+ * 【模块 32】Combobox
  * ============================================================ */
 .combobox, .ed-combobox { position: relative; }
 .combobox-input-wrap, .ed-combobox-input-wrap {
@@ -1004,7 +1060,7 @@ label.ios-field, label.field {
 }
 .combobox.has-avatar input[type="text"],
 .ed-combobox.has-avatar input[type="text"] {
-  padding-left: calc(var(--size-md) + var(--space-md, 12px));
+  padding-left: calc(var(--size-md) + var(--space-lg));
 }
 
 .combobox-popup, .ed-combobox-popup {
@@ -1017,7 +1073,7 @@ label.ios-field, label.field {
   z-index: 30; padding: 4px;
 }
 .combobox-option, .ed-combobox-option {
-  padding: var(--space-sm) var(--space-sm);
+  padding: var(--space-sm);
   font-size: 12.5px; border-radius: var(--radius-sm);
   cursor: pointer; color: var(--text-primary);
   display: flex; align-items: center; gap: var(--space-sm);
@@ -1035,7 +1091,7 @@ label.ios-field, label.field {
 }
 
 /* ============================================================
- * 【模块 32】Chip
+ * 【模块 33】Chip
  * ============================================================ */
 .chip-list, .pg-char-list {
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -1055,7 +1111,7 @@ label.ios-field, label.field {
   flex-shrink: 0;
 }
 .chip-avatar, .pg-chip-avatar {
-  width: 20px; height: 20px;
+  width: var(--size-md); height: var(--size-md);
   border-radius: 50%;
   background: var(--bg-sunken);
   overflow: hidden; flex-shrink: 0;
@@ -1097,7 +1153,7 @@ label.ios-field, label.field {
 }
 
 /* ============================================================
- * 【模块 33】UID 输入 / 计数徽标
+ * 【模块 34】UID 输入 / 计数徽标
  * ============================================================ */
 .uid-input, .gs-uid {
   width: 80px !important; height: var(--size-lg) !important;
@@ -1120,7 +1176,7 @@ label.ios-field, label.field {
 }
 
 /* ============================================================
- * 【模块 34】主题切换图标
+ * 【模块 35】主题切换图标
  * ============================================================ */
 .theme-icon { display: none !important; }
 .theme-icon[data-theme-icon="sun"] { display: inline-flex !important; }
@@ -1128,7 +1184,7 @@ label.ios-field, label.field {
 [data-theme="dark"] .theme-icon[data-theme-icon="moon"] { display: inline-flex !important; }
 
 /* ============================================================
- * 【模块 35】细滚动条（局部容器）
+ * 【模块 36】细滚动条（局部容器）
  * ============================================================ */
 .scroll-thin::-webkit-scrollbar { width: 6px; }
 .scroll-thin::-webkit-scrollbar-track { background: transparent; margin: var(--space-sm) 0; }
@@ -1136,7 +1192,7 @@ label.ios-field, label.field {
 .scroll-thin::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 /* ============================================================
- * 【模块 36】分隔布局（编辑器双栏）
+ * 【模块 37】编辑器双栏布局
  * ============================================================ */
 .split-layout, .ed-main {
   flex: 1; min-height: 0;
@@ -1157,13 +1213,18 @@ label.ios-field, label.field {
   display: flex; flex-direction: column; gap: 6px;
   border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
 }
+.filter-row, .ed-filter-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.filter-row.three, .gs-filter-row {
+  grid-template-columns: 1fr 1fr 1fr;
+}
 
-/* 移动端双栏 */
 @media (max-width: 900px) {
   .split-layout, .ed-main { grid-template-columns: 1fr; position: relative; }
   .split-sidebar, .ed-list-pane { border-right: 0; }
   .split-sidebar.mobile-hidden, .ed-list-pane.mobile-hidden { display: none; }
-  .split-main, .ed-form-pane { display: none; padding: var(--space-md, 12px) var(--space-md, 12px) 30px; }
+  .split-main, .ed-form-pane { display: none; padding: var(--space-lg) var(--space-lg) 30px; }
   .split-main.mobile-visible, .ed-form-pane.mobile-visible { display: block; }
   .mobile-back, .ed-mobile-back {
     display: inline-flex; align-items: center; gap: 4px;
@@ -1174,12 +1235,12 @@ label.ios-field, label.field {
 }
 
 /* ============================================================
- * 【模块 37】外壳 · 顶部导航
+ * 【模块 38】外壳 · 顶部导航
  * ============================================================ */
 .app-navbar {
   flex: none; height: 56px; padding: 0 var(--space-lg);
   background: var(--bg-base);
-  display: flex; align-items: center; gap: var(--space-md, 12px);
+  display: flex; align-items: center; gap: var(--space-sm);
   z-index: 40;
 }
 .nav-btn {
@@ -1207,7 +1268,7 @@ label.ios-field, label.field {
 .nav-title-sep { color: var(--text-tertiary); font-weight: 400; margin: 0 2px; }
 
 /* ============================================================
- * 【模块 38】外壳 · 侧边抽屉
+ * 【模块 39】外壳 · 侧边抽屉
  * ============================================================ */
 .sidebar-backdrop {
   position: fixed; inset: 0; background: var(--mask); z-index: 90;
@@ -1231,11 +1292,11 @@ label.ios-field, label.field {
   border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
 }
 .sidebar-header h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
-.sidebar-menu { padding: var(--space-md, 12px); overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+.sidebar-menu { padding: var(--space-sm); overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
 
 .menu-main {
-  width: 100%; display: flex; align-items: center; gap: var(--space-md, 12px);
-  padding: var(--space-md, 12px);
+  width: 100%; display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-lg);
   border-radius: var(--radius-sm);
   background: transparent; border: 1px solid transparent;
   color: var(--text-secondary); font-size: 14px; font-weight: 500;
@@ -1270,7 +1331,7 @@ label.ios-field, label.field {
 .menu-sub-inner { padding: 4px 0 6px; display: flex; flex-direction: column; gap: 2px; }
 .menu-sub-item {
   width: 100%; display: flex; align-items: center; justify-content: flex-start;
-  padding: var(--space-sm) var(--space-md, 12px) var(--space-sm) 46px;
+  padding: var(--space-sm) var(--space-lg) var(--space-sm) 46px;
   border-radius: var(--radius-sm);
   background: transparent; border: 0; color: var(--text-secondary);
   font-size: 13px; font-weight: 500; cursor: pointer; text-align: left;
@@ -1288,15 +1349,15 @@ label.ios-field, label.field {
 .menu-sub-item.active .dot, .menu-sub-item.is-active .dot { background: var(--accent); }
 
 /* ============================================================
- * 【模块 39】外壳 · Bento 首页
+ * 【模块 40】外壳 · Bento 首页
  * ============================================================ */
 .home-view {
   flex: 1; overflow-y: auto; padding: var(--space-lg);
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-md, 12px);
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm);
   align-content: start;
 }
 @media (min-width: 768px) {
-  .home-view { grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); padding: var(--space-lg); }
+  .home-view { grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); }
 }
 @media (min-width: 1024px) { .home-view { grid-template-columns: repeat(4, 1fr); } }
 .home-view.hidden { display: none; }
@@ -1307,7 +1368,7 @@ label.ios-field, label.field {
   border-radius: var(--radius-md);
   padding: var(--space-lg);
   display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
-  gap: var(--space-md, 12px);
+  gap: var(--space-sm);
   cursor: pointer; transition: all 0.2s var(--ease-spring);
   position: relative; overflow: hidden;
 }
@@ -1326,7 +1387,7 @@ label.ios-field, label.field {
 }
 
 /* ============================================================
- * 【模块 40】外壳 · iframe 容器 / loading
+ * 【模块 41】外壳 · iframe 容器 / loading
  * ============================================================ */
 .frame-container {
   flex: 1; position: relative; overflow: hidden;
@@ -1342,7 +1403,7 @@ label.ios-field, label.field {
 .loading-mask {
   position: absolute; inset: 0; z-index: 20;
   display: none; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--space-md, 12px);
+  gap: var(--space-sm);
   background: var(--bg-base); color: var(--text-secondary);
   font-size: 13px; pointer-events: none;
 }
@@ -1355,12 +1416,12 @@ label.ios-field, label.field {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
- * 【模块 41】页面级滚动条（细）
+ * 【模块 42】页面级滚动
  * ============================================================ */
 .page-scroll { -webkit-overflow-scrolling: touch; }
 
 /* ============================================================
- * 【模块 42】例外值（不进体系，明确标注）
+ * 【模块 43】例外值（不进体系，明确标注）
  * ============================================================ */
 /* 2:1 套装缩略图 */
 .gs-set-thumb, .pg-list-thumb {
