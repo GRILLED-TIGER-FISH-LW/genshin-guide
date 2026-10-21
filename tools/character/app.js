@@ -1,12 +1,9 @@
 /* =========================================================================
- * 原神一图流生成器 · app.js (2026 现代 ES6+ 彻底重构修复版)
+ * 原神一图流生成器 · app.js
  * =========================================================================
- * 核心改造：
- * 1. 彻底修复与 consts.js 重复声明 currentTab 导致的语法崩溃。
- * 2. 彻底消灭所有 var，全面采用 const / let。
- * 3. 补全所有必要的工具函数。
- * 4. 修复 loadArtDict 相对路径多退一层导致沃雅妮莎/旅行者立绘 404。
- * 5. 清除所有内联样式，显隐统一走 .hidden；动态色走 CSS 变量。
+ * 2026 统一版：
+ *   · 全部内联样式清除，显隐走 .hidden，动态色走 CSS 变量
+ *   · 字体选择器对勾改用 ICONS.ui.check（不再手写 SVG）
  * ========================================================================= */
 
 'use strict';
@@ -37,9 +34,9 @@ function showToast(message, type = 'info') {
   el.className = 'toast' + (type === 'error' ? ' toast-error' : type === 'success' ? ' toast-success' : '');
   el.textContent = message;
   DOM.toastContainer.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
+  requestAnimationFrame(() => el.classList.add('is-visible'));
   setTimeout(() => {
-    el.classList.remove('show');
+    el.classList.remove('is-visible');
     setTimeout(() => el.remove(), 300);
   }, 2400);
 }
@@ -49,7 +46,7 @@ function showConfirm(title, message) {
     DOM.modalTitle.textContent = title;
     DOM.modalMessage.textContent = message;
     const cleanup = (result) => {
-      DOM.modalBackdrop.classList.remove('show');
+      DOM.modalBackdrop.classList.remove('is-visible');
       DOM.modalCancel.onclick = null;
       DOM.modalConfirm.onclick = null;
       DOM.modalBackdrop.onclick = null;
@@ -58,7 +55,7 @@ function showConfirm(title, message) {
     DOM.modalCancel.onclick = () => cleanup(false);
     DOM.modalConfirm.onclick = () => cleanup(true);
     DOM.modalBackdrop.onclick = (e) => { if (e.target === DOM.modalBackdrop) cleanup(false); };
-    DOM.modalBackdrop.classList.add('show');
+    DOM.modalBackdrop.classList.add('is-visible');
   });
 }
 
@@ -238,27 +235,28 @@ function openFontPicker() {
   if (!DOM.fontSheetList) return;
 
   const curFile = State.data.fontFileName;
+  const checkSvg = (window.ICONS && ICONS.ui && ICONS.ui.check) || '';
+  const checkIcon = '<span class="tab-sheet-item-check">' + checkSvg + '</span>';
+
   let html = '<button type="button" class="tab-sheet-item ' + (curFile === '' ? 'active' : '') + '" onclick="App.selectFont(-1)">' +
-    '<span>默认系统字体</span>' +
-    '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+    '<span>默认系统字体</span>' + checkIcon +
   '</button>';
   FONT_LIST.forEach((f, i) => {
     const isAct = curFile === f.file;
     html += '<button type="button" class="tab-sheet-item ' + (isAct ? 'active' : '') + '" onclick="App.selectFont(' + i + ')">' +
-      '<span>' + esc(f.name) + '</span>' +
-      '<svg class="tab-sheet-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '<span>' + esc(f.name) + '</span>' + checkIcon +
     '</button>';
   });
   DOM.fontSheetList.innerHTML = html;
-  DOM.fontSheetBackdrop.classList.add('show');
-  DOM.fontSheet.classList.add('show');
+  DOM.fontSheetBackdrop.classList.add('is-visible');
+  DOM.fontSheet.classList.add('is-visible');
 }
 
 function closeFontPicker() {
   if (!fontSheetOpen) return;
   fontSheetOpen = false;
-  DOM.fontSheetBackdrop.classList.remove('show');
-  DOM.fontSheet.classList.remove('show');
+  DOM.fontSheetBackdrop.classList.remove('is-visible');
+  DOM.fontSheet.classList.remove('is-visible');
 }
 
 async function selectFont(index) {
@@ -477,7 +475,7 @@ function syncInputs() {
 }
 
 /* =========================================================================
- * 【模块 6】Tab 栏与编辑器渲染 (currentTab 使用全局)
+ * 【模块 6】Tab 栏与编辑器渲染
  * ========================================================================= */
 function renderTabBar() {
   if (!DOM.tabBar) return;
@@ -572,7 +570,7 @@ function renderWeaponEditor() {
       <div class="group-header">
         <span class="group-title">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
         <div class="group-actions">
-          <button class="ios-btn-fill btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}添加</button>
+          <button class="btn-primary btn-xs" onclick="App.addWeapon('${type}')">${ICONS.plus}添加</button>
           <button class="btn-xs collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
             <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
@@ -592,8 +590,8 @@ function renderArtifactEditor() {
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
       <div class="group-actions">
-        <button class="ios-btn-fill btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}整套</button>
-        <button class="ios-btn-fill btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}散搭</button>
+        <button class="btn-primary btn-xs" onclick="App.addArtifact('single')">${ICONS.plus}整套</button>
+        <button class="btn-primary btn-xs" onclick="App.addArtifact('double')">${ICONS.plus}散搭</button>
         <button class="btn-xs collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
           <span class="collapse-icon">${ICONS.chevron}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
@@ -694,7 +692,7 @@ function renderTeamEditor() {
                 <div class="alt-list-wrap">
                   <div class="alt-header">
                     <span class="alt-count">备选角色 (${c.alts.length}/4)</span>
-                    <button class="ios-btn-fill btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}添加</button>
+                    <button class="btn-primary btn-xs ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}添加</button>
                   </div>
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
