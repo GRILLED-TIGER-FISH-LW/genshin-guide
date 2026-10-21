@@ -6,7 +6,6 @@
  *   · .app-container max-width 1400px（超宽屏约束）
  *   · .preview-frame 移动端 max-height 32vh（响应式视口高）
  *   · #121212 预览框暗底（模拟卡片渲染环境）
- *   · #ffffff 强调色上的反白文字
  *   · 100dvh / 100vh 视口高
  *   · .panel-primary-row .field min-width 130px
  *   · .artifact-dual-item min-width 140px
@@ -80,18 +79,6 @@ body {
   flex-direction: column;
   gap: 8px;
   position: relative;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0;
-}
-.preview-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
 }
 
 /* 预览框：桌面端由 SVG 自然撑开，移动端 32vh 上限（覆盖 preview.css） */
@@ -220,7 +207,7 @@ body {
 }
 .cons-item.is-active .cons-badge {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 
@@ -373,16 +360,4 @@ body {
 }
 @media (max-width: 640px) {
   .panel-grid.three { grid-template-columns: 1fr; }
-}
-
-/* 8. 手机端按钮文字白名单（character 专属 5 个 id） */
-@media (max-width: 1023px) {
-  .btn-text { display: none; }
-  .collapse-text { display: none; }
-
-  #btnMatchStyle .btn-text,
-  #btnLoadSave .btn-text,
-  #btnFontPicker .btn-text,
-  #btnAddArtifactSingle .btn-text,
-  #btnAddArtifactDouble .btn-text { display: inline; }
 }
