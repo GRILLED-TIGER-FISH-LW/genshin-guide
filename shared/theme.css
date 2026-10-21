@@ -422,7 +422,7 @@ button:disabled { opacity: var(--op-muted); cursor: not-allowed; }
 .ios-section-header, .panel-header {
   font-size: var(--font-sm); font-weight: 600; color: var(--text-tertiary);
   text-transform: uppercase; letter-spacing: 0;
-  padding: 0 var(--space-xs) var(--space-sm) var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
   display: flex; align-items: center; justify-content: space-between;
 }
 .ios-group, .panel {
