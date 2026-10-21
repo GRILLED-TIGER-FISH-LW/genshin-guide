@@ -1458,4 +1458,247 @@ async function clearAllData() {
     store.delete('current_state');
     store.put({ author: State.data.author }, 'current_state');
   } catch (e) {}
-  location
+  location.reload();
+}
+
+/* =========================================================================
+ * 【模块 11】交互逻辑
+ * ========================================================================= */
+const FIELD_MAP = {
+  charName: 'charName', version: 'version', date: 'date', author: 'author',
+  talentA: 'talent.A', talentE: 'talent.E', talentQ: 'talent.Q',
+  sandMain: 'stat.sandMain', gobMain: 'stat.gobMain', cirMain: 'stat.cirMain'
+};
+
+function setField(key, value) {
+  if (key === 'imgX' && value !== '') value = Number(value) || 0;
+  State.data[key] = value;
+  if (key === 'imgX') {
+    const s = document.getElementById('imgXSlider');
+    const n = document.getElementById('imgX');
+    if (s && document.activeElement !== s) s.value = value;
+    if (n && document.activeElement !== n) n.value = value;
+    updateCharImgX();
+  } else if (key === 'subStats') {
+    mountPreview();
+  } else if (key === 'sandMain' || key === 'gobMain' || key === 'cirMain') {
+    mountPreview();
+  } else if (FIELD_MAP[key]) {
+    updatePreviewField(FIELD_MAP[key]);
+  } else {
+    mountPreview();
+  }
+  debouncedSave();
+}
+
+function canMoveWeapon(type, i, dir) {
+  const list = State.data.weaponData[type];
+  if (!list) return false;
+  const target = i + dir;
+  if (target >= 0 && target < list.length) return true;
+  const ti = WEAPON_ORDER.indexOf(type);
+  const adjTi = ti + dir;
+  if (adjTi < 0 || adjTi >= WEAPON_ORDER.length) return false;
+  return State.data.weaponData[WEAPON_ORDER[adjTi]].length < WEAPON_MAX;
+}
+
+function moveWeapon(type, i, dir) {
+  const list = State.data.weaponData[type];
+  if (!list || i < 0 || i >= list.length) return;
+  const target = i + dir;
+  if (target >= 0 && target < list.length) {
+    [list[i], list[target]] = [list[target], list[i]];
+    renderWeaponEditor(); mountPreview(); debouncedSave(); return;
+  }
+  const ti = WEAPON_ORDER.indexOf(type);
+  const adjTi = ti + dir;
+  if (adjTi < 0 || adjTi >= WEAPON_ORDER.length) return;
+  const adjType = WEAPON_ORDER[adjTi];
+  const adjList = State.data.weaponData[adjType];
+  if (adjList.length >= WEAPON_MAX) return showToast(`「${WEAPON_LABELS[adjType]}」区已满 ${WEAPON_MAX} 个`, 'error');
+  const [item] = list.splice(i, 1);
+  if (dir === 1) adjList.unshift(item); else adjList.push(item);
+  renderWeaponEditor(); mountPreview(); debouncedSave();
+}
+
+function addWeapon(type) {
+  const list = State.data.weaponData[type];
+  if (list.length >= WEAPON_MAX) return showToast(`「${WEAPON_LABELS[type]}」区最多 ${WEAPON_MAX} 个`, 'error');
+  list.push({ name: '', img: '', imgManual: false });
+  collapseState[`weapon_${type}`] = false;
+  renderWeaponEditor(); mountPreview(); debouncedSave();
+}
+
+function removeWeapon(type, i) { State.data.weaponData[type].splice(i, 1); renderWeaponEditor(); mountPreview(); debouncedSave(); }
+function setWeaponName(type, i, v) { State.data.weaponData[type][i].name = v; updatePreviewField(`weapon.${type}.${i}.name`); debouncedSave(); }
+
+function addArtifact(type) {
+  State.data.artifactData.push(type === 'double'
+    ? { type, name1: '', name2: '', displayText: '', img1: '', img1Manual: false, img2: '', img2Manual: false }
+    : { type, name: '', img: '', imgManual: false });
+  collapseState['artifact_section'] = false;
+  renderArtifactEditor(); mountPreview(); debouncedSave();
+}
+function removeArtifact(i) { State.data.artifactData.splice(i, 1); renderArtifactEditor(); mountPreview(); debouncedSave(); }
+function moveArtifact(i, dir) { if (moveItem(State.data.artifactData, i, dir)) { renderArtifactEditor(); mountPreview(); debouncedSave(); } }
+function setArtifactName(i, v) { State.data.artifactData[i].name = v; updatePreviewField(`artifact.${i}.name`); debouncedSave(); }
+
+function addTeam() {
+  if (State.data.teamData.length >= 3) return showToast('最多支持 3 组队伍', 'error');
+  State.data.teamData.push({ name: '', chars: Array.from({ length: 4 }, () => ({ name: '', img: '', imgManual: false, alts: [], emptyAltText: '暂无备选' })) });
+  collapseState[`team_${State.data.teamData.length - 1}`] = false;
+  renderTeamEditor(); mountPreview(); debouncedSave();
+}
+function removeTeam(ti) { State.data.teamData.splice(ti, 1); renderTeamEditor(); mountPreview(); debouncedSave(); }
+function moveTeam(ti, dir) { if (moveItem(State.data.teamData, ti, dir)) { renderTeamEditor(); mountPreview(); debouncedSave(); } }
+function setTeamName(ti, v) { State.data.teamData[ti].name = v; updatePreviewField(`team.${ti}.name`); debouncedSave(); }
+
+function moveTeamChar(ti, ci, dir) {
+  const chars = State.data.teamData[ti]?.chars;
+  if (!chars) return;
+  const target = ci + dir;
+  if (target < 1 || target >= chars.length) return;
+  if (moveItem(chars, ci, dir)) { renderTeamEditor(); mountPreview(); debouncedSave(); }
+}
+function setTeamCharName(ti, ci, v) {
+  State.data.teamData[ti].chars[ci].name = v;
+  updatePreviewField(ci === 0 ? 'charName' : `team.${ti}.char.${ci}.name`);
+  debouncedSave();
+}
+
+function addAlt(ti, ci) {
+  const alts = State.data.teamData[ti]?.chars?.[ci]?.alts;
+  if (!alts) return;
+  if (alts.length >= 4) return showToast('每位角色最多 4 个备选', 'error');
+  alts.push({ name: '', img: '', imgManual: false });
+  renderTeamEditor(); mountPreview(); debouncedSave();
+}
+function removeAlt(ti, ci, ai) {
+  const alts = State.data.teamData[ti]?.chars?.[ci]?.alts;
+  if (!alts) return;
+  alts.splice(ai, 1);
+  renderTeamEditor(); mountPreview(); debouncedSave();
+}
+function moveAlt(ti, ci, ai, dir) {
+  const alts = State.data.teamData[ti]?.chars?.[ci]?.alts;
+  if (alts && moveItem(alts, ai, dir)) { renderTeamEditor(); mountPreview(); debouncedSave(); }
+}
+function setAltName(ti, ci, ai, v) {
+  State.data.teamData[ti].chars[ci].alts[ai].name = v;
+  updatePreviewField(`team.${ti}.char.${ci}.alt.${ai}.name`);
+  debouncedSave();
+}
+function setEmptyAltText(ti, ci, v) {
+  State.data.teamData[ti].chars[ci].emptyAltText = v;
+  mountPreview(); debouncedSave();
+}
+function setArtifactName1(i, v) { State.data.artifactData[i].name1 = v; mountPreview(); debouncedSave(); }
+function setArtifactName2(i, v) { State.data.artifactData[i].name2 = v; mountPreview(); debouncedSave(); }
+function setArtifactDisplayText(i, v) { State.data.artifactData[i].displayText = v; mountPreview(); debouncedSave(); }
+function toggleConstellation(i) {
+  if (!State.data.constellationData[i]) return;
+  State.data.constellationData[i].active = !State.data.constellationData[i].active;
+  renderConstellationEditor(); mountPreview(); debouncedSave();
+}
+function setConstellationDesc(i, value) {
+  if (!State.data.constellationData[i]) return;
+  State.data.constellationData[i].desc = value;
+  mountPreview(); debouncedSave();
+}
+function setTheme(color) {
+  State.data.theme = color;
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-dark', darken(color, 50));
+  renderColorPicker(); mountPreview(); debouncedSave();
+}
+function setPanelPrimaryKey(key) {
+  State.data.panel.primaryKey = PANEL_PRIMARY_KEYS.includes(key) ? key : 'hp';
+  renderPanelPrimaryDropdown();
+  mountPreview(); debouncedSave();
+}
+function setPanelField(key, value) {
+  if (!State.data.panel) State.data.panel = normalizePanel(null);
+  State.data.panel[key] = value;
+  updatePreviewField(`panel.${key}`);
+  debouncedSave();
+}
+
+/* =========================================================================
+ * 【模块 12】App 导出接口与初始化
+ * ========================================================================= */
+const App = {
+  selectTab, setField, setTheme, setPanelPrimaryKey, setPanelField,
+  toggleCollapse, toggleConstellation, setConstellationDesc,
+  togglePanelPrimaryDropdown,
+  addWeapon, removeWeapon, moveWeapon, setWeaponName,
+  addArtifact, removeArtifact, moveArtifact, setArtifactName,
+  addTeam, removeTeam, moveTeam, setTeamName, moveTeamChar, setTeamCharName,
+  addAlt, removeAlt, moveAlt, setAltName, setEmptyAltText,
+  renderWeaponEditor, renderArtifactEditor, renderTeamEditor,
+  mountPreview, debouncedSave, triggerUpload, uploadImageHandler,
+  updateThumb, updateImgXHint, clearImage, onThumbClick,
+  exportPNG, exportConfig, importConfig, clearAllData,
+  matchIconByType, matchArtifactDoubleIcon, setArtifactName1, setArtifactName2, setArtifactDisplayText,
+  matchCharAvatar, matchStyleImages, loadSaveFromRepo,
+  openFontPicker, closeFontPicker, selectFont
+};
+window.App = App;
+
+function injectFloatIcons() {
+  const S = window.ICONS || { ui: {} };
+  const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
+  icons.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id.includes('Export')) el.innerHTML = S.ui.export;
+    if (id.includes('Import') || id.includes('LoadSave')) el.innerHTML = S.ui.import;
+    if (id.includes('Clear') || id.includes('Del')) el.innerHTML = S.ui.trash;
+    if (id.includes('AddTeam') || id.includes('MatchStyle')) el.innerHTML = S.ui.plus;
+  });
+}
+
+function bindPreviewTapToggle() {
+  const frame = document.getElementById('previewFrame');
+  const toolbar = document.getElementById('floatToolbar');
+  if (!frame || !toolbar) return;
+  frame.addEventListener('click', () => toolbar.classList.toggle('hidden'));
+}
+
+(async function init() {
+  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+
+  injectFloatIcons();
+  tightenAllIconViewBoxes();
+
+  const saved = await loadStateFromIDB();
+  State.data = normalizeState(saved || {});
+
+  await loadCharOrderTxt();
+  await loadNamecards();
+  await loadArtDict();
+  await loadFontList();
+
+  try { await installPreviewFont(); } catch(e) {}
+
+  initThumbnails();
+  syncInputs();
+  renderEditorsByKey();
+  renderTabBar();
+  mountPreview();
+  selectTab(currentTab);
+  bindPreviewTapToggle();
+
+  document.body.classList.add('ready');
+})();
+
+window.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'theme') {
+    const html = document.documentElement;
+    html.classList.add('theme-switching');
+    html.setAttribute('data-theme', e.data.theme);
+    void html.offsetHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => html.classList.remove('theme-switching'));
+    });
+  }
+});
