@@ -1,20 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<!-- =========================================================================
-     原神攻略工具集 · index.html
-     =========================================================================
-     HTML 模块导航：
-       【HTML 模块 0】 head / 资源加载器
-       【HTML 模块 1】 启动遮罩 + 外壳布局
-       【HTML 模块 2】 启动遮罩
-       【HTML 模块 3】 顶部导航栏
-       【HTML 模块 4】 侧边菜单抽屉
-       【HTML 模块 5】 首页 (Bento 网格)
-       【HTML 模块 6】 iframe 容器 + loading
-       【HTML 模块 7】 JS 引用
-     ========================================================================= -->
 <head>
-<!-- 【HTML 模块 0】head / 资源加载器 -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F4F1EA">
@@ -23,7 +9,6 @@
 <link rel="apple-touch-icon" href="favicon.ico">
 
 <script>
-/* 资源加载器（带时间戳，动态加载） */
 (() => {
   const ts = Date.now();
   window.__pageLoadTs = ts;
@@ -50,15 +35,13 @@
   });
 
   window.__bootPromise = Promise.all([
-    loadStyle('shared/theme.css'),
+    loadStyle('shared/css/theme.css'),
     loadScript('shared/ui-icons.js')
   ]);
 })();
 </script>
 
-<!-- 【HTML 模块 1】启动遮罩 + 外壳布局 -->
 <style>
-  /* 启动遮罩：theme.css 加载前的兜底显示，加载完成后随 body.ready 消失 */
   body { visibility: hidden; }
   body.ready { visibility: visible; }
   .boot-loading {
@@ -66,13 +49,12 @@
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-base, #F4F1EA);
     color: var(--text-tertiary, #A69E95);
-    font-size: 13px;
+    font-size: 12px;
     font-family: var(--std-font, system-ui, sans-serif);
     visibility: visible;
   }
   body.ready .boot-loading { display: none; }
 
-  /* 外壳基础布局（导航/抽屉/Bento/loading 样式在 theme.css） */
   html, body { height: 100%; height: 100dvh; }
   body {
     overflow: hidden;
@@ -83,10 +65,8 @@
 </head>
 <body>
 
-<!-- 【HTML 模块 2】启动遮罩 -->
 <div class="boot-loading">正在载入工具集…</div>
 
-<!-- 【HTML 模块 3】顶部导航栏 -->
 <header class="app-navbar">
   <button type="button" class="nav-btn" id="btnMenu" aria-label="打开菜单"></button>
   <div class="nav-title">
@@ -99,7 +79,6 @@
   </button>
 </header>
 
-<!-- 【HTML 模块 4】侧边菜单抽屉 -->
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <aside class="sidebar-drawer" id="sidebarDrawer">
   <div class="sidebar-header">
@@ -109,10 +88,8 @@
   <nav class="sidebar-menu" id="sidebarMenu"></nav>
 </aside>
 
-<!-- 【HTML 模块 5】首页 (Bento 网格) -->
 <main class="home-view" id="homeView"></main>
 
-<!-- 【HTML 模块 6】iframe 容器 + loading -->
 <main class="frame-container" id="frameContainer">
   <div class="loading-mask" id="loadingMask">
     <div class="spinner"></div>
@@ -120,11 +97,9 @@
   </div>
 </main>
 
-<!-- 【HTML 模块 7】JS 引用 -->
 <script>
 'use strict';
 
-/* 【JS 模块 1】常量 */
 const TOOLS = [
   {
     key: 'character',
@@ -188,7 +163,6 @@ const TOOLS = [
 
 const THEME_KEY = 'gtt_theme';
 
-/* 【JS 模块 2】DOM 引用 + 运行时状态 */
 const homeView        = document.getElementById('homeView');
 const frameContainer  = document.getElementById('frameContainer');
 const sidebarDrawer   = document.getElementById('sidebarDrawer');
@@ -212,7 +186,6 @@ let activeSubtool = '';
 const cacheKeyOf = (tool, sub) => (sub && sub.src) ? (tool.key + '::' + sub.key) : tool.key;
 const srcOf = (tool, sub) => (sub && sub.src) ? sub.src : tool.src;
 
-/* 【JS 模块 3】主题切换 */
 function applyTheme(theme) {
   currentTheme = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.classList.add('theme-switching');
@@ -255,23 +228,21 @@ function toggleTheme() {
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
 
-/* 【JS 模块 4】侧边栏开关 */
 function openSidebar() {
-  sidebarDrawer.classList.add('open');
-  sidebarBackdrop.classList.add('active');
+  sidebarDrawer.classList.add('is-open');
+  sidebarBackdrop.classList.add('is-active');
 }
 function closeSidebar() {
-  sidebarDrawer.classList.remove('open');
-  sidebarBackdrop.classList.remove('active');
+  sidebarDrawer.classList.remove('is-open');
+  sidebarBackdrop.classList.remove('is-active');
 }
 
-/* 【JS 模块 5】菜单渲染 */
 function renderMenu() {
   sidebarMenu.innerHTML = '';
 
   const homeBtn = document.createElement('button');
   homeBtn.type = 'button';
-  homeBtn.className = 'menu-main' + (isHome ? ' active' : '');
+  homeBtn.className = 'menu-main' + (isHome ? ' is-active' : '');
   const homeIcon = isHome ? ICONS.nav.homeBold : ICONS.nav.home;
   homeBtn.innerHTML =
     '<span class="menu-main-icon">' + homeIcon + '</span>' +
@@ -286,7 +257,7 @@ function renderMenu() {
 
     const mainBtn = document.createElement('button');
     mainBtn.type = 'button';
-    mainBtn.className = 'menu-main' + (isActive ? ' active' : '') + (isExpanded && subs.length ? ' expanded' : '');
+    mainBtn.className = 'menu-main' + (isActive ? ' is-active' : '') + (isExpanded && subs.length ? ' expanded' : '');
 
     const iconKey = isActive ? tool.iconBold : tool.icon;
     const iconSvg = (ICONS.nav && ICONS.nav[iconKey]) || '';
@@ -323,7 +294,7 @@ function renderMenu() {
       subs.forEach(sub => {
         const subBtn = document.createElement('button');
         subBtn.type = 'button';
-        subBtn.className = 'menu-sub-item' + (isActive && sub.key === activeSubtool ? ' active' : '');
+        subBtn.className = 'menu-sub-item' + (isActive && sub.key === activeSubtool ? ' is-active' : '');
         subBtn.innerHTML = '<span class="dot"></span><span>' + sub.label + '</span>';
         subBtn.addEventListener('click', () => selectSubtool(tool.key, sub.key));
         inner.appendChild(subBtn);
@@ -335,13 +306,12 @@ function renderMenu() {
   });
 }
 
-/* 【JS 模块 6】首页网格渲染 */
 function renderHome() {
   homeView.innerHTML = '';
   TOOLS.forEach(tool => {
     const card = document.createElement('div');
     card.className = 'dash-card';
-    card.innerHTML = 
+    card.innerHTML =
       `<div class="dash-card-icon">${ICONS.nav[tool.icon] || ''}</div>
        <div>
          <div class="dash-card-title">${tool.label}</div>
@@ -352,7 +322,6 @@ function renderHome() {
   });
 }
 
-/* 【JS 模块 7】iframe 管理 */
 function ensureFrame(tool, sub) {
   const key = cacheKeyOf(tool, sub);
   if (frameCache.has(key)) return frameCache.get(key);
@@ -374,7 +343,7 @@ function ensureFrame(tool, sub) {
 
   iframe.addEventListener('load', () => {
     record.loaded = true;
-    if (view.classList.contains('active')) loadingMask.classList.remove('show');
+    if (view.classList.contains('is-active')) loadingMask.classList.remove('is-visible');
     try {
       const doc = iframe.contentDocument;
       if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', currentTheme);
@@ -390,19 +359,18 @@ function ensureFrame(tool, sub) {
   return record;
 }
 
-/* 【JS 模块 8】工具切换 / 子工具切换 / 回首页 */
 function goHome() {
   isHome = true;
   activeTool = '';
   activeSubtool = '';
-  
-  frameContainer.classList.remove('active');
+
+  frameContainer.classList.remove('is-active');
   homeView.classList.remove('hidden');
-  loadingMask.classList.remove('show');
-  
+  loadingMask.classList.remove('is-visible');
+
   navIcon.innerHTML = '';
   navText.textContent = '原神攻略工具集';
-  
+
   renderMenu();
   closeSidebar();
   try { history.replaceState(null, '', '#home'); } catch (e) {}
@@ -423,14 +391,14 @@ function selectTool(toolKey, opts) {
   activeSubtool = '';
 
   homeView.classList.add('hidden');
-  frameContainer.classList.add('active');
+  frameContainer.classList.add('is-active');
 
   updateNavTitle();
   renderMenu();
 
   const record = ensureFrame(tool);
-  frameCache.forEach(r => r.view.classList.toggle('active', r === record));
-  loadingMask.classList.toggle('show', !record.loaded);
+  frameCache.forEach(r => r.view.classList.toggle('is-active', r === record));
+  loadingMask.classList.toggle('is-visible', !record.loaded);
 
   if (!silent) try { history.replaceState(null, '', '#' + tool.key); } catch (e) {}
   closeSidebar();
@@ -450,14 +418,14 @@ function selectSubtool(toolKey, subKey, opts) {
   expandedTools.add(toolKey);
 
   homeView.classList.add('hidden');
-  frameContainer.classList.add('active');
+  frameContainer.classList.add('is-active');
 
   updateNavTitle();
   renderMenu();
 
   const record = ensureFrame(tool, sub);
-  frameCache.forEach(r => r.view.classList.toggle('active', r === record));
-  loadingMask.classList.toggle('show', !record.loaded);
+  frameCache.forEach(r => r.view.classList.toggle('is-active', r === record));
+  loadingMask.classList.toggle('is-visible', !record.loaded);
 
   if (!sub.src && record.loaded && record.iframe.contentWindow) {
     try { record.iframe.contentWindow.postMessage({ type: 'navigate', subtool: subKey }, '*'); } catch (e) {}
@@ -467,7 +435,6 @@ function selectSubtool(toolKey, subKey, opts) {
   closeSidebar();
 }
 
-/* 【JS 模块 9】导航标题同步 */
 function updateNavTitle() {
   const tool = TOOLS.find(t => t.key === activeTool);
   if (!tool) return;
@@ -482,7 +449,6 @@ function updateNavTitle() {
   }
 }
 
-/* 【JS 模块 10】跨 iframe 通信 */
 window.addEventListener('message', (e) => {
   const data = e.data;
   if (!data || typeof data !== 'object') return;
@@ -496,7 +462,6 @@ window.addEventListener('message', (e) => {
   }
 });
 
-/* 【JS 模块 11】事件绑定 */
 btnMenu.addEventListener('click', openSidebar);
 btnClose.addEventListener('click', closeSidebar);
 sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -515,7 +480,6 @@ window.addEventListener('hashchange', () => {
   }
 });
 
-/* 【JS 模块 12】初始化 */
 (async function init() {
   try { await window.__bootPromise; } catch (e) { console.warn(e); }
 
@@ -531,13 +495,13 @@ window.addEventListener('hashchange', () => {
   try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
   applyTheme(savedTheme);
 
-  renderHome(); 
+  renderHome();
 
   const hashKey = (location.hash || '').replace(/^#/, '');
   if (hashKey && TOOLS.some(t => t.key === hashKey)) {
     selectTool(hashKey, { silent: true });
   } else {
-    goHome(); 
+    goHome();
   }
 
   document.body.classList.add('ready');
