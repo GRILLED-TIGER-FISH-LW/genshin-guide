@@ -1,5 +1,6 @@
 /* ============================================================
  * inputs.css —— 输入区
+ * 输入框、滑条、表单字段、表单头部、下拉、搜索、联想、特殊输入、计数徽标、Tab 切换
  * 宽度自适应（100% 或固定，不锁中间值）。
  * 圆角 = 高度 × 15%。纯文字不写 padding。
  * ============================================================ */
@@ -32,6 +33,11 @@
   --input-radius-avatar-sm: calc(var(--input-h-avatar-sm) * 0.15);
   --input-radius-textarea: 8px;
   --input-radius-check: 4px;
+
+  --tab-h: 32px;
+  --tab-px: 16px;
+  --tab-gap: 8px;
+  --tab-font: 12px;
 }
 
 /* 基础输入 */
@@ -387,6 +393,12 @@ input[type="range"]::-moz-range-thumb {
   visibility: visible;
   pointer-events: auto;
 }
+.dropdown-panel.is-fixed {
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: auto;
+}
 .dropdown-item {
   display: flex;
   align-items: center;
@@ -593,5 +605,44 @@ input[type="range"]::-moz-range-thumb {
   background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--input-font);
+  font-weight: 500;
+}
+
+/* Tab 切换 */
+.tab-bar {
+  display: flex;
+  gap: var(--tab-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: var(--input-gap-sm) 0;
+  flex-shrink: 0;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  flex-shrink: 0;
+  height: var(--tab-h);
+  padding: 0 var(--tab-px);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--tab-font);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--input-t) var(--input-ease);
+}
+.tab-btn:hover:not(.is-active) { background: var(--bg-hover); }
+.tab-btn.is-active {
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  border-color: var(--text-primary);
   font-weight: 500;
 }
