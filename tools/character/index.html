@@ -248,15 +248,15 @@
           <div class="panel-header">主属性（三选一）</div>
           <div class="panel">
             <div class="panel-row panel-primary-row">
-              <label class="field flex-1">属性类型
-  <div class="dropdown" id="panelPrimaryKeyDropdown" data-value="hp">
-    <button type="button" class="dropdown-trigger" onclick="App.togglePanelPrimaryDropdown(event)">
-      <span class="dropdown-label" id="panelPrimaryKeyLabel">生命值</span>
-      <span class="dropdown-arrow" id="panelPrimaryKeyArrow"></span>
-    </button>
-    <div class="dropdown-panel" id="panelPrimaryKeyPanel"></div>
-  </div>
-              </label>
+              <div class="field flex-1">属性类型
+                <div class="dropdown" id="panelPrimaryKeyDropdown">
+                  <button type="button" class="dropdown-trigger" id="panelPrimaryKeyTrigger" onclick="App.togglePanelPrimaryDropdown(event)">
+                    <span class="dropdown-label" id="panelPrimaryKeyLabel">生命值</span>
+                    <span class="dropdown-arrow" id="panelPrimaryKeyArrow"></span>
+                  </button>
+                  <div class="dropdown-panel" id="panelPrimaryKeyPanel"></div>
+                </div>
+              </div>
               <label class="field flex-1">数值
                 <input type="text" id="panelPrimaryValue" placeholder="留空显示「任意」" oninput="App.setPanelField('primaryValue', this.value)" />
               </label>
