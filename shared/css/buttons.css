@@ -1,10 +1,9 @@
 /* ============================================================
  * buttons.css —— 按钮
- * 宽度自适应，不锁死。圆角 = 高度 × 15%。
+ * 宽度自适应（padding 撑开），不锁死。圆角 = 高度 × 15%。
  * 图标 = 按钮高度的 70%。文字永远显示，不省略。
  * ============================================================ */
 
-/* 尺寸变量 */
 :root {
   --btn-h: 32px;
   --btn-h-export: 48px;
@@ -120,4 +119,19 @@
 
 @media (min-width: 1024px) {
   .export-btn { display: none; }
+}
+
+/* 图标容器（按钮内包图标的 span） */
+.icon-slot {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+}
+.icon-slot svg {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
 }
