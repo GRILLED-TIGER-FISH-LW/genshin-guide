@@ -23,7 +23,8 @@
   window.__bootPromise = (async () => {
     await Promise.all([
       loadScript('../../../shared/ui-icons.js'),
-      loadStyle('../../../shared/theme.css'),
+      loadScript('../../../shared/css/dropdown.js'),
+      loadStyle('../../../shared/css/theme.css'),
       loadStyle('style.css')
     ]);
     await Promise.all([
@@ -43,7 +44,7 @@
     position: fixed; inset: 0; z-index: 99999;
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
-    font-size: var(--font-sm, 12px); font-family: var(--std-font, sans-serif);
+    font-size: 12px; font-family: var(--std-font, sans-serif);
     visibility: visible;
   }
   body.ready .boot-loading { display: none; }
@@ -53,7 +54,7 @@
 
 <div class="boot-loading">正在载入视频封面…</div>
 
-<div class="video-preview-wrap">
+<div class="preview-sticky">
   <div class="preview-frame" id="previewFrame">
     <div id="svgPreviewHost"></div>
     <div class="float-toolbar" id="floatToolbar">
@@ -66,16 +67,23 @@
   </div>
 </div>
 
-<main class="video-form">
+<main class="form">
   <section>
     <div class="panel-header">字体（仅作用于导出图片）</div>
     <div class="panel">
       <div class="panel-row">
         <div class="font-label" id="labelVideoFont">默认系统字体</div>
-        <button type="button" class="btn-sm btn-primary" id="btnFontPicker" onclick="App.openFontPicker()">
-          <span class="icon-slot" data-icon="font"></span>
-          <span class="btn-text">选择字体</span>
-        </button>
+        <div class="dropdown" id="fontDropdown">
+          <button type="button" class="dropdown-trigger" id="btnFontPicker">
+            <span class="icon-slot" data-icon="font"></span>
+            <span class="dropdown-label">选择字体</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel" id="fontDropdownPanel"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -84,8 +92,17 @@
     <div class="panel-header">游戏 Logo</div>
     <div class="panel">
       <div class="panel-row">
-        <img id="logoThumb" class="clickable-thumb" alt="">
-        <select id="logoSelect"></select>
+        <img id="logoThumb" class="thumb" alt="">
+        <div class="dropdown" id="logoDropdown">
+          <button type="button" class="dropdown-trigger">
+            <span class="dropdown-label" id="logoDropdownLabel">原神</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel" id="logoDropdownPanel"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -93,25 +110,25 @@
   <section>
     <div class="panel-header">画布背景</div>
     <div class="panel">
-      <div class="panel-row upload-row" onclick="document.getElementById('bgFile').click()">
-        <img id="bgThumb" class="clickable-thumb" alt="">
+      <div class="panel-row">
+        <img id="bgThumb" class="thumb" alt="" onclick="document.getElementById('bgFile').click()">
         <div class="flex-1">
           <div class="upload-text" id="bgFileName">点击上传背景图</div>
         </div>
         <input type="file" id="bgFile" accept="image/*" class="hidden">
       </div>
-      <div class="control-item row-pad">
-        <div class="control-header"><span>背景亮度</span></div>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>背景亮度</span></div>
         <div class="slider-row">
           <input type="range" id="midBrightness" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)">
-          <div class="num-box"><input type="number" id="midBrightnessInput" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)"><span class="unit-tag">%</span></div>
+          <div class="number-box"><input type="number" id="midBrightnessInput" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)"><span class="number-unit">%</span></div>
         </div>
       </div>
-      <div class="control-item row-pad">
-        <div class="control-header"><span>背景模糊</span></div>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>背景模糊</span></div>
         <div class="slider-row">
           <input type="range" id="midBlur" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)">
-          <div class="num-box"><input type="number" id="midBlurInput" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)"><span class="unit-tag">%</span></div>
+          <div class="number-box"><input type="number" id="midBlurInput" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)"><span class="number-unit">%</span></div>
         </div>
       </div>
     </div>
@@ -120,17 +137,17 @@
   <section>
     <div class="panel-header">攻略模式</div>
     <div class="tab-bar">
-      <button type="button" class="tab-btn active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
+      <button type="button" class="tab-btn is-active" data-type="character" onclick="App.setGuideType('character')">角色攻略</button>
       <button type="button" class="tab-btn" data-type="boss" onclick="App.setGuideType('boss')">Boss攻略</button>
       <button type="button" class="tab-btn" data-type="custom" onclick="App.setGuideType('custom')">自定义</button>
     </div>
 
     <div id="characterPanel" class="panel">
-      <div class="control-item row-pad">
-        <div class="control-header"><span>立绘 X 位置</span></div>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>立绘 X 位置</span></div>
         <div class="slider-row">
           <input type="range" id="characterX" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)">
-          <div class="num-box"><input type="number" id="characterXInput" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)"><span class="unit-tag">px</span></div>
+          <div class="number-box"><input type="number" id="characterXInput" min="0" max="3840" value="2650" oninput="App.syncVal('characterX', this.value)"><span class="number-unit">px</span></div>
         </div>
       </div>
     </div>
@@ -138,9 +155,8 @@
     <div id="customPanel" class="panel hidden">
       <div class="panel-row custom-head">
         <span class="custom-head-label">浮动素材</span>
-        <button type="button" class="btn-xs btn-primary" onclick="App.addFloat()">
+        <button type="button" class="btn-icon" onclick="App.addFloat()">
           <span class="icon-slot" data-icon="plus"></span>
-          <span class="btn-text">添加素材</span>
         </button>
       </div>
       <div id="floatList" class="float-list row-pad"></div>
@@ -153,11 +169,11 @@
       <label class="field row-pad">标签文字
         <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
       </label>
-      <div class="control-item row-pad">
-        <div class="control-header"><span>文字亮度</span></div>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>文字亮度</span></div>
         <div class="slider-row">
           <input type="range" id="capTextBrightness" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)">
-          <div class="num-box"><input type="number" id="capTextBrightnessInput" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)"><span class="unit-tag">%</span></div>
+          <div class="number-box"><input type="number" id="capTextBrightnessInput" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)"><span class="number-unit">%</span></div>
         </div>
       </div>
     </div>
@@ -179,38 +195,47 @@
         <span id="sub1Label">第一行</span>
         <input type="text" id="sub1Input" placeholder="第一行文字" oninput="App.onSub1Input(this.value)" onblur="App.onSub1Blur(this.value)">
       </label>
-      <label class="field row-pad hidden" id="sub1SizeRow">
-        字号
-        <select id="sub1Select" onchange="App.setSubSize(1, this.value)">
-          <option value="200">小字号</option>
-          <option value="250">大字号</option>
-        </select>
-      </label>
+      <div class="field row-pad hidden" id="sub1SizeRow">
+        <span class="field-label">字号</span>
+        <div class="dropdown" id="sub1SizeDropdown">
+          <button type="button" class="dropdown-trigger">
+            <span class="dropdown-label" id="sub1SizeLabel">小字号</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel">
+            <button type="button" class="dropdown-item is-active" data-value="200" data-target="sub1">小字号</button>
+            <button type="button" class="dropdown-item" data-value="250" data-target="sub1">大字号</button>
+          </div>
+        </div>
+      </div>
       <label class="field row-pad">
         <span id="sub2Label">第二行</span>
         <input type="text" id="sub2Input" placeholder="第二行文字" oninput="App.onSub2Input(this.value)" onblur="App.onSub2Blur(this.value)">
       </label>
-      <label class="field row-pad hidden" id="sub2SizeRow">
-        字号
-        <select id="sub2Select" onchange="App.setSubSize(2, this.value)">
-          <option value="200">小字号</option>
-          <option value="250">大字号</option>
-        </select>
-      </label>
+      <div class="field row-pad hidden" id="sub2SizeRow">
+        <span class="field-label">字号</span>
+        <div class="dropdown" id="sub2SizeDropdown">
+          <button type="button" class="dropdown-trigger">
+            <span class="dropdown-label" id="sub2SizeLabel">大字号</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel">
+            <button type="button" class="dropdown-item" data-value="200" data-target="sub2">小字号</button>
+            <button type="button" class="dropdown-item is-active" data-value="250" data-target="sub2">大字号</button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
-<div class="bottom-dock">
-  <button class="export-btn-main" onclick="App.exportPNG()">导出图片</button>
-</div>
-
-<div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
-<div class="tab-sheet" id="fontSheet">
-  <div class="tab-sheet-handle"></div>
-  <div class="tab-sheet-header">选择字体</div>
-  <div class="tab-sheet-list" id="fontSheetList"></div>
-</div>
+<button class="export-btn" onclick="App.exportPNG()">导出图片</button>
 
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-backdrop" id="modalBackdrop">
@@ -219,7 +244,7 @@
     <div class="modal-message" id="modalMessage"></div>
     <div class="modal-actions">
       <button type="button" id="modalCancel">取消</button>
-      <button type="button" class="btn-primary" id="modalConfirm">确定</button>
+      <button type="button" class="modal-confirm" id="modalConfirm">确定</button>
     </div>
   </div>
 </div>
