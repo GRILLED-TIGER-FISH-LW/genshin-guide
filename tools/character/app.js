@@ -4,7 +4,8 @@
  * 2026 统一版：
  *   · 字体选择器对勾使用 ICONS.ui.check
  *   · 折叠按钮：收起→▼（chevron）展开→▲（chevronUp）
- *   · 面板区属性类型 .dropdown 组件，open/close 手动切 SVG 箭头
+ *   · 面板区属性类型 .dropdown：初始化各注入一次 ▼/▲ 图标，
+ *     open/close 仅切 .is-open，由 theme.css 模块 27 双箭头 CSS 控制显示
  * ========================================================================= */
 
 'use strict';
@@ -750,7 +751,8 @@ function renderEditorsByKey() {
 
 /* =========================================================================
  * 【模块 6.5】面板区 · 属性类型下拉
- * 箭头靠 JS 切 SVG：open → chevronUp（▲） / close → chevronDown（▼）
+ * 初始化：给 .arrow-down / .arrow-up 各注入一次图标
+ * 打开/关闭：仅切 .is-open，由 CSS 控制显示哪个箭头
  * ========================================================================= */
 const PANEL_PRIMARY_OPTIONS = [
   { key: 'hp',  label: '生命值' },
@@ -759,10 +761,13 @@ const PANEL_PRIMARY_OPTIONS = [
 ];
 let panelPrimaryDropdownOpen = false;
 
-function setDropdownArrow(arrowEl, up) {
+/* 一次性注入双箭头图标 */
+function initDropdownArrow(arrowEl) {
   if (!arrowEl) return;
-  const svg = up ? (ICONS.chevronUp || ICONS.chevron) : ICONS.chevron;
-  arrowEl.innerHTML = svgWithSize(svg, 16);
+  const down = arrowEl.querySelector('.arrow-down');
+  const up = arrowEl.querySelector('.arrow-up');
+  if (down) down.innerHTML = svgWithSize(ICONS.chevron, 16);
+  if (up) up.innerHTML = svgWithSize(ICONS.chevronUp || ICONS.chevron, 16);
 }
 
 function renderPanelPrimaryDropdown() {
@@ -789,20 +794,16 @@ function renderPanelPrimaryDropdown() {
 
 function openPanelPrimaryDropdown() {
   const wrap = document.getElementById('panelPrimaryKeyDropdown');
-  const arrow = document.getElementById('panelPrimaryKeyArrow');
   if (!wrap) return;
   renderPanelPrimaryDropdown();
   wrap.classList.add('is-open');
   panelPrimaryDropdownOpen = true;
-  setDropdownArrow(arrow, true);  // ▲
 }
 
 function closePanelPrimaryDropdown() {
   const wrap = document.getElementById('panelPrimaryKeyDropdown');
-  const arrow = document.getElementById('panelPrimaryKeyArrow');
   if (wrap) wrap.classList.remove('is-open');
   panelPrimaryDropdownOpen = false;
-  setDropdownArrow(arrow, false); // ▼
 }
 
 function togglePanelPrimaryDropdown(e) {
@@ -1693,9 +1694,9 @@ function bindPreviewTapToggle() {
   selectTab(currentTab);
   bindPreviewTapToggle();
 
-  /* 初始化面板区下拉箭头：默认关闭状态 → ▼ */
+  /* 初始化面板区下拉双箭头：各注入一次 ▼ / ▲，之后仅切 .is-open */
   const panelArrow = document.getElementById('panelPrimaryKeyArrow');
-  if (panelArrow) setDropdownArrow(panelArrow, false);
+  if (panelArrow) initDropdownArrow(panelArrow);
 
   document.body.classList.add('ready');
 })();
