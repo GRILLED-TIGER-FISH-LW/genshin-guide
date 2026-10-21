@@ -1,70 +1,78 @@
 /* =========================================================================
- * 原神一图流生成器 · style.css (彻底统一间距版)
+ * 原神一图流生成器 · style.css
+ * 仅布局特化，通用控件（按钮/输入/卡片/上传行/缩略图等）见 theme.css
  * ========================================================================= */
 
-/* 【CSS 模块 1】通用辅助类 */
-.flex-1 { flex: 1; min-width: 0; }
-.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.action-row { display: flex; gap: 8px; padding: 10px; }
-.action-row .btn-sm { height: 38px !important; }
-
-.upload-row { cursor: pointer; transition: background 0.2s var(--ease-spring); }
-.upload-row:hover { background: var(--bg-hover); }
-.upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
-
-.slider-wrap { padding: 10px; }
-.sub-stats-wrap { padding: 0 10px 10px 10px; }
-
-.panel-primary-row { gap: 10px; flex-wrap: wrap; }
-.panel-primary-row .ios-field { min-width: 130px; }
-
-.editor-list { display: flex; flex-direction: column; gap: 8px; }
-.editor-list-large { display: flex; flex-direction: column; gap: 8px; }
-
-/* 【CSS 模块 2】主容器布局 */
+/* =========================================================================
+ * 1. 主容器布局
+ * ========================================================================= */
 .app-container {
-  max-width: 1400px; margin: 0 auto; padding: 12px 14px;
-  display: grid; grid-template-columns: 1fr; gap: 14px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-sm) var(--space-lg);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 @media (max-width: 1023px) {
   body { overflow: hidden; }
   .app-container {
-    grid-template-columns: 1fr; grid-template-rows: auto 1fr;
-    height: 100dvh; padding: 12px 14px 0; padding-bottom: 0;
-    gap: 0; overflow: hidden;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100dvh;
+    padding: var(--space-sm) var(--space-lg) 0;
+    padding-bottom: 0;
+    gap: 0;
+    overflow: hidden;
   }
 }
 @media (min-width: 1024px) {
   .app-container {
     grid-template-columns: minmax(480px, 1.2fr) minmax(440px, 1fr);
-    height: 100vh; padding: 16px 20px; overflow: hidden;
+    height: 100vh;
+    padding: var(--space-lg);
+    overflow: hidden;
   }
 }
 
-/* 【CSS 模块 3】预览区 */
-.preview-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* =========================================================================
+ * 2. 预览区
+ * ========================================================================= */
+.preview-pane { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
 @media (max-width: 1023px) {
   .preview-pane {
-    position: static; background: var(--bg-base);
-    padding: 0 0 5px 0; margin: 0;
-    border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+    position: static;
+    background: var(--bg-base);
+    padding: 0 0 var(--space-sm) 0;
+    margin: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
   }
 }
 @media (min-width: 1024px) {
-  .preview-pane { position: sticky; top: 16px; height: 100%; overflow-y: auto; padding-right: 6px; }
+  .preview-pane {
+    position: sticky;
+    top: var(--space-lg);
+    height: 100%;
+    overflow-y: auto;
+    padding-right: var(--space-sm);
+  }
 }
 
-.preview-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.preview-card { display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-sm); }
 @media (max-width: 1023px) {
   .preview-card {
-    padding: 0 !important; border: 0 !important;
-    background: transparent !important; box-shadow: none !important;
-    border-radius: 0 !important; gap: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    gap: 0 !important;
   }
   .preview-header { display: none !important; }
 }
-.preview-header { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+.preview-header { display: flex; align-items: center; justify-content: space-between; padding: 0; }
 .preview-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 
 .preview-frame {
@@ -74,43 +82,65 @@
 }
 @media (max-width: 1023px) {
   .preview-frame {
-    max-height: 32vh; width: auto; max-width: 100%;
-    align-self: center; margin: 0 auto;
-    background: transparent; border: 0;
+    max-height: 32vh;
+    width: auto;
+    max-width: 100%;
+    align-self: center;
+    margin: 0 auto;
+    background: transparent;
+    border: 0;
   }
 }
 
 #svgPreviewHost { width: 100%; height: 100%; }
 #svgPreviewHost > svg { width: 100%; height: 100%; display: block; }
 
-/* 【CSS 模块 4】编辑区容器 */
-.inspector-pane { display: flex; flex-direction: column; gap: 12px; overflow: hidden; min-width: 0; }
+/* =========================================================================
+ * 3. 编辑区
+ * ========================================================================= */
+.inspector-pane {
+  display: flex; flex-direction: column; gap: var(--space-sm);
+  overflow: hidden; min-width: 0;
+}
 @media (min-width: 1024px) { .inspector-pane { height: 100%; } }
 @media (max-width: 1023px) {
-  .inspector-pane { overflow: hidden; padding-top: 5px; gap: 5px; min-height: 0; }
+  .inspector-pane { overflow: hidden; padding-top: var(--space-sm); gap: var(--space-sm); min-height: 0; }
 }
 
-/* 【CSS 模块 5】Tab 内容与面板显示 */
 .tabs-content {
-  overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;
-  padding-bottom: 8px; min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-sm);
+  min-height: 0;
 }
 @media (max-width: 1023px) {
   .tabs-content {
-    overflow-y: auto; -webkit-overflow-scrolling: touch;
-    flex: 1; min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
     padding-bottom: calc(88px + env(safe-area-inset-bottom));
   }
 }
-.tab-panel { display: none; flex-direction: column; gap: 12px; }
+.tab-panel { display: none; flex-direction: column; gap: var(--space-lg); }
 .tab-panel.active { display: flex; }
 
-/* 【CSS 模块 6】命座网格 */
-.cons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; }
+/* =========================================================================
+ * 4. 命座网格
+ * ========================================================================= */
+.cons-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm); padding: var(--space-lg);
+}
 @media (max-width: 600px) { .cons-grid { grid-template-columns: 1fr; } }
 .cons-item {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--bg-surface-2); border-radius: var(--radius-sm); padding: 8px;
+  display: flex; align-items: center; gap: var(--space-sm);
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
   border: 1px solid var(--border-subtle);
   transition: all 0.2s var(--ease-spring);
 }
@@ -119,118 +149,111 @@
   background: var(--accent-soft);
 }
 .cons-badge {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: var(--size-md); height: var(--size-md);
+  border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 600;
-  background: var(--bg-sunken); border: 1px solid var(--border-default);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.2s var(--ease-spring);
 }
-.cons-item.active .cons-badge { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cons-item.active .cons-badge {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 
-/* 【CSS 模块 7】元素主题色选择 */
-.color-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
+/* =========================================================================
+ * 5. 元素主题色
+ * ========================================================================= */
+.color-swatches {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm); padding: var(--space-lg);
+}
 .swatch-btn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--bg-surface-2); border-radius: var(--radius-sm);
-  height: var(--ctl-h); cursor: pointer; font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-sm);
+  height: var(--size-lg);
+  cursor: pointer;
+  font-size: 12px; font-weight: 500;
   color: var(--swatch-color, var(--text-secondary));
   border: 1px solid var(--border-subtle);
   transition: all 0.2s var(--ease-spring);
 }
 .swatch-btn:hover { background: var(--bg-hover); }
-.swatch-btn.active { 
-  border-color: var(--accent); 
-  background: var(--bg-surface); 
+.swatch-btn.active {
+  border-color: var(--accent);
+  background: var(--bg-surface);
   color: var(--swatch-color, var(--accent));
 }
-.swatch-icon { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; display: block; }
-.swatch-icon-wrap { display: inline-flex; width: 16px; height: 16px; }
+.swatch-icon { width: var(--size-sm); height: var(--size-sm); fill: currentColor; flex-shrink: 0; display: block; }
+.swatch-icon-wrap { display: inline-flex; width: var(--size-sm); height: var(--size-sm); }
 .swatch-name { color: var(--text-secondary); }
 
-/* 【CSS 模块 8】展开 / 收起按钮 */
+/* =========================================================================
+ * 6. 折叠按钮（图标方向由 JS 通过 ICONS.chevron / chevronUp 切换）
+ * ========================================================================= */
 .collapse-toggle .collapse-icon {
-  display: inline-flex !important; align-items: center !important; justify-content: center !important;
-  transition: transform 0.25s var(--ease-spring) !important;
-  transform: rotate(0deg);
-}
-.collapse-toggle:not(.collapsed) .collapse-icon {
-  transform: rotate(180deg) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-/* ============================================================
- * 修复 app.js 生成的布局（彻底统一间距版）
- * ============================================================ */
+/* =========================================================================
+ * 7. 业务布局
+ * ========================================================================= */
+.action-row { display: flex; gap: var(--space-sm); padding: var(--space-lg); }
 
-.flex-col { display: flex; flex-direction: column; gap: 8px; }
-.ml-auto { margin-left: auto; }
-.mb-0 { margin-bottom: 0 !important; }
-.mb-8 { margin-bottom: 8px; }
-.text-accent { color: var(--accent); }
-.empty-tip { font-size: 12px; color: var(--text-tertiary); padding: 8px 4px; }
+.slider-wrap { padding: var(--space-lg); }
+.sub-stats-wrap { padding: 0 var(--space-lg) var(--space-lg) var(--space-lg); }
 
-/* 大组卡片（武器、配队） */
-.group-card { padding: 12px; }
-.group-header { 
-  display: flex; align-items: center; justify-content: space-between; 
-  gap: 8px; flex-wrap: nowrap; 
+.panel-primary-row { gap: var(--space-sm); flex-wrap: wrap; }
+.panel-primary-row .field { min-width: 130px; }
+
+.editor-list, .editor-list-large {
+  display: flex; flex-direction: column; gap: var(--space-sm);
 }
-.group-title { 
+
+.group-card { padding: var(--space-lg); }
+.group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-sm); flex-wrap: nowrap;
+}
+.group-title {
   flex: 1; min-width: 0;
-  font-size: 13px; font-weight: 600; color: var(--accent); 
+  font-size: 13px; font-weight: 600; color: var(--accent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.group-actions { 
-  display: flex; gap: 4px; align-items: center; 
+.group-actions {
+  display: flex; gap: var(--space-sm); align-items: center;
   flex-shrink: 0; margin-left: auto;
 }
-
-/* 【核心修复】这里把 margin-top 和 gap 全部统一为 8px，和内部列表彻底对齐 */
-.group-content { 
-  margin-top: 8px; 
-  display: flex; flex-direction: column; gap: 8px; 
+.group-content {
+  margin-top: var(--space-sm);
+  display: flex; flex-direction: column; gap: var(--space-sm);
 }
 
-/* 子项卡片标题行 */
-.item-header { 
-  display: flex; align-items: center; justify-content: space-between; 
-  gap: 8px; flex-wrap: nowrap; margin-bottom: 8px;
-}
-.item-subtitle { 
-  flex: 1; min-width: 0;
-  font-size: 12px; font-weight: 500; color: var(--text-secondary); 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.item-actions { 
-  display: flex; align-items: center; gap: 4px;
-  flex-shrink: 0; margin-left: auto;
-}
+.item-card { padding: var(--space-sm); gap: var(--space-sm); }
+.item-header { margin-bottom: var(--space-sm); }
 
-/* 子项卡片内部 */
-.item-card { padding: 10px; gap: 8px; }
+.artifact-dual-row { display: flex; gap: var(--space-lg); flex-wrap: wrap; }
+.artifact-dual-item { flex: 1; display: flex; align-items: center; gap: var(--space-sm); min-width: 140px; }
 
-/* 移动端把按钮压扁一点，防溢出 */
-.btn-xs { padding: 0 6px !important; height: 26px !important; font-size: 11px !important; }
-
-/* 圣遗物散搭左右排版 */
-.artifact-dual-row { display: flex; gap: 12px; flex-wrap: wrap; }
-.artifact-dual-item { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
-
-/* 配队备选列表容器 */
-.alt-list-wrap { 
-  margin-left: 8px; padding-left: 8px; 
+.alt-list-wrap {
+  margin-left: var(--space-sm); padding-left: var(--space-sm);
   border-left: 1px solid var(--border-subtle);
-  display: flex; flex-direction: column; gap: 8px; margin-top: 4px; 
+  display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-sm);
 }
-.alt-header { display: flex; align-items: center; gap: 8px; }
+.alt-header { display: flex; align-items: center; gap: var(--space-sm); }
 .alt-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 
-/* 修复备选颜色异常黑：改为透明底 + 虚线框 */
-.sub-card { 
-  background: transparent; 
-  border: 1px dashed var(--border-default); 
-  padding: 8px; 
+.sub-card {
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  padding: var(--space-sm);
 }
-.sub-card:hover {
-  border-color: var(--accent);
-}
+.sub-card:hover { border-color: var(--accent); }
