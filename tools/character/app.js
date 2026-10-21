@@ -4,8 +4,9 @@
  * 2026 统一版：
  *   · 字体选择器对勾使用 ICONS.ui.check
  *   · 折叠按钮：收起→▼（chevron）展开→▲（chevronUp）
- *   · 面板区属性类型 .dropdown：初始化各注入一次 ▼/▲ 图标，
- *     open/close 仅切 .is-open，由 theme.css 模块 27 双箭头 CSS 控制显示
+ *   · 面板区属性类型 .dropdown：初始化注入 ▼/▲ 双图标，
+ *     open/close 只切 .is-open；.dropdown-panel.is-fixed 用 fixed 定位
+ *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算
  * ========================================================================= */
 
 'use strict';
@@ -752,7 +753,8 @@ function renderEditorsByKey() {
 /* =========================================================================
  * 【模块 6.5】面板区 · 属性类型下拉
  * 初始化：给 .arrow-down / .arrow-up 各注入一次图标
- * 打开/关闭：仅切 .is-open，由 CSS 控制显示哪个箭头
+ * 打开：算 fixed 位置 → .is-open，由 CSS 控制显示哪个箭头
+ * 关闭：移除 .is-open，清 inline 位置
  * ========================================================================= */
 const PANEL_PRIMARY_OPTIONS = [
   { key: 'hp',  label: '生命值' },
@@ -768,6 +770,17 @@ function initDropdownArrow(arrowEl) {
   const up = arrowEl.querySelector('.arrow-up');
   if (down) down.innerHTML = svgWithSize(ICONS.chevron, 16);
   if (up) up.innerHTML = svgWithSize(ICONS.chevronUp || ICONS.chevron, 16);
+}
+
+/* fixed 定位下由 JS 计算面板位置，宽度跟 trigger 对齐 */
+function positionDropdownPanel() {
+  const trigger = document.getElementById('panelPrimaryKeyTrigger');
+  const panel = document.getElementById('panelPrimaryKeyPanel');
+  if (!trigger || !panel) return;
+  const rect = trigger.getBoundingClientRect();
+  panel.style.top = (rect.bottom + 4) + 'px';
+  panel.style.left = rect.left + 'px';
+  panel.style.width = rect.width + 'px';
 }
 
 function renderPanelPrimaryDropdown() {
@@ -798,11 +811,18 @@ function openPanelPrimaryDropdown() {
   renderPanelPrimaryDropdown();
   wrap.classList.add('is-open');
   panelPrimaryDropdownOpen = true;
+  positionDropdownPanel();
 }
 
 function closePanelPrimaryDropdown() {
   const wrap = document.getElementById('panelPrimaryKeyDropdown');
+  const panel = document.getElementById('panelPrimaryKeyPanel');
   if (wrap) wrap.classList.remove('is-open');
+  if (panel) {
+    panel.style.top = '';
+    panel.style.left = '';
+    panel.style.width = '';
+  }
   panelPrimaryDropdownOpen = false;
 }
 
@@ -823,6 +843,14 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
+});
+
+/* fixed 定位面板不跟随滚动 / resize，打开状态下滚动或缩放则关闭，避免错位 */
+window.addEventListener('scroll', () => {
+  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
+}, true);
+window.addEventListener('resize', () => {
+  if (panelPrimaryDropdownOpen) closePanelPrimaryDropdown();
 });
 
 /* =========================================================================
