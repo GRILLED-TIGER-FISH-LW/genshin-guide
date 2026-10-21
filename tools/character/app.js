@@ -6,7 +6,8 @@
  *   · 折叠按钮：收起→▼（chevron）展开→▲（chevronUp）
  *   · 面板区属性类型 .dropdown：初始化注入 ▼/▲ 双图标，
  *     open/close 只切 .is-open；.dropdown-panel.is-fixed 用 fixed 定位
- *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算
+ *     绕开祖先 overflow 裁剪，位置由 positionDropdownPanel 按 trigger 计算，
+ *     间隙从 --space-sm 变量读取，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐
  * ========================================================================= */
 
 'use strict';
@@ -772,13 +773,21 @@ function initDropdownArrow(arrowEl) {
   if (up) up.innerHTML = svgWithSize(ICONS.chevronUp || ICONS.chevron, 16);
 }
 
+/* 读 --space-sm 变量，和 theme.css 的 top: calc(100% + var(--space-sm)) 对齐 */
+function readSpaceSm() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--space-sm');
+  const v = parseFloat(raw);
+  return Number.isFinite(v) ? v : 8;
+}
+
 /* fixed 定位下由 JS 计算面板位置，宽度跟 trigger 对齐 */
 function positionDropdownPanel() {
   const trigger = document.getElementById('panelPrimaryKeyTrigger');
   const panel = document.getElementById('panelPrimaryKeyPanel');
   if (!trigger || !panel) return;
   const rect = trigger.getBoundingClientRect();
-  panel.style.top = (rect.bottom + 4) + 'px';
+  const offset = readSpaceSm();
+  panel.style.top = (rect.bottom + offset) + 'px';
   panel.style.left = rect.left + 'px';
   panel.style.width = rect.width + 'px';
 }
