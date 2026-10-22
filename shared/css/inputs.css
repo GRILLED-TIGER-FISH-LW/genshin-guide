@@ -1,119 +1,112 @@
 /* ============================================================
- * inputs.css —— 输入区
+ * inputs.css —— 输入区（文本框/勾选/滑块/字段/下拉/搜索/联想/Tab/分段）
+ * ------------------------------------------------------------
+ * 【原则】全局元素样式一律用 :where() 包裹（特异性 0），组件类永远能覆盖，
+ *        因此本文件不再出现任何 !important。
+ * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. 元素级输入样式降为 :where()，修复「input[type=text] 压死 .uid-input/.search-input」
+ *  2. 删除 .number-box 内 5 个 !important（特异性问题已根治）
+ *  3. .number-box 新增 :focus-within 焦点环（之前数字框无任何聚焦反馈）
+ *  4. .number-unit 的 margin-left 改为父级 gap（铁律：禁用 margin）
+ *  5. 下拉：面板内边距调整为 4px，使选项文字与触发器文字精确对齐
+ *  6. 下拉：transition 补 visibility，关闭时才有淡出效果
+ *  7. 勾选/单选/Tab/分段：transition: all → 显式属性
+ *  8. 分段控件去掉 border，高度回到 32px 刻度
+ *  9. .field-row 断点 900 → 640（与 panels.css 统一；手机端表现不变）
+ * 10. 补齐 input[type=search]，兼容各类文本型输入
+ * 11. 删除死代码：transition:all、冗余 margin、-webkit-appearance 重复声明
  * ============================================================ */
 
 :root {
-  --input-h: 32px;
-  --input-h-avatar: 48px;
-  --input-h-avatar-sm: 24px;
-  --input-w-num: 80px;
-  --input-w-uid: 80px;
-  --input-px: 8px;
-  --input-py: 8px;
-  --input-font: 12px;
-  --input-font-lg: 14px;
-  --input-gap: 8px;
-  --input-gap-sm: 4px;
-  --input-t: 0.3s;
-  --input-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --input-arrow: 16px;
-  --input-clear: 24px;
-  --input-track: 4px;
-  --input-thumb: 16px;
-  --input-check: 16px;
-  --input-textarea-min: 60px;
-  --input-panel-max-h: 300px;
+  /* 组件尺寸（派生自全局令牌） */
   --input-shadow-focus: 0 0 0 2px var(--accent-soft);
 
-  --input-radius: calc(var(--input-h) * 0.15);
-  --input-radius-avatar: calc(var(--input-h-avatar) * 0.15);
-  --input-radius-avatar-sm: calc(var(--input-h-avatar-sm) * 0.15);
-  --input-radius-textarea: 8px;
-  --input-radius-check: 4px;
-
+  /* 组件私有尺寸（无法从刻度推导，保留） */
+  --input-w-num: 80px;
+  --input-w-uid: 80px;
+  --input-avatar: 48px;
+  --input-avatar-sm: 24px;
+  --input-arrow: 16px;
+  --input-clear: 24px;
+  --input-check: 16px;
+  --input-track: 4px;
+  --input-thumb: 16px;
+  --input-textarea-min: 60px;
+  --input-panel-max-h: 280px;
   --tab-h: 32px;
   --tab-px: 16px;
-  --tab-gap: 8px;
-  --tab-font: 12px;
-
   --seg-h: 24px;
   --seg-px: 8px;
-  --seg-gap: 4px;
-  --seg-p: 4px;
-  --seg-font: 12px;
 }
 
-/* 基础输入 */
-input[type="text"],
-input[type="number"],
-textarea {
+/* ============================================================
+ * 1. 基础输入（:where → 零特异性，永远可被组件类覆盖）
+ * ============================================================ */
+:where(input[type="text"], input[type="number"], input[type="search"], textarea) {
   width: 100%;
-  font-family: inherit;
-  font-size: var(--input-font);
   color: var(--text-primary);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   outline: none;
-  transition: border-color var(--input-t) var(--input-ease);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-input[type="text"],
-input[type="number"] {
-  height: var(--input-h);
-  padding: 0 var(--input-px);
-  border-radius: var(--input-radius);
+:where(input[type="text"], input[type="number"], input[type="search"]) {
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
+  border-radius: var(--r-ctl);
 }
 
 textarea {
   min-height: var(--input-textarea-min);
-  padding: var(--input-py);
-  border-radius: var(--input-radius-textarea);
+  padding: var(--pad-ctl);
+  border-radius: var(--r-ctl);
   line-height: 1.5;
   resize: vertical;
 }
 
-input[type="text"]:focus,
-input[type="number"]:focus,
-textarea:focus {
+:where(input[type="text"], input[type="number"], input[type="search"], textarea):focus {
   border-color: var(--accent);
   box-shadow: var(--input-shadow-focus);
 }
 
+/* 数字框去掉原生上下箭头 */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
+input[type="number"] { appearance: textfield; }
 
-/* 勾选 / 单选 */
+/* ============================================================
+ * 2. 勾选 / 单选
+ * ============================================================ */
 input[type="checkbox"],
 input[type="radio"] {
-  -webkit-appearance: none;
   appearance: none;
   width: var(--input-check);
   height: var(--input-check);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: var(--input-radius-check);
+  border-radius: calc(var(--h-ctl) * 0.15);
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  transition: all var(--input-t) var(--input-ease);
-  vertical-align: middle;
-  margin: 0;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 input[type="radio"] { border-radius: 50%; }
+
 input[type="checkbox"]:hover,
 input[type="radio"]:hover { border-color: var(--accent); }
+
 input[type="checkbox"]:checked,
 input[type="radio"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
+
 input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
@@ -121,10 +114,11 @@ input[type="checkbox"]:checked::after {
   left: 50%;
   width: 4px;
   height: 8px;
-  border: solid #fff;
+  border: solid var(--on-accent);
   border-width: 0 2px 2px 0;
   transform: translate(-50%, -50%) rotate(45deg);
 }
+
 input[type="radio"]:checked::after {
   content: "";
   position: absolute;
@@ -133,163 +127,176 @@ input[type="radio"]:checked::after {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--on-accent);
   transform: translate(-50%, -50%);
 }
 
-/* 滑块 */
+/* ============================================================
+ * 3. 滑块
+ * ============================================================ */
 input[type="range"] {
-  -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  background: transparent;
-  cursor: pointer;
-  outline: none;
   height: var(--input-thumb);
+  background: transparent;
+  outline: none;
+  cursor: pointer;
 }
+
 input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: var(--input-track);
   background: var(--bg-sunken);
-  border-radius: 999px;
   border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: var(--input-thumb);
   width: var(--input-thumb);
+  height: var(--input-thumb);
+  margin-top: calc((var(--input-track) - var(--input-thumb)) / 2 - 1px);
+  border: 0;
   border-radius: 50%;
   background: var(--accent);
-  margin-top: calc(-1 * 6px);
-  border: none;
-  transition: background var(--input-t) var(--input-ease);
+  transition: background-color var(--dur) var(--ease);
 }
-input[type="range"]:active::-webkit-slider-thumb { background: var(--accent-dark); }
+input[type="range"]:active::-webkit-slider-thumb { background: var(--accent-press); }
+
 input[type="range"]::-moz-range-track {
   width: 100%;
   height: var(--input-track);
   background: var(--bg-sunken);
-  border-radius: 999px;
   border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
 }
 input[type="range"]::-moz-range-progress {
-  background: var(--accent);
   height: var(--input-track);
-  border-radius: 999px;
+  background: var(--accent);
+  border-radius: var(--r-pill);
 }
 input[type="range"]::-moz-range-thumb {
-  height: var(--input-thumb);
   width: var(--input-thumb);
+  height: var(--input-thumb);
+  border: 0;
   border-radius: 50%;
   background: var(--accent);
-  border: none;
 }
 
-/* 滑条组 */
+/* ============================================================
+ * 4. 滑条组
+ * ============================================================ */
 .slider-group {
   display: flex;
   flex-direction: column;
-  gap: var(--input-gap);
+  gap: var(--gap);
 }
 .slider-label {
-  font-size: var(--input-font);
-  color: var(--text-secondary);
+  font-size: var(--fs-sm);
   font-weight: 500;
+  color: var(--text-secondary);
 }
 .slider-row {
   display: flex;
   align-items: center;
-  gap: var(--input-gap);
+  gap: var(--gap);
   width: 100%;
 }
-.slider-row input[type="range"] { flex: 1; }
+.slider-row input[type="range"] { flex: 1; min-width: 0; }
+
 .number-box {
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--input-px);
-  height: var(--input-h);
+  gap: var(--gap-sm);
   width: var(--input-w-num);
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
   flex-shrink: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: var(--input-radius);
+  border-radius: var(--r-ctl);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.number-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--input-shadow-focus);
 }
 .number-box input[type="number"] {
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-  background: transparent !important;
-  padding: 0 !important;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   text-align: right;
-  font-size: var(--input-font);
-  box-shadow: none !important;
-  outline: none !important;
 }
 .number-unit {
-  font-size: var(--input-font);
-  color: var(--text-tertiary);
-  margin-left: var(--input-gap-sm);
   flex-shrink: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
 }
 
-/* 表单字段 */
+/* ============================================================
+ * 5. 表单字段
+ * ============================================================ */
 .field {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* 修复：强制左对齐 */
-  gap: var(--input-gap-sm);
+  align-items: flex-start;
+  gap: var(--gap-sm);
   width: 100%;
 }
 .field-label {
-  font-size: var(--input-font);
-  color: var(--text-secondary);
+  font-size: var(--fs-sm);
   font-weight: 500;
-  text-align: left; /* 修复：强制文字左对齐 */
+  color: var(--text-secondary);
+  text-align: left;
 }
 .field-hint {
-  font-size: var(--input-font);
+  font-size: var(--fs-sm);
   color: var(--text-tertiary);
-  line-height: 1.5;
 }
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--input-gap);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
 }
-@media (max-width: 900px) {
-  .field-row { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .field-row { grid-template-columns: minmax(0, 1fr); }
 }
 .field-actions {
   display: flex;
-  gap: var(--input-gap);
-  padding-top: var(--input-gap);
+  gap: var(--gap);
+  padding-top: var(--gap);
   border-top: 1px solid var(--border-subtle);
   justify-content: flex-end;
   flex-wrap: wrap;
 }
 
-/* 表单头部 */
+/* ============================================================
+ * 6. 表单头部
+ * ============================================================ */
 .form-heading {
   display: flex;
   align-items: center;
-  gap: var(--input-gap);
-  padding-bottom: var(--input-gap);
+  gap: var(--gap);
+  padding-bottom: var(--gap);
   border-bottom: 1px solid var(--border-subtle);
 }
 .form-heading-avatar {
-  width: var(--input-h-avatar);
-  height: var(--input-h-avatar);
-  border-radius: var(--input-radius-avatar);
-  background: var(--bg-sunken);
-  overflow: hidden;
-  flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--input-font-lg);
+  width: var(--input-avatar);
+  height: var(--input-avatar);
+  flex-shrink: 0;
+  border-radius: calc(var(--input-avatar) * 0.15);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text-secondary);
-  position: relative;
 }
 .form-heading-avatar img {
   position: absolute;
@@ -299,7 +306,7 @@ input[type="range"]::-moz-range-thumb {
   object-fit: cover;
 }
 .form-heading-name {
-  font-size: var(--input-font-lg);
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -307,106 +314,88 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .form-heading-sub {
-  font-size: var(--input-font);
+  font-size: var(--fs-sm);
   color: var(--text-tertiary);
-  margin-top: var(--input-gap-sm);
 }
 
-/* 下拉（自定义） */
+/* ============================================================
+ * 7. 下拉（引擎见 dropdown.js）
+ * ============================================================ */
 .dropdown {
   position: relative;
+  width: 100%;
   min-width: 0;
-  width: 100%; /* 修复：强制撑满父容器，不再缩短 */
 }
 .dropdown-trigger {
-  width: 100%;
-  height: var(--input-h);
-  padding: 0 var(--input-px);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--input-gap-sm);
-  border-radius: var(--input-radius);
+  gap: var(--gap-sm);
+  width: 100%;
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
   border: 1px solid var(--border-default);
+  border-radius: var(--r-ctl);
   background: var(--bg-surface);
   color: var(--text-primary);
-  font-size: var(--input-font);
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: border-color var(--input-t) var(--input-ease);
-}
-
-.dropdown-trigger svg {
-  width: 14px;
-  height: 14px;
-  display: block;
-  flex-shrink: 0;
-}
-
-.dropdown-trigger .icon-slot,
-.dropdown-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-.dropdown-trigger .icon-slot svg,
-.dropdown-arrow svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.dropdown-label {
-  flex: 1;
-  min-width: 0;
+  font-size: var(--fs-sm);
   text-align: left;
+  cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.dropdown-arrow {
-  color: var(--text-secondary);
-}
-.dropdown-arrow .arrow-down,
-.dropdown-arrow .arrow-up {
-  width: 100%;
-  height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.dropdown-arrow .arrow-up { display: none; }
-.dropdown.is-open .dropdown-arrow .arrow-down { display: none; }
-.dropdown.is-open .dropdown-arrow .arrow-up { display: inline-flex; }
 .dropdown.is-open .dropdown-trigger {
   border-color: var(--accent);
   box-shadow: var(--input-shadow-focus);
 }
+
+.dropdown-icon,
+.dropdown-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex-shrink: 0;
+}
+.dropdown-icon svg,
+.dropdown-arrow svg {
+  width: 100%;
+  height: 100%;
+}
+.dropdown-arrow { color: var(--text-secondary); }
+.dropdown-arrow .arrow-up { display: none; }
+.dropdown.is-open .dropdown-arrow .arrow-down { display: none; }
+.dropdown.is-open .dropdown-arrow .arrow-up { display: block; }
+
+.dropdown-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dropdown-panel {
   position: absolute;
-  top: calc(100% + var(--input-gap));
+  top: calc(100% + var(--gap));
   left: 0;
   right: 0;
-  padding: var(--input-px);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--input-radius);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
-  gap: var(--input-gap-sm);
+  gap: var(--gap-xs);
   max-height: var(--input-panel-max-h);
+  padding: var(--gap-sm);
   overflow-y: auto;
-  z-index: 50;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+  box-shadow: var(--shadow-pop);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--input-t) var(--input-ease);
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
 }
 .dropdown.is-open .dropdown-panel {
   opacity: 1;
@@ -419,23 +408,24 @@ input[type="range"]::-moz-range-thumb {
   left: auto;
   right: auto;
 }
+
 .dropdown-item {
   display: flex;
   align-items: center;
+  gap: var(--gap-sm);
   width: 100%;
-  height: var(--input-h);
-  padding: 0 var(--input-gap-sm);
-  border-radius: var(--input-radius);
-  font-size: var(--input-font);
-  color: var(--text-primary);
-  cursor: pointer;
+  min-height: var(--h-ctl);
+  padding: 0 var(--gap-sm);
+  border: 0;
+  border-radius: var(--r-ctl);
   background: transparent;
-  border: none;
-  font-family: inherit;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
   text-align: left;
-  white-space: nowrap;
+  cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .dropdown-item:hover { background: var(--bg-hover); }
 .dropdown-item.is-active {
@@ -444,74 +434,70 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
 }
 
-/* 搜索框 */
+/* ============================================================
+ * 8. 搜索框
+ * ============================================================ */
 .search {
   position: relative;
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 .search-icon {
   position: absolute;
-  left: var(--input-px);
+  left: var(--pad-ctl);
   width: var(--input-arrow);
   height: var(--input-arrow);
   color: var(--text-tertiary);
   pointer-events: none;
-  z-index: 1;
 }
-.search-icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+.search-icon svg { width: 100%; height: 100%; }
+
 .search-input {
   width: 100%;
-  height: var(--input-h);
-  padding: 0 calc(var(--input-px) * 2 + var(--input-arrow));
+  height: var(--h-ctl);
+  padding: 0 calc(var(--pad-ctl) * 2 + var(--input-arrow));
   background: var(--bg-sunken);
   border: 1px solid transparent;
-  border-radius: var(--input-radius);
+  border-radius: var(--r-ctl);
   color: var(--text-primary);
-  font-size: var(--input-font);
-  font-family: inherit;
+  font-size: var(--fs-sm);
   outline: none;
-  transition: border-color var(--input-t) var(--input-ease), background var(--input-t) var(--input-ease);
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .search-input:focus {
   background: var(--bg-surface);
   border-color: var(--border-default);
 }
+
 .search-clear {
   position: absolute;
-  right: var(--input-gap-sm);
+  right: var(--gap-sm);
+  display: none;
+  align-items: center;
+  justify-content: center;
   width: var(--input-clear);
   height: var(--input-clear);
   padding: 0;
   border: 0;
-  background: transparent;
   border-radius: 50%;
+  background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--input-t) var(--input-ease);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .search-clear.is-visible { display: inline-flex; }
-.search-clear svg {
-  width: var(--input-arrow);
-  height: var(--input-arrow);
-}
+.search-clear svg { width: var(--input-arrow); height: var(--input-arrow); }
 .search-clear:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-/* 联想输入 */
-.combobox {
-  position: relative;
-}
+/* ============================================================
+ * 9. 联想输入
+ * ============================================================ */
+.combobox { position: relative; }
 .combobox-input-wrap {
   position: relative;
   display: flex;
@@ -519,21 +505,20 @@ input[type="range"]::-moz-range-thumb {
 }
 .combobox-avatar {
   position: absolute;
-  left: var(--input-px);
-  width: var(--input-h-avatar-sm);
-  height: var(--input-h-avatar-sm);
-  border-radius: var(--input-radius-avatar-sm);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
+  left: var(--pad-ctl);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--input-font);
+  width: var(--input-avatar-sm);
+  height: var(--input-avatar-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: calc(var(--input-avatar-sm) * 0.15);
+  background: var(--bg-surface);
+  overflow: hidden;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-secondary);
   pointer-events: none;
-  z-index: 1;
 }
 .combobox-avatar img {
   position: absolute;
@@ -543,160 +528,182 @@ input[type="range"]::-moz-range-thumb {
   object-fit: cover;
 }
 .combobox.has-avatar input[type="text"] {
-  padding-left: calc(var(--input-h-avatar-sm) + var(--input-gap) + var(--input-px));
+  padding-left: calc(var(--input-avatar-sm) + var(--gap) + var(--pad-ctl));
 }
+
+/* 显隐交由 app.js 控制（建议统一改为 .is-open） */
 .combobox-popup {
   position: absolute;
-  top: calc(100% + var(--input-gap-sm));
+  top: calc(100% + var(--gap-sm));
   left: 0;
   right: 0;
+  z-index: var(--z-dropdown);
   max-height: var(--input-panel-max-h);
+  padding: var(--gap-sm);
   overflow-y: auto;
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: var(--input-radius);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  z-index: 30;
-  padding: var(--input-gap-sm);
+  border-radius: var(--r-ctl);
+  box-shadow: var(--shadow-pop);
 }
 .combobox-option {
-  height: var(--input-h);
-  padding: 0 var(--input-px);
-  font-size: var(--input-font);
-  border-radius: var(--input-radius);
-  cursor: pointer;
-  color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: var(--input-px);
-  transition: background var(--input-t) var(--input-ease);
+  gap: var(--pad-ctl);
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
+  border-radius: var(--r-ctl);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
 }
 .combobox-option:hover,
-.combobox-option.is-highlight {
-  background: var(--bg-hover);
-}
+.combobox-option.is-highlight { background: var(--bg-hover); }
 .combobox-option.is-new {
   color: var(--accent);
   font-weight: 500;
 }
 .combobox-empty {
-  padding: var(--input-py);
-  font-size: var(--input-font);
+  padding: var(--pad-ctl);
+  font-size: var(--fs-sm);
   color: var(--text-tertiary);
   text-align: center;
 }
 
-/* 特殊输入 */
+/* ============================================================
+ * 10. 专用输入
+ * ============================================================ */
 .uid-input {
   width: var(--input-w-uid);
-  height: var(--input-h);
-  padding: 0 var(--input-px);
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
+  flex-shrink: 0;
   background: var(--bg-sunken);
   border: 1px solid var(--border-default);
-  border-radius: var(--input-radius);
+  border-radius: var(--r-ctl);
   color: var(--text-primary);
-  font-size: var(--input-font);
+  font-size: var(--fs-sm);
   text-align: center;
   outline: none;
-  flex-shrink: 0;
-  font-family: inherit;
+  transition: border-color var(--dur) var(--ease);
 }
 .uid-input:focus { border-color: var(--accent); }
 
 .readonly-text {
-  height: var(--input-h);
   display: flex;
   align-items: center;
-  padding: 0 var(--input-px);
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
   background: var(--bg-sunken);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--input-radius);
-  font-size: var(--input-font);
+  border-radius: var(--r-ctl);
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
-/* 计数徽标 */
 .count-badge {
   display: inline-flex;
   align-items: center;
-  height: var(--input-h);
-  padding: 0 var(--input-px);
-  border-radius: 999px;
+  height: var(--h-ctl);
+  padding: 0 var(--pad-ctl);
+  border-radius: var(--r-pill);
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: var(--input-font);
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 
-/* Tab 切换 */
+/* ============================================================
+ * 11. Tab 切换
+ * ============================================================ */
 .tab-bar {
   display: flex;
-  gap: var(--tab-gap);
+  gap: var(--gap);
+  padding: var(--gap-sm) 0;
+  flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: var(--input-gap-sm) 0;
-  flex-shrink: 0;
 }
 .tab-bar::-webkit-scrollbar { display: none; }
 
 .tab-btn {
-  flex-shrink: 0;
-  height: var(--tab-h);
-  padding: 0 var(--tab-px);
-  border-radius: 999px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: var(--tab-font);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--input-t) var(--input-ease);
+  flex-shrink: 0;
+  height: var(--tab-h);
+  padding: 0 var(--tab-px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .tab-btn:hover:not(.is-active) { background: var(--bg-hover); }
 .tab-btn.is-active {
   background: var(--text-primary);
-  color: var(--bg-surface);
   border-color: var(--text-primary);
-  font-weight: 500;
+  color: var(--bg-surface);
 }
 
-/* 分段控件 */
+/* ============================================================
+ * 12. 分段控件
+ * ============================================================ */
 .seg-control {
   display: flex;
+  gap: var(--gap-sm);
+  padding: var(--gap-sm);
   background: var(--bg-sunken);
-  padding: var(--seg-p);
-  border-radius: var(--input-radius);
-  gap: var(--seg-gap);
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-ctl);
 }
-
 .seg-btn {
-  min-width: 0;
-  height: var(--seg-h);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--input-radius);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: var(--seg-font);
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0 var(--seg-px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--input-t) var(--input-ease);
+  min-width: 0;
+  height: var(--seg-h);
+  padding: 0 var(--seg-px);
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .seg-btn.is-active {
   background: var(--bg-surface);
+  border-color: var(--border-subtle);
   color: var(--text-primary);
   font-weight: 600;
-  border-color: var(--border-subtle);
+}
+
+/* ============================================================
+ * 13. 兼容别名（旧变量名仍可用，均指向全局令牌）
+ *     待全部工具迁移完成后，可整段删除
+ * ============================================================ */
+:root {
+  --input-h: var(--h-ctl);
+  --input-px: var(--pad-ctl);
+  --input-py: var(--pad-ctl);
+  --input-font: var(--fs-sm);
+  --input-font-lg: var(--fs-md);
+  --input-gap: var(--gap);
+  --input-gap-sm: var(--gap-sm);
+  --input-radius: var(--r-ctl);
+  --input-radius-textarea: var(--r-ctl);
+  --input-t: var(--dur);
+  --input-ease: var(--ease);
+  --seg-gap: var(--gap-sm);
+  --seg-p: var(--gap-sm);
+  --seg-font: var(--fs-sm);
+  --tab-gap: var(--gap);
+  --tab-font: var(--fs-sm);
 }
