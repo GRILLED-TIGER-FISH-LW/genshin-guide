@@ -3,27 +3,24 @@
  * =========================================================================
  * 布局 / 预览 / 编辑器 / 命座 / 元素色
  * ------------------------------------------------------------
- * v2 变更：
- *  1. 底部留白三层叠加 → 统一收归 .tabs-content 一处（--dock-space）
- *  2. 删除 6 处 margin，全部改为 flex gap / padding
- *     （居中改用 body{align-items:center} + width:100%）
- *  3. 删除 .panel-grid.three 的本地重复定义（公用的已带 minmax）
- *  4. 删除 .panel-primary-row 的 5 个 !important（输入区已强制左对齐）
- *  5. 删除 .cons-badge 的 9 个 !important
- *  6. 删除 .collapse-toggle .collapse-icon 整段（buttons.css 已覆盖）
- *  7. 新增 .upload-text（原来有类名无样式）
- *  8. .alt-header 改用 space-between（原靠未定义的 .ml-auto 推右）
- *  9. .group-card 改为带 gap 的纵向 flex，取代 mb-8 / margin-top 的间距
- * 10. .editor-list 与 .editor-list-large 合并（原本完全相同）
- * 11. 尺寸/颜色/动效全部改为令牌引用
- * 12. 删除死代码：-webkit-overflow-scrolling、transition: all、position: sticky
- * ========================================================================= */
+ * v3 变更：
+ *  1. 【重点】锁定页面外壳：body 高度 = 视口、禁用整页滚动
+ *     → 预览窗与 Tab 栏固定，只有 .tabs-content 内部滚动
+ *  2. .tabs-content 加 overscroll-behavior: contain
+ *     → 滚到底部时不会"带动"整页 / 触发浏览器的下拉刷新
+ *  其余内容与 v2 完全一致。
+ * ============================================================ */
 
 /* ============================================================
  * 0. 页面外壳
  * ============================================================ */
+html, body { height: 100%; }
+
 body {
-  align-items: center;            /* 取代 .app-container 的 margin: 0 auto */
+  height: 100vh;
+  height: 100dvh;          /* 锁死视口高度，不再靠 min-height 撑 */
+  overflow: hidden;        /* 禁用整页滚动 */
+  align-items: center;     /* 取代 .app-container 的 margin: 0 auto */
 }
 
 /* ============================================================
@@ -58,7 +55,7 @@ body {
 }
 
 /* ============================================================
- * 2. 预览区
+ * 2. 预览区（固定在顶部，不参与滚动）
  * ============================================================ */
 .preview-pane {
   display: flex;
@@ -85,7 +82,7 @@ body {
 }
 
 .preview-card {
-  position: relative;             /* 浮动工具栏的定位基准 */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -134,7 +131,7 @@ body {
 }
 
 /* ============================================================
- * 3. 编辑区
+ * 3. 编辑区（Tab 栏固定，内容区独立滚动）
  * ============================================================ */
 .inspector-pane {
   display: flex;
@@ -158,7 +155,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* 底部固定导出胶囊的留白，只在这一处控制 */
+  overscroll-behavior: contain;   /* 滚到底不再带动整页 / 下拉刷新 */
   padding-bottom: calc(var(--dock-space) + var(--gap));
 }
 
@@ -327,7 +324,6 @@ body {
   gap: var(--gap);
 }
 
-/* 组卡片：内间距与纵向间距由自身 gap 提供，取代 mb-8 / margin-top */
 .group-card {
   display: flex;
   flex-direction: column;
@@ -373,7 +369,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* 编辑器内的卡片更紧凑 */
 .editor-list .card,
 .editor-list-large .card,
 .group-content .card {
