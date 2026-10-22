@@ -5,18 +5,11 @@
  *        因此本文件不再出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
- * v2 变更：
- *  1. 元素级输入样式降为 :where()，修复「input[type=text] 压死 .uid-input/.search-input」
- *  2. 删除 .number-box 内 5 个 !important（特异性问题已根治）
- *  3. .number-box 新增 :focus-within 焦点环（之前数字框无任何聚焦反馈）
- *  4. .number-unit 的 margin-left 改为父级 gap（铁律：禁用 margin）
- *  5. 下拉：面板内边距调整为 4px，使选项文字与触发器文字精确对齐
- *  6. 下拉：transition 补 visibility，关闭时才有淡出效果
- *  7. 勾选/单选/Tab/分段：transition: all → 显式属性
- *  8. 分段控件去掉 border，高度回到 32px 刻度
- *  9. .field-row 断点 900 → 640（与 panels.css 统一；手机端表现不变）
- * 10. 补齐 input[type=search]，兼容各类文本型输入
- * 11. 删除死代码：transition:all、冗余 margin、-webkit-appearance 重复声明
+ * v3 修正（相对 v2）：
+ *  1. 恢复 .dropdown-trigger .icon-slot 的尺寸规则（v2 误改名导致图标失去尺寸）
+ *  2. 恢复 .dropdown-arrow .arrow-down / .arrow-up 的尺寸规则（v2 误删）
+ *  3. 箭头显隐改用 .is-open 驱动，与 dropdown.js 完全对齐
+ * 其余内容与 v2 一致。
  * ============================================================ */
 
 :root {
@@ -349,6 +342,8 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: var(--input-shadow-focus);
 }
 
+/* 触发器左侧图标槽（HTML 用的是 .icon-slot，勿改名） */
+.dropdown-trigger .icon-slot,
 .dropdown-icon,
 .dropdown-arrow {
   display: inline-flex;
@@ -358,15 +353,28 @@ input[type="range"]::-moz-range-thumb {
   height: var(--icon-sm);
   flex-shrink: 0;
 }
+.dropdown-trigger .icon-slot svg,
 .dropdown-icon svg,
 .dropdown-arrow svg {
   width: 100%;
   height: 100%;
 }
-.dropdown-arrow { color: var(--text-secondary); }
+
+/* 箭头：双 span 切换（.arrow-down / .arrow-up） */
+.dropdown-arrow {
+  color: var(--text-secondary);
+}
+.dropdown-arrow .arrow-down,
+.dropdown-arrow .arrow-up {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
 .dropdown-arrow .arrow-up { display: none; }
 .dropdown.is-open .dropdown-arrow .arrow-down { display: none; }
-.dropdown.is-open .dropdown-arrow .arrow-up { display: block; }
+.dropdown.is-open .dropdown-arrow .arrow-up { display: inline-flex; }
 
 .dropdown-label {
   flex: 1;
