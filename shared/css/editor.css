@@ -1,72 +1,88 @@
 /* ============================================================
  * editor.css —— 编辑器
- * 双栏布局、编辑器顶部条、左栏筛选、吸顶头、手机端切换
- * 顶部条 50 高，左栏固定 320，断点 900 变单栏
+ * 双栏布局（左栏 320 固定） / 顶部条 50 / 吸顶头 / 手机端切换
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. .sticky-header 的视觉（吸顶/背景/描边/层级）已由 preview.css 统一提供，
+ *     本文件只保留布局部分，消除两份重复实现
+ *  2. 栅格全部改 minmax(0, 1fr)，修复长内容撑破横向布局
+ *  3. 删除 .mobile-back 的 margin-bottom（铁律：禁用 margin），
+ *     改由容器 gap 提供间距
+ *  4. 删除 --editor-breakpoint 死变量（媒体查询不支持 var()）
+ *  5. 删除死代码：-webkit-overflow-scrolling、letter-spacing:0、
+ *     冗余 font-family/cursor、媒体查询里重复的 padding
+ *  6. 新增 .editor-main.has-dock：有底部导出胶囊的页面给内容留出 --dock-space，
+ *     避免最后一行被胶囊遮挡（原 30px 不够）
+ *  7. 尺寸/动效/层级全部改为令牌引用
  * ============================================================ */
 
 :root {
   --editor-sidebar-w: 320px;
   --editor-header-h: 50px;
-  --editor-header-px: 16px;
-  --editor-main-p: 16px;
-  --editor-main-pb: 30px;
-  --editor-filter-p: 8px;
-  --editor-filter-gap: 8px;
-  --editor-font: 14px;
-  --editor-font-sm: 12px;
-  --editor-gap: 8px;
-  --editor-t: 0.3s;
-  --editor-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --editor-breakpoint: 900px;
-  --editor-mobile-back-h: 32px;
-  --editor-mobile-back-radius: calc(32px * 0.15);
-  --editor-sticky-bg: rgba(244, 241, 234, 0.85);
-  --editor-sticky-bg-dark: rgba(26, 24, 22, 0.85);
+  --editor-header-px: var(--gap-lg);
+  --editor-main-p: var(--gap-lg);
+  --editor-main-pb: 30px;                 /* 无底部胶囊时的默认留白 */
+  --editor-filter-p: var(--pad-ctl);
+  --editor-gap: var(--gap);
+  --editor-mobile-back-h: var(--h-ctl);
+
+  /* —— 兼容别名 —— */
+  --editor-font: var(--fs-md); --editor-font-sm: var(--fs-sm);
+  --editor-t: var(--dur); --editor-ease: var(--ease);
+  --editor-mobile-back-radius: var(--r-ctl);
+  --editor-sticky-bg: var(--glass);
+  --editor-sticky-bg-dark: var(--glass);
 }
 
-/* 双栏布局 */
+/* ============================================================
+ * 1. 双栏布局
+ * ============================================================ */
 .editor-layout {
+  display: grid;
+  grid-template-columns: var(--editor-sidebar-w) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: var(--editor-sidebar-w) 1fr;
   overflow: hidden;
 }
 
 .editor-sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-surface-2);
-  min-height: 0;
   overflow: hidden;
 }
 
 .editor-main {
-  overflow-y: auto;
   min-height: 0;
   padding: var(--editor-main-p) var(--editor-main-p) var(--editor-main-pb);
-  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+/* 有底部导出胶囊的页面加上这个类，内容不会被胶囊压住 */
+.editor-main.has-dock {
+  padding-bottom: calc(var(--dock-space) + var(--gap-lg));
 }
 
-/* 编辑器顶部条 */
+/* ============================================================
+ * 2. 顶部条
+ * ============================================================ */
 .editor-header {
-  height: var(--editor-header-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--editor-gap);
+  flex-shrink: 0;
+  height: var(--editor-header-h);
   padding: 0 var(--editor-header-px);
   background: var(--bg-base);
   border-bottom: 1px solid var(--border-subtle);
-  flex-shrink: 0;
 }
 
 .editor-title {
-  font-size: var(--editor-font);
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -79,81 +95,68 @@
   flex-shrink: 0;
 }
 
-/* 左栏筛选 */
+/* ============================================================
+ * 3. 左栏筛选
+ * ============================================================ */
 .editor-filters {
-  padding: var(--editor-filter-p);
   display: flex;
   flex-direction: column;
-  gap: var(--editor-filter-gap);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--editor-gap);
   flex-shrink: 0;
+  padding: var(--editor-filter-p);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .editor-filter-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--editor-filter-gap);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--editor-gap);
 }
 .editor-filter-row.three {
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* 吸顶头 */
+/* ============================================================
+ * 4. 吸顶头（视觉部分见 preview.css 的 .preview-sticky 组）
+ * ============================================================ */
 .sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 35;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--editor-gap);
-  padding: var(--editor-main-p);
-  background: var(--editor-sticky-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
-}
-[data-theme="dark"] .sticky-header {
-  background: var(--editor-sticky-bg-dark);
+  padding: var(--editor-main-p);
 }
 
-/* 手机端切换 */
+/* ============================================================
+ * 5. 手机端切换
+ * ============================================================ */
 .mobile-back {
   display: none;
   align-items: center;
-  gap: 4px;
+  gap: var(--gap-xs);
   height: var(--editor-mobile-back-h);
   padding: 0 var(--editor-filter-p);
-  margin-bottom: var(--editor-filter-p);
-  font-size: var(--editor-font-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-ctl);
   background: var(--bg-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--editor-mobile-back-radius);
-  cursor: pointer;
-  font-family: inherit;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 900px) {
   .editor-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     position: relative;
   }
   .editor-sidebar {
+    gap: var(--gap);              /* 取代 .mobile-back 原来的 margin-bottom */
     border-right: 0;
   }
-  .editor-sidebar.mobile-hidden {
-    display: none;
-  }
-  .editor-main {
-    display: none;
-    padding: var(--editor-main-p) var(--editor-main-p) var(--editor-main-pb);
-  }
-  .editor-main.mobile-visible {
-    display: block;
-  }
-  .mobile-back {
-    display: inline-flex;
-  }
+  .editor-sidebar.mobile-hidden { display: none; }
+
+  .editor-main { display: none; }
+  .editor-main.mobile-visible { display: block; }
+
+  .mobile-back { display: inline-flex; }
 }
