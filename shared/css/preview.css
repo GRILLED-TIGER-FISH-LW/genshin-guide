@@ -1,87 +1,111 @@
 /* ============================================================
  * preview.css —— 预览区
- * 预览区吸顶容器、预览框、浮动工具栏容器
- * 预览框高度 32vh，桌面封顶 200 / 手机封顶 160
- * 浮动工具栏显隐由各工具 app.js 切 .hidden，CSS 只管状态
+ * 吸顶玻璃条（与 editor.css 的 .sticky-header 共用一套视觉）
+ * 预览框：32svh，桌面封顶 200 / 手机封顶 160
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. 删除 .preview-sticky 的 backdrop-filter
+ *     → 它会成为后代的「包含块」，导致内部 position:fixed 的下拉定位错乱
+ *  2. 硬编码的 --preview-sticky-bg / -dark 两份颜色 → 统一用主题的 --glass
+ *     → 删除 [data-theme="dark"] 整段覆盖（--glass 会随主题自动重算）
+ *  3. .float-toolbar.hidden 的淡出语义由本文件接管
+ *     （theme.css 的 .hidden 现在是纯硬隐藏，不再有 .float-toolbar 例外）
+ *  4. 淡出补 visibility，避免「看不见但能被聚焦/点击」
+ *  5. 32vh → 32svh（地址栏收放时高度不再跳动）
+ *  6. 断点 1023 → 1024，与全局统一
+ *  7. 层级改用 --z-sticky / --z-toolbar
+ *  8. 删除死代码：svg display:block（theme 统一）、-webkit-backdrop-filter
  * ============================================================ */
 
 :root {
-  --preview-sticky-bg: rgba(244, 241, 234, 0.85);
-  --preview-sticky-bg-dark: rgba(26, 24, 22, 0.85);
-  --preview-sticky-py: 8px;
-  --preview-sticky-px: 16px;
-
   --preview-frame-h: 32vh;
+  --preview-frame-h: 32svh;          /* 现代浏览器：小视口，不随地址栏跳动 */
   --preview-frame-max-h: 200px;
   --preview-frame-max-h-mobile: 160px;
-  --preview-frame-radius: 12px;
   --preview-frame-bg: #121212;
+  --preview-toolbar-offset: var(--pad-ctl);
 
-  --preview-toolbar-offset: 8px;
-  --preview-toolbar-gap: 8px;
-
-  --preview-t: 0.3s;
-  --preview-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* —— 兼容别名 —— */
+  --preview-sticky-bg: var(--glass);
+  --preview-sticky-bg-dark: var(--glass);
+  --preview-sticky-py: var(--pad-ctl);
+  --preview-sticky-px: var(--gap-lg);
+  --preview-frame-radius: var(--r-panel);
+  --preview-toolbar-gap: var(--gap);
+  --preview-t: var(--dur);
+  --preview-ease: var(--ease);
 }
 
-/* 预览区吸顶容器 */
-.preview-sticky {
+/* ============================================================
+ * 1. 吸顶玻璃条
+ *    .sticky-header（editor.css）复用同一套视觉，避免两份实现
+ * ============================================================ */
+.preview-sticky,
+.sticky-header {
   position: sticky;
   top: 0;
-  z-index: 35;
-  background: var(--preview-sticky-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: var(--preview-sticky-py) var(--preview-sticky-px);
+  z-index: var(--z-sticky);
+  background: var(--glass);
   border-bottom: 1px solid var(--border-subtle);
 }
-[data-theme="dark"] .preview-sticky {
-  background: var(--preview-sticky-bg-dark);
+.preview-sticky {
+  padding: var(--pad-ctl) var(--gap-lg);
 }
 
-/* 预览框 */
+/* ============================================================
+ * 2. 预览框
+ * ============================================================ */
 .preview-frame {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: var(--preview-frame-h);
   max-height: var(--preview-frame-max-h);
   background: var(--preview-frame-bg);
-  border-radius: var(--preview-frame-radius);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-panel);
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
 }
-@media (max-width: 1023px) {
+
+@media (max-width: 1024px) {
   .preview-frame {
     max-height: var(--preview-frame-max-h-mobile);
   }
 }
 
-.preview-frame > svg,
 .preview-frame > img,
+.preview-frame > svg,
 .preview-frame > canvas {
   max-width: 100%;
   max-height: 100%;
-  display: block;
 }
 .preview-frame > img,
 .preview-frame > canvas {
   object-fit: contain;
 }
 
-/* 浮动工具栏 */
+/* ============================================================
+ * 3. 浮动工具栏
+ * ============================================================ */
 .float-toolbar {
   position: absolute;
   top: var(--preview-toolbar-offset);
   right: var(--preview-toolbar-offset);
+  z-index: var(--z-toolbar);
   display: flex;
-  gap: var(--preview-toolbar-gap);
-  z-index: 15;
-  transition: opacity var(--preview-t) var(--preview-ease);
+  gap: var(--gap);
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
 }
+
+/* 注意：.hidden 在 theme.css 里是硬隐藏（display:none !important），
+ * 这里用更高特异性把它接管为「淡出」。app.js 无需改动即可继续工作。
+ * TODO：将来把 app.js 的 .hidden 换成 .is-faded，本段即可删除。 */
 .float-toolbar.hidden {
+  display: flex !important;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
