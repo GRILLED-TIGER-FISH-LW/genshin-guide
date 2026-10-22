@@ -1,190 +1,214 @@
 /* ============================================================
- * overlays.css —— 弹窗和提示
- * 提示条（右上角）、确认弹窗（中间）、底部状态胶囊
- * 抽屉已删除，改用下拉
+ * overlays.css —— 浮层
+ * 提示条（右上角） / 确认弹窗（居中） / 底部状态胶囊
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. 状态胶囊上移 72px，不再与底部导出胶囊重叠抢位（原文两者完全同点）
+ *  2. 删除 .modal-backdrop 的 backdrop-filter
+ *     → 它会成为包含块，导致「弹窗内的下拉」定位到错误位置并被裁剪
+ *  3. 删除 .status-bar 的 backdrop-filter（85% 不透明背景下几乎是死效果）
+ *  4. 删除 .modal-actions 的 margin-top: 4px（铁律 + 与 gap 叠加成 20px）
+ *  5. .toast 补 visibility / pointer-events / overflow-wrap
+ *     → 解决「隐藏的 toast 仍在拦截点击」「长报错撑破 320px」
+ *  6. toast 成功色从 --accent（棕色）改为 --success（绿色），与状态胶囊语义统一
+ *  7. 三处相同的 box-shadow 统一为 --shadow-pop
+ *  8. 层级改用 --z-toast / --z-modal / --z-status（不再有 9999 魔法数字）
+ *  9. 状态胶囊补 1px 描边，深色模式下不再融进背景
+ * 10. 尺寸/动效/颜色全部改为令牌引用
  * ============================================================ */
 
 :root {
-  --toast-top: 80px;
-  --toast-right: 16px;
+  --toast-top: 80px;                            /* 保守值：避开顶部导航栏 */
+  --toast-right: var(--gap-lg);
   --toast-max-w: 320px;
-  --toast-radius: 12px;
-  --toast-p: 16px;
-  --toast-font: 12px;
-  --toast-gap: 8px;
+  --toast-p: var(--gap-lg);
 
-  --modal-radius: 12px;
-  --modal-p: 16px;
+  --modal-p: var(--gap-lg);
   --modal-max-w: 480px;
   --modal-max-h: 80vh;
-  --modal-gap: 16px;
-  --modal-title-font: 16px;
-  --modal-msg-font: 12px;
+  --modal-max-h: 80dvh;
 
   --modal-btn-h: 48px;
-  --modal-btn-font: 14px;
 
-  --status-bottom: 16px;
-  --status-py: 8px;
-  --status-px: 16px;
-  --status-font: 12px;
-  --status-radius: 999px;
+  --status-bottom: calc(var(--btn-bottom) + var(--btn-h-export) + var(--gap));
+  --status-py: var(--pad-ctl);
+  --status-px: var(--gap-lg);
+
   --status-bg: rgba(35, 35, 40, 0.85);
-  --status-ok: #82A79A;
-  --status-err: #DE8075;
+  --status-text: #FFFFFF;
+  --status-ok: var(--success);
+  --status-err: var(--danger);
 
-  --overlay-t: 0.3s;
-  --overlay-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* —— 兼容别名 —— */
+  --toast-radius: var(--r-panel); --toast-font: var(--fs-sm);
+  --toast-gap: var(--gap); --modal-radius: var(--r-panel);
+  --modal-gap: var(--gap-lg); --modal-title-font: var(--fs-lg);
+  --modal-msg-font: var(--fs-sm); --modal-btn-font: var(--fs-md);
+  --status-font: var(--fs-sm); --status-radius: var(--r-pill);
+  --overlay-t: var(--dur); --overlay-ease: var(--ease);
 }
 
-/* 提示条 */
+/* ============================================================
+ * 1. 提示条
+ * ============================================================ */
 .toast-container {
   position: fixed;
   top: var(--toast-top);
   right: var(--toast-right);
-  z-index: 9999;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
-  gap: var(--toast-gap);
+  gap: var(--gap);
   pointer-events: none;
 }
 
 .toast {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--toast-radius);
-  padding: var(--toast-p);
-  font-size: var(--toast-font);
-  color: var(--text-primary);
   max-width: var(--toast-max-w);
-  pointer-events: auto;
+  padding: var(--toast-p);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-panel);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-pop);
+  overflow-wrap: anywhere;
   opacity: 0;
-  transform: translateX(16px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  transition: opacity var(--overlay-t) var(--overlay-ease), transform var(--overlay-t) var(--overlay-ease);
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(var(--gap-lg));
+  transition: opacity var(--dur) var(--ease),
+              transform var(--dur) var(--ease),
+              visibility var(--dur) var(--ease);
 }
 .toast.is-visible {
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   transform: translateX(0);
 }
+
 .toast-error {
   border-color: var(--danger-border);
   color: var(--danger);
 }
 .toast-success {
-  border-color: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--success);
+  color: var(--success);
 }
 
-/* 弹窗遮罩 */
+/* ============================================================
+ * 2. 弹窗
+ * ============================================================ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9998;
-  background: var(--mask);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--mask);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--overlay-t) var(--overlay-ease);
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
 }
 .modal-backdrop.is-visible {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
-/* 弹窗本体 */
 .modal-box {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--modal-radius);
-  padding: var(--modal-p);
-  max-width: var(--modal-max-w);
-  width: calc(100% - 32px);
-  max-height: var(--modal-max-h);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--modal-gap);
-  transform: translateY(8px);
-  transition: transform var(--overlay-t) var(--overlay-ease);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  gap: var(--gap-lg);
+  width: min(100% - var(--gap-lg) * 2, var(--modal-max-w));
+  max-height: var(--modal-max-h);
+  padding: var(--modal-p);
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(var(--gap));
+  transition: transform var(--dur) var(--ease);
 }
 .modal-backdrop.is-visible .modal-box {
   transform: translateY(0);
 }
 
 .modal-title {
-  font-size: var(--modal-title-font);
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .modal-message {
-  font-size: var(--modal-msg-font);
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
-  line-height: 1.5;
 }
 
 .modal-actions {
   display: flex;
-  gap: var(--toast-gap);
-  margin-top: 4px;
+  gap: var(--gap);
 }
 
 .modal-actions button {
   flex: 1;
   height: var(--modal-btn-h);
-  font-size: var(--modal-btn-font);
-  font-weight: 600;
-  border-radius: 999px;
   border: 1px solid var(--border-default);
+  border-radius: var(--r-pill);
   background: var(--bg-surface);
   color: var(--text-primary);
-  cursor: pointer;
   font-family: inherit;
-  transition: background var(--overlay-t) var(--overlay-ease);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease),
+              border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease);
 }
-.modal-actions button:hover {
-  background: var(--bg-hover);
-}
+.modal-actions button:hover { background: var(--bg-hover); }
+.modal-actions button:active { background: var(--bg-sunken); }
 
 .modal-actions button.modal-confirm {
+  border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
-  border-color: var(--accent);
 }
-.modal-actions button.modal-confirm:hover {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
-}
+.modal-actions button.modal-confirm:hover { background: var(--accent-hover); }
+.modal-actions button.modal-confirm:active { background: var(--accent-press); }
 
-/* 底部状态胶囊 */
+/* ============================================================
+ * 3. 底部状态胶囊
+ * ============================================================ */
 .status-bar {
   position: fixed;
   bottom: calc(var(--status-bottom) + env(safe-area-inset-bottom));
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  background: var(--status-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #ffffff;
-  font-size: var(--status-font);
-  font-weight: 500;
+  z-index: var(--z-status);
   padding: var(--status-py) var(--status-px);
-  border-radius: var(--status-radius);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-pill);
+  background: var(--status-bg);
+  color: var(--status-text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  box-shadow: var(--shadow-pop);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--overlay-t) var(--overlay-ease);
+  transform: translateX(-50%);
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
 }
 .status-bar.is-visible {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
+
+/* 两种写法都支持，便于将来把 .ok/.err 迁移为 .is-ok/.is-err 而不改 JS */
+.status-bar.is-ok,
 .status-bar.ok { color: var(--status-ok); }
+.status-bar.is-err,
 .status-bar.err { color: var(--status-err); }
