@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#F4F1EA">
 <title>合集封面</title>
 
+<!-- ① 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
+<script src="../../../shared/css/theme-init.js?v=20261025"></script>
+
 <script>
-/* =========================================================================
- * 资源加载器 (2026 现代 ES6+ 语法)
- * ========================================================================= */
-(async function () {
+(() => {
   const ts = Date.now();
   const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
 
   const loadStyle = (href) => new Promise((resolve, reject) => {
     const l = document.createElement('link');
-    l.rel = 'stylesheet'; l.href = withTs(href);
+    l.rel = 'stylesheet';
+    l.href = withTs(href);
     l.onload = resolve;
     l.onerror = () => reject(new Error('加载失败：' + href));
     document.head.appendChild(l);
@@ -30,24 +31,41 @@
     document.head.appendChild(s);
   });
 
-  window.__bootPromise = Promise.all([
-    loadScript('../../../shared/ui-icons.js'),
-    loadStyle('../../../shared/theme.css'),
-    loadStyle('style.css')
-  ]).then(() => loadScript('app.js'));
+  window.__bootPromise = (async () => {
+    await Promise.all([
+      loadScript('../../../shared/ui-icons.js'),
+      loadScript('../../../shared/css/dropdown.js'),
+      loadStyle('../../../shared/css/theme.css'),
+      loadStyle('style.css')
+    ]);
+    await loadScript('app.js');
+  })();
+
+  /* ② 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
+  window.__bootPromise.catch((e) => {
+    console.error('[Boot]', e);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '载入失败：' + (e && e.message ? e.message : String(e)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
+  });
 })();
 </script>
 
 <style>
-  /* 统一使用全局变量，防止主题切换闪烁 */
   body { visibility: hidden; }
   body.ready { visibility: visible; }
   .boot-loading {
     position: fixed; inset: 0; z-index: 99999;
     display: flex; align-items: center; justify-content: center;
-    background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
-    font-size: 13px; font-family: var(--std-font, sans-serif);
+    background: var(--bg-base, #F4F1EA);
+    color: var(--text-tertiary, #A69E95);
+    font-size: 12px;
+    font-family: var(--std-font, sans-serif);
     visibility: visible;
+    padding: 24px; text-align: center; line-height: 1.6;
   }
   body.ready .boot-loading { display: none; }
 </style>
@@ -65,14 +83,16 @@
   </div>
 </div>
 
-<main class="grid">
-  <!-- 画布 (仅保留背景图) -->
+<main class="form">
+
+  <!-- 画布 -->
   <section>
-    <div class="ios-section-header">画布</div>
-    <div class="ios-group">
-      <div class="ios-row upload-row" onclick="document.getElementById('collectionBgFile').click()">
-        <img id="collectionBgThumb" class="clickable-thumb" alt="">
-        <div class="flex-1">
+    <div class="panel-header">画布</div>
+    <div class="panel">
+      <div class="panel-row">
+        <img id="collectionBgThumb" class="thumb" alt="" title="点击上传背景图"
+             onclick="document.getElementById('collectionBgFile').click()">
+        <div class="flex-1" onclick="document.getElementById('collectionBgFile').click()">
           <div class="upload-text" id="collectionBgName">点击上传背景图</div>
         </div>
         <input type="file" id="collectionBgFile" accept="image/*" class="hidden">
@@ -82,39 +102,43 @@
 
   <!-- 字体 -->
   <section>
-    <div class="ios-section-header">字体（仅作用于导出图片）</div>
-    <div class="ios-group">
-      <div class="ios-row">
+    <div class="panel-header">字体（仅作用于导出图片）</div>
+    <div class="panel">
+      <div class="panel-row">
         <div class="font-label" id="labelCollectionFont">默认系统字体</div>
-        <button type="button" class="btn-sm ios-btn-fill" onclick="App.openFontPicker()">选择字体</button>
+        <div class="dropdown" id="fontDropdown">
+          <button type="button" class="dropdown-trigger">
+            <span class="icon-slot" data-icon="font"></span>
+            <span class="dropdown-label">选择字体</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel" id="fontDropdownPanel"></div>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- 文字内容 -->
   <section>
-    <div class="ios-section-header">文字内容</div>
-    <div class="ios-group">
-      <label class="ios-field form-pad-t">主标题
+    <div class="panel-header">文字内容</div>
+    <div class="panel">
+      <label class="field row-pad">
+        <span class="field-label">主标题</span>
         <textarea rows="2" id="collectionTitle" placeholder="输入合集主标题" oninput="App.setCollection('title', this.value)"></textarea>
       </label>
-      <label class="ios-field form-pad">副标题
+      <label class="field row-pad">
+        <span class="field-label">副标题</span>
         <textarea rows="2" id="collectionSubtitle" placeholder="输入合集副标题" oninput="App.setCollection('subtitle', this.value)"></textarea>
       </label>
     </div>
   </section>
+
 </main>
 
-<div class="bottom-dock">
-  <button class="export-btn-main" onclick="App.exportCollection()">导出图片</button>
-</div>
-
-<div class="tab-sheet-backdrop" id="fontSheetBackdrop" onclick="App.closeFontPicker()"></div>
-<div class="tab-sheet" id="fontSheet">
-  <div class="tab-sheet-handle"></div>
-  <div class="tab-sheet-header">选择字体</div>
-  <div class="tab-sheet-list" id="fontSheetList"></div>
-</div>
+<button type="button" class="export-btn" onclick="App.exportCollection()">导出图片</button>
 
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-backdrop" id="modalBackdrop">
@@ -123,7 +147,7 @@
     <div class="modal-message" id="modalMessage"></div>
     <div class="modal-actions">
       <button type="button" id="modalCancel">取消</button>
-      <button type="button" class="ios-btn-fill" id="modalConfirm">确定</button>
+      <button type="button" class="modal-confirm" id="modalConfirm">确定</button>
     </div>
   </div>
 </div>
