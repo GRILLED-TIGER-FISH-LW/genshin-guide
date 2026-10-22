@@ -86,10 +86,10 @@ html.theme-switching *::after {
   animation: none !important;
 }
 
-/* 全局重置（核心铁律：严禁 margin，防止间距翻倍） */
+/* 全局重置（核心铁律：严禁 margin，杜绝自带的推力乱搞） */
 * { 
   box-sizing: border-box; 
-  margin: 0 !important; 
+  margin: 0; 
   padding: 0; 
   -webkit-tap-highlight-color: transparent; 
 }
@@ -126,7 +126,7 @@ button, input[type="button"], input[type="submit"] {
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
 /* ============================================================
- * 布局小工具（一劳永逸的“网兜”，控制间距不重合）
+ * 布局网兜（一劳永逸控制间距，全部用 gap）
  * ============================================================ */
 
 /* 纵向排列：子元素相隔 8px */
