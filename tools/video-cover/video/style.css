@@ -2,39 +2,42 @@
  * 视频封面 · style.css
  * 仅视频封面特化。通用控件在 shared/css/ 各文件。
  * -------------------------------------------------------------------------
- * v3 变更（对应 5 个反馈）：
- *  1. .panel-row:has(.font-label) > .dropdown → 字体下拉收窄到 160px
- *     （v2 用了 flex-grow:1，导致它和左侧名称各占一半）
- *  2. .custom-head 删掉 padding-bottom:0
- *     （原来让 + 按钮直接贴着这一行的分隔线，看起来"重合"）
- *  3. .form 上下内边距 16 → 8；左右保持 16
- *  4. .float-item 内边距 16 → 8；.float-list 间距 16 → 8
- *     （对齐 panels.css 里 .editor-list .card 的紧凑规格）
- *  5. .float-thumb 尺寸/圆角改用 --thumb-size 令牌，与 .thumb 完全一致
+ * v4 变更：
+ *  1. 锁定页面外壳：body 高度 = 视口、禁用整页滚动
+ *     → 预览窗固定在顶部，滚动条只出现在表单区右侧
+ *  2. .preview-sticky 加 flex-shrink:0，保证不被表单挤压
+ *  3. .form 成为唯一滚动容器（flex:1 + min-height:0 + overflow-y:auto）
+ *  4. .form 加 overscroll-behavior:contain，滚到底不带动整页 / 下拉刷新
  * ========================================================================= */
 
 /* ============================================================
  * 0. 页面外壳
- *    本页是新窗口滚动：预览吸顶、表单随页面滚动
  * ============================================================ */
 body {
-  overflow-x: hidden;
+  height: 100vh;
+  height: 100dvh;          /* 锁死视口高度，不再靠 min-height 撑 */
+  overflow: hidden;        /* 禁用整页滚动 */
+}
+
+/* 预览吸顶条固定在顶部，不参与纵向伸缩 */
+.preview-sticky {
+  flex-shrink: 0;
 }
 
 /* ============================================================
- * 1. 表单容器
- *    body 已是 flex 纵向布局，.form 作为主内容区：
- *      · 左右 16px、上下 8px
- *      · 底部为固定导出胶囊留出 --dock-space
- *      · section 之间 16px（分组级间距，不压缩）
+ * 1. 表单容器（唯一的滚动容器）
  * ============================================================ */
 .form {
   display: flex;
   flex-direction: column;
   gap: var(--gap-lg);
+  flex: 1;
+  min-height: 0;
   width: 100%;
   max-width: 900px;
   align-self: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--gap) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
 }
 
@@ -47,8 +50,6 @@ body {
 
 /* ============================================================
  * 2. 面板内的行内边距
- *    .panel 本身没有内边距（内边距由 .panel-row 提供），
- *    所以非 .panel-row 的子元素需要 .row-pad 自己补
  * ============================================================ */
 .row-pad {
   padding: var(--gap) var(--pad-ctl);
@@ -56,8 +57,6 @@ body {
 
 /* ============================================================
  * 3. 预览宿主
- *    预览框的宽高比由 shared/css/preview.css 的 --preview-ratio 控制，
- *    这里只负责让内部 svg 铺满
  * ============================================================ */
 #svgPreviewHost {
   width: 100%;
@@ -84,17 +83,17 @@ body {
   white-space: nowrap;
 }
 
-/* 面板行里的下拉：共享样式给的是 width:100%，在 flex 行里会挤死左侧，
- * 这里改为可伸缩并给一个 140px 的基准宽度 */
 .panel-row > .dropdown {
   flex: 1 1 140px;
   min-width: 0;
   width: auto;
 }
 
-/* 字体行是「名称 + 下拉」两段，给下拉一个固定宽度，把空间让给名称 */
-.panel-row:has(.font-label) > .dropdown {
-  flex: 0 1 160px;
+/* 字体行是「名称 + 下拉」两段，给下拉按内容自适应宽度 */
+.panel-row > .font-label + .dropdown {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 160px;
 }
 
 /* ============================================================
@@ -115,8 +114,6 @@ body {
   gap: var(--gap);
 }
 
-/* 与 panels.css 的 .card 保持同一套规格（背景/边框/圆角/内边距/纵向间隙），
- * 仅内边距更紧凑，和 .editor-list .card 一致 */
 .float-item {
   display: flex;
   flex-direction: column;
@@ -169,11 +166,4 @@ body {
   font-size: var(--fs-sm);
   color: var(--text-secondary);
   cursor: pointer;
-}
-
-/* ---- 字体行：下拉按内容自适应（约 100px），不占满半行 ---- */
-.panel-row > .font-label + .dropdown {
-  flex: 0 1 auto;
-  width: auto;
-  max-width: 160px;
 }
