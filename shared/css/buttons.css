@@ -1,14 +1,13 @@
 /* ============================================================
  * buttons.css —— 按钮
- * 宽度自适应（padding 撑开），不锁死。圆角 = 高度 × 15%。
- * 图标 = 按钮高度的 60%。文字永远显示，不省略。
+ * 宽度自适应（由图标和文字撑开，绝不锁死）。
+ * 图标 = 1.6em（基于 font-size 自适应，不依赖 calc 和 aspect-ratio）。
+ * 圆角 = 4.8px（当前 32px 高的 15%）。
  * ============================================================ */
 
 :root {
   --btn-h: 32px;
   --btn-h-export: 48px;
-  --btn-radius-ratio: 0.15;
-  --btn-icon-ratio: 0.6;
   --btn-font: 12px;
   --btn-font-export: 14px;
   --btn-px: 16px;
@@ -31,7 +30,8 @@
   justify-content: center;
   gap: var(--btn-gap);
   white-space: nowrap;
-  flex-shrink: 0;
+  /* 核心：不参与 flex 拉伸和压缩，宽度严格由内容撑开 */
+  flex: none; 
   transition: all var(--btn-t) var(--btn-ease);
   user-select: none;
   -webkit-appearance: none;
@@ -41,12 +41,12 @@
   border: var(--btn-border) solid var(--border-default);
 }
 
-/* 按钮内所有 svg（直接放或包在 .icon-slot 里） */
-.btn svg,
-.btn-icon svg,
-.float-btn svg {
-  width: calc(var(--btn-h) * var(--btn-icon-ratio));
-  height: calc(var(--btn-h) * var(--btn-icon-ratio));
+/* 按钮内所有 svg（直接放） */
+.btn > svg,
+.btn-icon > svg,
+.float-btn > svg {
+  width: 1.6em;
+  height: 1.6em;
   display: block;
   flex-shrink: 0;
 }
@@ -61,15 +61,15 @@
   flex-shrink: 0;
 }
 
-/* .icon-slot 在按钮内跟随按钮高 */
-.btn .icon-slot,
-.btn-icon .icon-slot,
-.float-btn .icon-slot {
-  width: calc(var(--btn-h) * var(--btn-icon-ratio));
-  height: calc(var(--btn-h) * var(--btn-icon-ratio));
+/* .icon-slot 在按钮内：跟随按钮字号大小 */
+.btn > .icon-slot,
+.btn-icon > .icon-slot,
+.float-btn > .icon-slot {
+  width: 1.6em;
+  height: 1.6em;
 }
 
-/* .icon-slot 内 svg 撑满 */
+/* .icon-slot 内 svg 撑满容器 */
 .icon-slot svg {
   width: 100%;
   height: 100%;
@@ -81,7 +81,7 @@
   height: var(--btn-h);
   padding: 0 var(--btn-px);
   font-size: var(--btn-font);
-  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+  border-radius: 4.8px;
 }
 .btn:hover:not(:disabled) { background: var(--bg-hover); }
 .btn:active:not(:disabled) { background: var(--bg-sunken); }
@@ -92,7 +92,7 @@
   width: var(--btn-h);
   height: var(--btn-h);
   padding: 0;
-  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+  border-radius: 4.8px;
 }
 .btn-icon:hover:not(:disabled) { background: var(--bg-hover); }
 .btn-icon:active:not(:disabled) { background: var(--bg-sunken); }
@@ -111,7 +111,7 @@
   width: var(--btn-h);
   height: var(--btn-h);
   padding: 0;
-  border-radius: calc(var(--btn-h) * var(--btn-radius-ratio));
+  border-radius: 4.8px;
 }
 .float-btn:hover:not(:disabled) { background: var(--bg-hover); }
 
