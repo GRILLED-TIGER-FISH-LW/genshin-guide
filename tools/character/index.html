@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F4F1EA" />
 <title>原神一图流生成器</title>
+
+<!-- ① 主题初始化：必须放在最前面，且不能加 defer / async，否则会闪白 -->
+<script src="../../shared/css/theme-init.js?v=20261022"></script>
 
 <style>
   body { visibility: hidden; }
@@ -14,6 +18,7 @@
     background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
     font-size: 12px; font-family: var(--std-font, sans-serif);
     visibility: visible;
+    padding: 24px; text-align: center; line-height: 1.6;
   }
   body.ready .boot-loading { display: none; }
 </style>
@@ -55,6 +60,17 @@
     await loadScript('svg.js');
     await loadScript('app.js');
   })();
+
+  /* ② 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
+  window.__bootPromise.catch((err) => {
+    console.error('[boot]', err);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.textContent = '载入失败：' + (err && err.message ? err.message : String(err)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+      bootEl.style.whiteSpace = 'pre-wrap';
+    }
+  });
 })();
 </script>
 </head>
@@ -80,21 +96,21 @@
   <section class="inspector-pane">
     <div class="tab-bar" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
     <div class="tabs-content">
-      
+
       <!-- 4.1 外观样式 -->
-      <div class="tab-panel is-active" id="tab-style">
+      <div class="tab-panel is-active" id="tab-style" data-tab="style">
         <div class="stack">
           <div class="panel-header">角色信息</div>
           <div class="panel">
             <div class="panel-grid">
-              <label class="field">角色名称<input type="text" id="charName" oninput="App.setField('charName', this.value)" onblur="App.matchCharAvatar(this.value)" /></label>
-              <label class="field">适用版本<input type="text" id="version" oninput="App.setField('version', this.value)" /></label>
-              <label class="field">制作日期<input type="text" id="date" oninput="App.setField('date', this.value)" /></label>
-              <label class="field">攻略作者<input type="text" id="author" oninput="App.setField('author', this.value)" /></label>
+              <label class="field"><span class="field-label">角色名称</span><input type="text" id="charName" oninput="App.setField('charName', this.value)" onblur="App.matchCharAvatar(this.value)" /></label>
+              <label class="field"><span class="field-label">适用版本</span><input type="text" id="version" oninput="App.setField('version', this.value)" /></label>
+              <label class="field"><span class="field-label">制作日期</span><input type="text" id="date" oninput="App.setField('date', this.value)" /></label>
+              <label class="field"><span class="field-label">攻略作者</span><input type="text" id="author" oninput="App.setField('author', this.value)" /></label>
             </div>
           </div>
         </div>
-        
+
         <div class="stack">
           <div class="panel-header">样式图（立绘 / 元素 / 名片）</div>
           <div class="panel">
@@ -108,12 +124,12 @@
             </div>
           </div>
         </div>
-        
+
         <div class="stack">
           <div class="panel-header">元素主题色</div>
           <div class="panel"><div class="color-swatches" id="colorPicker"></div></div>
         </div>
-        
+
         <div class="stack">
           <div class="panel-header">卡片嵌入字体（仅作用于图片导出，不影响网页）</div>
           <div class="panel">
@@ -136,7 +152,7 @@
       </div>
 
       <!-- 4.2 立绘区 -->
-      <div class="tab-panel" id="tab-base">
+      <div class="tab-panel" id="tab-base" data-tab="base">
         <div class="stack">
           <div class="panel-header">图片素材（点击缩略图更换）</div>
           <div class="panel">
@@ -145,7 +161,7 @@
               <div class="flex-1">
                 <div class="upload-text" id="labelCharImg">点击上传立绘</div>
               </div>
-              <button class="btn-icon btn-danger" onclick="App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
+              <button type="button" class="btn-icon btn-danger" onclick="App.clearImage('charImg', 'thumbCharImg', 'labelCharImg')" title="删除立绘">
                 <span class="icon-slot" id="btnDelCharImg"></span>
               </button>
               <input type="file" id="inputCharImg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.charImg = v; State.data.charImgMeta = { w, h }; State.data.charImgDeleted = false; State.data.charImgManual = true; App.updateImgXHint(); App.updateThumb('thumbCharImg', 'labelCharImg', v, '已载入立绘（点击更换）'); })" />
@@ -162,7 +178,7 @@
               <div class="flex-1">
                 <div class="upload-text" id="labelNameBg">点击上传元素图</div>
               </div>
-              <button class="btn-icon btn-danger" onclick="App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
+              <button type="button" class="btn-icon btn-danger" onclick="App.clearImage('nameBgImg', 'thumbNameBg', 'labelNameBg')" title="删除元素图">
                 <span class="icon-slot" id="btnDelNameBg"></span>
               </button>
               <input type="file" id="inputNameBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, (v, w, h) => { State.data.nameBgImg = v; State.data.nameBgImgMeta = { w, h }; State.data.nameBgImgDeleted = false; State.data.nameBgImgManual = true; App.updateThumb('thumbNameBg', 'labelNameBg', v, '已载入元素图（点击更换）'); })" />
@@ -172,7 +188,7 @@
               <div class="flex-1">
                 <div class="upload-text" id="labelBg">默认暗黑原力色</div>
               </div>
-              <button class="btn-icon btn-danger" onclick="App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
+              <button type="button" class="btn-icon btn-danger" onclick="App.clearImage('bgImg', 'thumbBg', 'labelBg')" title="删除大背景">
                 <span class="icon-slot" id="btnDelBg"></span>
               </button>
               <input type="file" id="inputBg" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.bgImg = v; State.data.bgImgDeleted = false; State.data.bgImgManual = true; App.updateThumb('thumbBg', 'labelBg', v, '已载入大背景（点击更换）'); })" />
@@ -182,7 +198,7 @@
       </div>
 
       <!-- 4.3 武器区 -->
-      <div class="tab-panel" id="tab-weapon">
+      <div class="tab-panel" id="tab-weapon" data-tab="weapon">
         <div class="stack">
           <div class="panel-header">武器推荐</div>
           <div id="weaponEditor" class="editor-list"></div>
@@ -190,7 +206,7 @@
       </div>
 
       <!-- 4.4 圣遗物区 -->
-      <div class="tab-panel" id="tab-artifact">
+      <div class="tab-panel" id="tab-artifact" data-tab="artifact">
         <div class="stack">
           <div class="panel-header" id="artifactSectionHead"></div>
           <div id="artifactEditor" class="editor-list" data-collapse-content="artifact_section"></div>
@@ -198,38 +214,38 @@
       </div>
 
       <!-- 4.5 天赋区 -->
-      <div class="tab-panel" id="tab-talent">
+      <div class="tab-panel" id="tab-talent" data-tab="talent">
         <div class="stack">
           <div class="panel-header">天赋加点优先级</div>
           <div class="panel">
             <div class="panel-grid three">
-              <label class="field">普通攻击<input type="text" id="talentA" oninput="App.setField('talentA', this.value)" /></label>
-              <label class="field">元素战技<input type="text" id="talentE" oninput="App.setField('talentE', this.value)" /></label>
-              <label class="field">元素爆发<input type="text" id="talentQ" oninput="App.setField('talentQ', this.value)" /></label>
+              <label class="field"><span class="field-label">普通攻击</span><input type="text" id="talentA" oninput="App.setField('talentA', this.value)" /></label>
+              <label class="field"><span class="field-label">元素战技</span><input type="text" id="talentE" oninput="App.setField('talentE', this.value)" /></label>
+              <label class="field"><span class="field-label">元素爆发</span><input type="text" id="talentQ" oninput="App.setField('talentQ', this.value)" /></label>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 4.6 词条区 -->
-      <div class="tab-panel" id="tab-stats">
+      <div class="tab-panel" id="tab-stats" data-tab="stats">
         <div class="stack">
           <div class="panel-header">主副词条推荐</div>
           <div class="panel">
             <div class="panel-grid three">
-              <label class="field">时之沙<input type="text" id="sandMain" oninput="App.setField('sandMain', this.value)" /></label>
-              <label class="field">空之杯<input type="text" id="gobMain" oninput="App.setField('gobMain', this.value)" /></label>
-              <label class="field">理之冠<input type="text" id="cirMain" oninput="App.setField('cirMain', this.value)" /></label>
+              <label class="field"><span class="field-label">时之沙</span><input type="text" id="sandMain" oninput="App.setField('sandMain', this.value)" /></label>
+              <label class="field"><span class="field-label">空之杯</span><input type="text" id="gobMain" oninput="App.setField('gobMain', this.value)" /></label>
+              <label class="field"><span class="field-label">理之冠</span><input type="text" id="cirMain" oninput="App.setField('cirMain', this.value)" /></label>
             </div>
             <div class="sub-stats-wrap">
-              <label class="field">副词条优先顺序<input type="text" id="subStats" oninput="App.setField('subStats', this.value)" /></label>
+              <label class="field"><span class="field-label">副词条优先顺序</span><input type="text" id="subStats" oninput="App.setField('subStats', this.value)" /></label>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 4.7 面板区 -->
-      <div class="tab-panel" id="tab-panel">
+      <div class="tab-panel" id="tab-panel" data-tab="panel">
         <div class="stack">
           <div class="panel-header">主属性（三选一）</div>
           <div class="panel">
@@ -258,17 +274,17 @@
           <div class="panel-header">副属性面板</div>
           <div class="panel">
             <div class="panel-grid">
-              <label class="field">暴击率<input type="text" id="panelCr" placeholder="留空显示「任意」" oninput="App.setPanelField('cr', this.value)" /></label>
-              <label class="field">暴击伤害<input type="text" id="panelCd" placeholder="留空显示「任意」" oninput="App.setPanelField('cd', this.value)" /></label>
-              <label class="field">元素精通<input type="text" id="panelEm" placeholder="留空显示「任意」" oninput="App.setPanelField('em', this.value)" /></label>
-              <label class="field">充能效率<input type="text" id="panelEr" placeholder="留空显示「任意」" oninput="App.setPanelField('er', this.value)" /></label>
+              <label class="field"><span class="field-label">暴击率</span><input type="text" id="panelCr" placeholder="留空显示「任意」" oninput="App.setPanelField('cr', this.value)" /></label>
+              <label class="field"><span class="field-label">暴击伤害</span><input type="text" id="panelCd" placeholder="留空显示「任意」" oninput="App.setPanelField('cd', this.value)" /></label>
+              <label class="field"><span class="field-label">元素精通</span><input type="text" id="panelEm" placeholder="留空显示「任意」" oninput="App.setPanelField('em', this.value)" /></label>
+              <label class="field"><span class="field-label">充能效率</span><input type="text" id="panelEr" placeholder="留空显示「任意」" oninput="App.setPanelField('er', this.value)" /></label>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 4.8 命座区 -->
-      <div class="tab-panel" id="tab-cons">
+      <div class="tab-panel" id="tab-cons" data-tab="cons">
         <div class="stack">
           <div class="panel-header">核心命座说明（点击圆圈点亮）</div>
           <div class="panel"><div class="cons-grid" id="constellationEditor"></div></div>
@@ -276,7 +292,7 @@
       </div>
 
       <!-- 4.9 配队区 -->
-      <div class="tab-panel" id="tab-team">
+      <div class="tab-panel" id="tab-team" data-tab="team">
         <div class="stack">
           <div class="panel-header">1号位主角色头像</div>
           <div class="panel">
@@ -285,24 +301,25 @@
               <div class="flex-1">
                 <div class="upload-text" id="labelTeamCore">主角色一号位头像（点击更换）</div>
               </div>
-              <button class="btn-icon btn-danger" onclick="App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
+              <button type="button" class="btn-icon btn-danger" onclick="App.clearImage('teamCoreImg', 'thumbTeamCore', 'labelTeamCore')" title="删除头像">
                 <span class="icon-slot" id="btnDelTeamCore"></span>
               </button>
               <input type="file" id="inputTeamCore" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamCoreImg = v; State.data.teamCoreImgManual = true; App.updateThumb('thumbTeamCore', 'labelTeamCore', v, '已载入1号位头像（点击更换）'); })" />
             </div>
           </div>
         </div>
-        
+
         <div class="stack">
           <div class="panel-header">
             <span>配队参考方案（最多 3 组）</span>
-            <button class="btn" id="btnAddTeam" onclick="App.addTeam()">
+            <button type="button" class="btn" id="btnAddTeam" onclick="App.addTeam()">
               <span class="icon-slot" id="btnAddTeamIcon"></span><span class="btn-text">添加</span>
             </button>
           </div>
           <div id="teamEditor" class="editor-list-large"></div>
         </div>
       </div>
+
     </div>
   </section>
 </main>
