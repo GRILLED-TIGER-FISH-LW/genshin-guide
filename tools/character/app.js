@@ -1,5 +1,15 @@
 /* =========================================================================
  * 原神一图流生成器 · app.js
+ * =========================================================================
+ * 交互层：数据持久化 / 编辑器渲染 / 图片匹配 / 导出导入
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. init() 补齐错误兜底：任何一步失败都不再白屏，改为在加载遮罩上显示原因
+ *  2. selectTab 改用 data-tab 查找，彻底摆脱 id 依赖（id="tab-panel" 的混淆点消除）
+ *  3. 删除 4 个未定义的类名：.flex-col / .mb-0 / .mb-8 / .ml-auto
+ *  4. 删除与 consts.js 重复的 themeToElementName() / urlExists()
+ *  5. 删除与 consts.js 重复的面板选项数据，改用 PANEL_PRIMARY_KEYS + PANEL_PRIMARY_LABELS
+ *  6. 其余业务逻辑、状态字段、渲染结构完全未改动
  * ========================================================================= */
 
 'use strict';
@@ -132,26 +142,6 @@ function resolveCharName(input) {
   const stripped = stripElementSuffix(t);
   if (stripped && isValidCharName(stripped)) return stripped;
   return '';
-}
-function themeToElementName() {
-  const t = (State.data.theme || '').toLowerCase();
-  for (let i = 0; i < elementColors.length; i++) {
-    if (elementColors[i][1].toLowerCase() === t) return elementColors[i][0];
-  }
-  return '';
-}
-async function urlExists(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    if (res.ok) return true;
-    if (res.status === 405) {
-      const res2 = await fetch(url);
-      return res2.ok;
-    }
-    return false;
-  } catch (e) {
-    try { const res3 = await fetch(url); return res3.ok; } catch (e2) { return false; }
-  }
 }
 
 /* =========================================================================
@@ -305,7 +295,7 @@ async function selectFont(index) {
 
     if (labelEl) labelEl.textContent = `[3/3] 正在固化存档数据...`;
 
-    let ext = f.file.split('.').pop().toLowerCase();
+    const ext = f.file.split('.').pop().toLowerCase();
     let mime = 'font/ttf';
     if (ext === 'otf') mime = 'font/otf';
     else if (ext === 'woff2') mime = 'font/woff2';
@@ -467,15 +457,18 @@ function renderTabBar() {
   ).join('');
 }
 
+/* 改用 data-tab 定位，不再依赖 id（原 id="tab-panel" 与类名重名的隐患消除） */
 function selectTab(tabId) {
-  if (!TAB_DEFS.find(t => t.key === tabId)) return;
+  if (!TAB_DEFS.some(t => t.key === tabId)) return;
   currentTab = tabId;
-  document.querySelectorAll('.tabs-content .tab-panel').forEach(p => p.classList.remove('is-active'));
-  const panel = document.getElementById(`tab-${tabId}`);
-  if (panel) panel.classList.add('is-active');
+
+  document.querySelectorAll('.tabs-content .tab-panel').forEach(p => {
+    p.classList.toggle('is-active', p.dataset.tab === tabId);
+  });
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('is-active', b.dataset.tab === tabId);
   });
+
   const tc = document.querySelector('.tabs-content');
   if (tc) tc.scrollTop = 0;
 }
@@ -518,7 +511,7 @@ function renderColorPicker() {
   });
 }
 
-/* --- 核心修复 1：注入 --theme-color，让命座跟随元素色 --- */
+/* 命座：注入 --theme-color，让发光色跟随元素色 */
 function renderConstellationEditor() {
   const el = document.getElementById('constellationEditor');
   if (!el) return;
@@ -545,9 +538,9 @@ function renderWeaponEditor() {
         <div class="card-header">
           <span class="card-subtitle">#${i + 1} ${WEAPON_LABELS[type]}武器</span>
           <div class="card-actions">
-            <button class="btn" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-            <button class="btn" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-            <button class="btn btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+            <button type="button" class="btn" onclick="App.moveWeapon('${type}',${i},-1)" ${upDisabled ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button type="button" class="btn" onclick="App.moveWeapon('${type}',${i},1)" ${downDisabled ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button type="button" class="btn btn-danger" onclick="App.removeWeapon('${type}',${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
         <div class="row">
@@ -561,13 +554,13 @@ function renderWeaponEditor() {
       <div class="group-header">
         <span class="group-title">${WEAPON_LABELS[type]}武器 (${group.length}/${WEAPON_MAX})</span>
         <div class="group-actions">
-          <button class="btn" onclick="App.addWeapon('${type}')">${ICONS.plus}<span class="btn-text">添加</span></button>
-          <button class="btn collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
+          <button type="button" class="btn" onclick="App.addWeapon('${type}')">${ICONS.plus}<span class="btn-text">添加</span></button>
+          <button type="button" class="btn collapse-toggle ${collapsed ? 'collapsed' : ''}" data-collapse-key="${key}" onclick="App.toggleCollapse('${key}')">
             <span class="collapse-icon">${collapseIconOf(collapsed)}</span><span class="collapse-text">${collapsed ? '展开' : '收起'}</span>
           </button>
         </div>
       </div>
-      <div data-collapse-content="${key}" class="group-content flex-col ${collapsed ? 'hidden' : ''}">
+      <div data-collapse-content="${key}" class="group-content ${collapsed ? 'hidden' : ''}">
         ${list || '<div class="empty-state">暂无配置</div>'}
       </div>
     </div>`;
@@ -581,9 +574,9 @@ function renderArtifactEditor() {
   if (headEl) {
     headEl.innerHTML = `<span>圣遗物推荐 (${State.data.artifactData.length})</span>
       <div class="group-actions">
-        <button class="btn" id="btnAddArtifactSingle" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
-        <button class="btn" id="btnAddArtifactDouble" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
-        <button class="btn collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
+        <button type="button" class="btn" id="btnAddArtifactSingle" onclick="App.addArtifact('single')">${ICONS.plus}<span class="btn-text">整套</span></button>
+        <button type="button" class="btn" id="btnAddArtifactDouble" onclick="App.addArtifact('double')">${ICONS.plus}<span class="btn-text">散搭</span></button>
+        <button type="button" class="btn collapse-toggle ${isSectionCollapsed ? 'collapsed' : ''}" data-collapse-key="${sectionKey}" onclick="App.toggleCollapse('${sectionKey}')">
           <span class="collapse-icon">${collapseIconOf(isSectionCollapsed)}</span><span class="collapse-text">${isSectionCollapsed ? '展开' : '收起'}</span>
         </button>
       </div>`;
@@ -598,9 +591,9 @@ function renderArtifactEditor() {
         <div class="card-header">
           <span class="card-subtitle text-accent">散搭 #${i + 1}</span>
           <div class="card-actions">
-            <button class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-            <button class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-            <button class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+            <button type="button" class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+            <button type="button" class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+            <button type="button" class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
           </div>
         </div>
         <input type="text" value="${esc(a.displayText)}" placeholder="卡片显示文本（可选，留空显示两个名字）" oninput="App.setArtifactDisplayText(${i},this.value)" />
@@ -623,9 +616,9 @@ function renderArtifactEditor() {
       <div class="card-header">
         <span class="card-subtitle">整套 #${i + 1}</span>
         <div class="card-actions">
-          <button class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-          <button class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-          <button class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
+          <button type="button" class="btn" onclick="App.moveArtifact(${i},-1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button type="button" class="btn" onclick="App.moveArtifact(${i},1)" ${i === State.data.artifactData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+          <button type="button" class="btn btn-danger" onclick="App.removeArtifact(${i})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
       <div class="row">
@@ -644,20 +637,20 @@ function renderTeamEditor() {
     const teamKey = `team_${ti}`;
     const teamCollapsed = isCollapsed(teamKey);
     return `<div class="panel group-card">
-      <div class="card-header ${teamCollapsed ? 'mb-0' : 'mb-8'}">
+      <div class="card-header">
         <span class="group-title">队伍 ${ti + 1}</span>
         <div class="card-actions">
-          <button class="btn" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-          <button class="btn" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-          <button class="btn collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
+          <button type="button" class="btn" onclick="App.moveTeam(${ti},-1)" ${ti === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+          <button type="button" class="btn" onclick="App.moveTeam(${ti},1)" ${ti === State.data.teamData.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+          <button type="button" class="btn collapse-toggle ${teamCollapsed ? 'collapsed' : ''}" data-collapse-key="${teamKey}" onclick="App.toggleCollapse('${teamKey}')">
             <span class="collapse-icon">${collapseIconOf(teamCollapsed)}</span><span class="collapse-text">${teamCollapsed ? '展开' : '收起'}</span>
           </button>
-          <button class="btn btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}<span class="btn-text">删除</span></button>
+          <button type="button" class="btn btn-danger" onclick="App.removeTeam(${ti})">${ICONS.trash}<span class="btn-text">删除</span></button>
         </div>
       </div>
       <div data-collapse-content="${teamKey}" class="group-content ${teamCollapsed ? 'hidden' : ''}">
         <input type="text" value="${esc(team.name)}" oninput="App.setTeamName(${ti},this.value)" placeholder="队伍名称" />
-        <div class="flex-col">
+        <div class="stack">
           ${team.chars.slice(1, 4).map((c, idx) => {
             const ci = idx + 1;
             const charKey = `team_${ti}_char_${ci}`;
@@ -667,9 +660,9 @@ function renderTeamEditor() {
               <div class="card-header">
                 <span class="card-subtitle text-accent">${ci + 1}号位主角色</span>
                 <div class="card-actions">
-                  <button class="btn" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-                  <button class="btn" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-                  <button class="btn collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
+                  <button type="button" class="btn" onclick="App.moveTeamChar(${ti},${ci},-1)" ${ci === 1 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                  <button type="button" class="btn" onclick="App.moveTeamChar(${ti},${ci},1)" ${ci === 3 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+                  <button type="button" class="btn collapse-toggle ${charCollapsed ? 'collapsed' : ''}" data-collapse-key="${charKey}" onclick="App.toggleCollapse('${charKey}')">
                     <span class="collapse-icon">${collapseIconOf(charCollapsed)}</span><span class="collapse-text">${charCollapsed ? '展开' : '收起'}</span>
                   </button>
                 </div>
@@ -683,7 +676,7 @@ function renderTeamEditor() {
                 <div class="alt-list-wrap">
                   <div class="alt-header">
                     <span class="alt-count">备选角色 (${c.alts.length}/4)</span>
-                    <button class="btn ml-auto" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}<span class="btn-text">添加</span></button>
+                    <button type="button" class="btn" onclick="App.addAlt(${ti},${ci})">${ICONS.plus}<span class="btn-text">添加</span></button>
                   </div>
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
@@ -692,9 +685,9 @@ function renderTeamEditor() {
                       <div class="card-header">
                         <span class="card-subtitle">备选 #${ai + 1}</span>
                         <div class="card-actions">
-                          <button class="btn" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-                          <button class="btn" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-                          <button class="btn btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
+                          <button type="button" class="btn" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
+                          <button type="button" class="btn" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
+                          <button type="button" class="btn btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
                         </div>
                       </div>
                       <div class="row">
@@ -726,24 +719,18 @@ function renderEditorsByKey() {
 
 /* =========================================================================
  * 【模块 6.5】面板区 · 属性类型下拉
+ * 选项数据统一来自 consts.js 的 PANEL_PRIMARY_KEYS / PANEL_PRIMARY_LABELS
  * ========================================================================= */
-const PANEL_PRIMARY_OPTIONS = [
-  { key: 'hp',  label: '生命值' },
-  { key: 'atk', label: '攻击力' },
-  { key: 'def', label: '防御力' }
-];
-
 function renderPanelPrimaryDropdown() {
   const panel = document.getElementById('panelPrimaryKeyPanel');
   const label = document.getElementById('panelPrimaryKeyLabel');
   if (!panel || !label) return;
 
   const current = State.data.panel?.primaryKey || 'hp';
-  const currentOpt = PANEL_PRIMARY_OPTIONS.find(o => o.key === current) || PANEL_PRIMARY_OPTIONS[0];
-  label.textContent = currentOpt.label;
+  label.textContent = PANEL_PRIMARY_LABELS[current] || PANEL_PRIMARY_LABELS.hp;
 
-  panel.innerHTML = PANEL_PRIMARY_OPTIONS.map(o =>
-    `<button type="button" class="dropdown-item ${o.key === current ? 'is-active' : ''}" data-value="${o.key}">${o.label}</button>`
+  panel.innerHTML = PANEL_PRIMARY_KEYS.map(key =>
+    `<button type="button" class="dropdown-item ${key === current ? 'is-active' : ''}" data-value="${key}">${PANEL_PRIMARY_LABELS[key]}</button>`
   ).join('');
 }
 
@@ -1534,11 +1521,11 @@ function setConstellationDesc(i, value) {
   mountPreview(); debouncedSave();
 }
 
-/* --- 核心修复 2：切换主题色时，重新渲染命座以更新 --theme-color --- */
+/* 切换主题色：重新渲染色板与命座（命座需要新的 --theme-color） */
 function setTheme(color) {
   State.data.theme = color;
-  renderColorPicker(); 
-  renderConstellationEditor(); 
+  renderColorPicker();
+  renderConstellationEditor();
   mountPreview(); debouncedSave();
 }
 
@@ -1614,6 +1601,7 @@ function bindPreviewTapToggle() {
   frame.addEventListener('click', () => toolbar.classList.toggle('hidden'));
 }
 
+/* 下拉选项点击（dropdown.js 已负责开关面板，这里只处理业务） */
 document.addEventListener('click', (e) => {
   const fontItem = e.target.closest('#fontSheetList .dropdown-item');
   if (fontItem && fontItem.dataset.fontIndex !== undefined) {
@@ -1626,33 +1614,54 @@ document.addEventListener('click', (e) => {
   }
 });
 
+/* =========================================================================
+ * 【模块 13】启动
+ * ========================================================================= */
 (async function init() {
-  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+  try {
+    try {
+      await window.__bootPromise;
+    } catch (e) {
+      console.warn('[boot]', e);
+    }
 
-  injectFloatIcons();
-  injectIcons();
-  tightenAllIconViewBoxes();
+    if (typeof State === 'undefined' || typeof buildSVG !== 'function') {
+      throw new Error('核心脚本未加载（consts.js / svg.js），请刷新重试');
+    }
 
-  const saved = await loadStateFromIDB();
-  State.data = normalizeState(saved || {});
+    injectFloatIcons();
+    injectIcons();
+    tightenAllIconViewBoxes();
 
-  await loadCharOrderTxt();
-  await loadNamecards();
-  await loadArtDict();
-  await loadFontList();
+    const saved = await loadStateFromIDB();
+    State.data = normalizeState(saved || {});
 
-  try { await installPreviewFont(); } catch(e) {}
+    await loadCharOrderTxt();
+    await loadNamecards();
+    await loadArtDict();
+    await loadFontList();
 
-  initThumbnails();
-  syncInputs();
-  renderEditorsByKey();
-  renderTabBar();
-  renderFontDropdown();
-  mountPreview();
-  selectTab(currentTab);
-  bindPreviewTapToggle();
+    try { await installPreviewFont(); } catch (e) {}
 
-  document.body.classList.add('ready');
+    initThumbnails();
+    syncInputs();
+    renderEditorsByKey();
+    renderTabBar();
+    renderFontDropdown();
+    mountPreview();
+    selectTab(currentTab);
+    bindPreviewTapToggle();
+
+    document.body.classList.add('ready');
+  } catch (err) {
+    console.error('[init]', err);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '初始化失败：' + (err && err.message ? err.message : String(err)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
+  }
 })();
 
 window.addEventListener('message', function (e) {
