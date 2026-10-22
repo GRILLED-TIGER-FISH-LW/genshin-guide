@@ -2,15 +2,15 @@
  * 视频封面 · style.css
  * 仅视频封面特化。通用控件在 shared/css/ 各文件。
  * -------------------------------------------------------------------------
- * v2 变更：
- *  1. 补 .form —— 原注释声称"由 theme.css 控制"，但 theme.css 里从未有过这个类，
- *     导致 section 之间零间距、面板左右直接顶到屏幕边缘
- *  2. 补 .row-pad —— 原来从未定义，9 处面板内控件（滑块/输入框）全部贴边
- *  3. 补 .font-label —— 原来从未定义
- *  4. .panel-row 内的下拉改为可伸缩宽度，避免 width:100% 把左侧文字挤成 0 宽
- *  5. 硬编码的 12px / 16px / 6px / 0.1s 全部改为令牌
- *  6. 删除 #svgPreviewHost > svg 的冗余 display:block（theme.css 已全局设置）
- *  7. 底部留白只在 .form 上保留一处（原来 body 与 .form 会叠加）
+ * v3 变更（对应 5 个反馈）：
+ *  1. .panel-row:has(.font-label) > .dropdown → 字体下拉收窄到 160px
+ *     （v2 用了 flex-grow:1，导致它和左侧名称各占一半）
+ *  2. .custom-head 删掉 padding-bottom:0
+ *     （原来让 + 按钮直接贴着这一行的分隔线，看起来"重合"）
+ *  3. .form 上下内边距 16 → 8；左右保持 16
+ *  4. .float-item 内边距 16 → 8；.float-list 间距 16 → 8
+ *     （对齐 panels.css 里 .editor-list .card 的紧凑规格）
+ *  5. .float-thumb 尺寸/圆角改用 --thumb-size 令牌，与 .thumb 完全一致
  * ========================================================================= */
 
 /* ============================================================
@@ -24,9 +24,9 @@ body {
 /* ============================================================
  * 1. 表单容器
  *    body 已是 flex 纵向布局，.form 作为主内容区：
- *      · 左右内边距
+ *      · 左右 16px、上下 8px
  *      · 底部为固定导出胶囊留出 --dock-space
- *      · section 之间 16px
+ *      · section 之间 16px（分组级间距，不压缩）
  * ============================================================ */
 .form {
   display: flex;
@@ -35,7 +35,7 @@ body {
   width: 100%;
   max-width: 900px;
   align-self: center;
-  padding: var(--gap-lg) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
+  padding: var(--gap) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
 }
 
 /* section 内部：panel-header 与 panel 之间 8px */
@@ -56,6 +56,8 @@ body {
 
 /* ============================================================
  * 3. 预览宿主
+ *    预览框的宽高比由 shared/css/preview.css 的 --preview-ratio 控制，
+ *    这里只负责让内部 svg 铺满
  * ============================================================ */
 #svgPreviewHost {
   width: 100%;
@@ -90,11 +92,15 @@ body {
   width: auto;
 }
 
+/* 字体行是「名称 + 下拉」两段，给下拉一个固定宽度，把空间让给名称 */
+.panel-row:has(.font-label) > .dropdown {
+  flex: 0 1 160px;
+}
+
 /* ============================================================
  * 5. 浮动素材
  * ============================================================ */
 .custom-head {
-  padding-bottom: 0;
   justify-content: space-between;
 }
 .custom-head-label {
@@ -106,14 +112,16 @@ body {
 .float-list {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-lg);
+  gap: var(--gap);
 }
 
+/* 与 panels.css 的 .card 保持同一套规格（背景/边框/圆角/内边距/纵向间隙），
+ * 仅内边距更紧凑，和 .editor-list .card 一致 */
 .float-item {
   display: flex;
   flex-direction: column;
   gap: var(--gap);
-  padding: var(--gap-lg);
+  padding: var(--pad-ctl);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-panel);
@@ -136,12 +144,12 @@ body {
 }
 
 .float-thumb {
-  width: 40px;
-  height: 40px;
+  width: var(--thumb-size);
+  height: var(--thumb-size);
   flex-shrink: 0;
   object-fit: cover;
   border: 1px solid var(--border-subtle);
-  border-radius: calc(var(--h-ctl) * 0.15);
+  border-radius: calc(var(--thumb-size) * 0.15);
   cursor: pointer;
   transition: opacity var(--dur) var(--ease);
 }
