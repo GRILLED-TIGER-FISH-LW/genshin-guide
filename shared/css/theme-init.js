@@ -153,3 +153,26 @@
    * ============================================================ */
   window.Theme = { get: current, set, toggle, clear };
 })();
+
+
+/* ============================================================
+ * 首屏加载保护：CSS 首次生效期间禁用一切过渡
+ * ------------------------------------------------------------
+ * 本文件是 <head> 里的阻塞脚本，所以这个类会在「首帧之前」就加上；
+ * 等 load 事件（所有资源就绪）后再移除，此时样式早已稳定，
+ * 移除不会引起任何新的过渡。
+ * ============================================================ */
+(() => {
+  const root = document.documentElement;
+  root.classList.add('booting');
+
+  let done = false;
+  const endBooting = () => {
+    if (done) return;
+    done = true;
+    root.classList.remove('booting');
+  };
+
+  window.addEventListener('load', endBooting, { once: true });
+  setTimeout(endBooting, 3000);   /* 兜底：万一 load 长期不触发 */
+})();
