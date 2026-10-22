@@ -170,13 +170,13 @@ body {
   min-width: 130px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start !important; /* 暴力让子元素靠左 */
+  align-items: flex-start !important;
 }
 
 .panel-primary-row .field-label {
   display: block !important;
   width: 100% !important;
-  text-align: left !important; /* 暴力让文字靠左 */
+  text-align: left !important;
 }
 
 .panel-primary-row .dropdown,
@@ -185,7 +185,7 @@ body {
 }
 
 /* ============================================================
- * 5. 命座区（点亮元素色 + 发光晕染）
+ * 5. 命座区（点亮元素色 + 发光晕染 + 强制正圆）
  * ============================================================ */
 .cons-grid {
   display: grid;
@@ -209,10 +209,29 @@ body {
 /* 点亮后的状态 */
 .cons-item.is-active {
   border-color: var(--theme-color, var(--accent));
-  /* 使用元素色作为淡淡的背景，为了兼容不支持 color-mix 的情况，这里还是用统一的浅色底，靠边框和光晕展示元素色 */
   background: var(--bg-surface); 
-  /* 发光晕染：使用元素色的阴影 */
   box-shadow: 0 0 12px var(--theme-color, var(--accent));
+}
+
+/* 绝对锁死尺寸，哪怕天塌下来也是正圆 */
+.cons-badge {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  aspect-ratio: 1 / 1 !important; 
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0 !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* 点亮后的圆圈 */
@@ -220,7 +239,6 @@ body {
   background: var(--theme-color, var(--accent));
   color: #ffffff;
   border-color: var(--theme-color, var(--accent));
-  /* 小光晕 */
   box-shadow: 0 0 8px var(--theme-color, var(--accent));
 }
 
