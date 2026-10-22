@@ -1,18 +1,11 @@
 /* ============================================================
- * panels.css —— 白框 / 卡片 / 列表 / 标签 / 缩略图 / 空态
+ * panels.css —— 白框 / 卡片 / 列表 / 标签 / 缩略图 / 空态 / 文本槽
  * 容器用 gap，子元素无 margin；纯文字不写上下 padding。
  * ------------------------------------------------------------
- * v2 变更：
- *  1. 删除 .card-actions 的 margin-left:auto（全文唯一的 margin，违反铁律）
- *  2. 补齐 .panel-grid.three（映射表承诺的三列修饰，此前完全缺失）
- *  3. .tag-avatar 24px → 18px（原尺寸在 24px 胶囊里上下溢出 2px）
- *  4. .panel-row / .panel-header / .list-item 补 flex-shrink:0（受限高度下会被压扁裁切）
- *  5. .panel-header 水平内边距 4 → 8px（原来比行内容左移 4px，所有面板都错位）
- *  6. .tag 内部间隙 8 → 4px（24px 小胶囊里 8px 过宽）
- *  7. .tag-remove 点击区 16 → 20px（低于移动端可达性下限）
- *  8. .tag-add 图标 calc(24*0.7)=16.8px（亚像素模糊）→ 14px 规范值
- *  9. 删除死代码：-webkit-overflow-scrolling、.list-add 冗余背景、.empty-state 冗余 line-height
- * 10. 尺寸/动效全部改为令牌引用
+ * v3 变更：
+ *  · 新增 .upload-text —— character 与 video-cover 共用的文本槽
+ *    （原来只存在于 character/style.css，video-cover 那边完全没定义）
+ * 其余内容与 v2 完全一致。
  * ============================================================ */
 
 :root {
@@ -375,4 +368,16 @@
   width: var(--empty-icon);
   height: var(--empty-icon);
   opacity: 0.5;
+}
+
+/* ============================================================
+ * 7. 文本槽（多工具共用）
+ *    character 的「点击上传立绘」、video-cover 的「点击上传背景图」
+ * ============================================================ */
+.upload-text {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
