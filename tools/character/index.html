@@ -80,8 +80,10 @@
   <section class="inspector-pane">
     <div class="tab-bar" id="tabBar" role="tablist" aria-label="编辑区域切换"></div>
     <div class="tabs-content">
+      
+      <!-- 4.1 外观样式 -->
       <div class="tab-panel is-active" id="tab-style">
-        <div>
+        <div class="stack">
           <div class="panel-header">角色信息</div>
           <div class="panel">
             <div class="panel-grid">
@@ -92,10 +94,11 @@
             </div>
           </div>
         </div>
-        <div>
+        
+        <div class="stack">
           <div class="panel-header">样式图（立绘 / 元素 / 名片）</div>
           <div class="panel">
-            <div class="action-row">
+            <div class="panel-row">
               <button type="button" class="btn flex-1" id="btnMatchStyle" onclick="App.matchStyleImages()">
                 <span class="icon-slot" id="btnMatchStyleIcon"></span><span class="btn-text">匹配样式图</span>
               </button>
@@ -105,11 +108,13 @@
             </div>
           </div>
         </div>
-        <div>
+        
+        <div class="stack">
           <div class="panel-header">元素主题色</div>
           <div class="panel"><div class="color-swatches" id="colorPicker"></div></div>
         </div>
-        <div>
+        
+        <div class="stack">
           <div class="panel-header">卡片嵌入字体（仅作用于图片导出，不影响网页）</div>
           <div class="panel">
             <div class="panel-row">
@@ -130,8 +135,9 @@
         </div>
       </div>
 
+      <!-- 4.2 立绘区 -->
       <div class="tab-panel" id="tab-base">
-        <div>
+        <div class="stack">
           <div class="panel-header">图片素材（点击缩略图更换）</div>
           <div class="panel">
             <div class="panel-row">
@@ -175,22 +181,25 @@
         </div>
       </div>
 
+      <!-- 4.3 武器区 -->
       <div class="tab-panel" id="tab-weapon">
-        <div>
+        <div class="stack">
           <div class="panel-header">武器推荐</div>
           <div id="weaponEditor" class="editor-list"></div>
         </div>
       </div>
 
+      <!-- 4.4 圣遗物区 -->
       <div class="tab-panel" id="tab-artifact">
-        <div>
+        <div class="stack">
           <div class="panel-header" id="artifactSectionHead"></div>
           <div id="artifactEditor" class="editor-list" data-collapse-content="artifact_section"></div>
         </div>
       </div>
 
+      <!-- 4.5 天赋区 -->
       <div class="tab-panel" id="tab-talent">
-        <div>
+        <div class="stack">
           <div class="panel-header">天赋加点优先级</div>
           <div class="panel">
             <div class="panel-grid three">
@@ -202,8 +211,9 @@
         </div>
       </div>
 
+      <!-- 4.6 词条区 -->
       <div class="tab-panel" id="tab-stats">
-        <div>
+        <div class="stack">
           <div class="panel-header">主副词条推荐</div>
           <div class="panel">
             <div class="panel-grid three">
@@ -218,8 +228,9 @@
         </div>
       </div>
 
+      <!-- 4.7 面板区 -->
       <div class="tab-panel" id="tab-panel">
-        <div>
+        <div class="stack">
           <div class="panel-header">主属性（三选一）</div>
           <div class="panel">
             <div class="panel-row panel-primary-row">
@@ -241,7 +252,7 @@
             </div>
           </div>
         </div>
-        <div>
+        <div class="stack">
           <div class="panel-header">副属性面板</div>
           <div class="panel">
             <div class="panel-grid">
@@ -254,15 +265,17 @@
         </div>
       </div>
 
+      <!-- 4.8 命座区 -->
       <div class="tab-panel" id="tab-cons">
-        <div>
+        <div class="stack">
           <div class="panel-header">核心命座说明（点击圆圈点亮）</div>
           <div class="panel"><div class="cons-grid" id="constellationEditor"></div></div>
         </div>
       </div>
 
+      <!-- 4.9 配队区 -->
       <div class="tab-panel" id="tab-team">
-        <div>
+        <div class="stack">
           <div class="panel-header">1号位主角色头像</div>
           <div class="panel">
             <div class="panel-row">
@@ -277,7 +290,8 @@
             </div>
           </div>
         </div>
-        <div>
+        
+        <div class="stack">
           <div class="panel-header">
             <span>配队参考方案（最多 3 组）</span>
             <button class="btn" id="btnAddTeam" onclick="App.addTeam()">
