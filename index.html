@@ -20,8 +20,8 @@
 })();
 </script>
 
-<!-- ② 主题初始化：必须同步加载（不能加 defer / async），否则首帧会闪 -->
-<script src="shared/css/theme-init.js?v=20261022"></script>
+<!-- ② 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
+<script src="shared/css/theme-init.js"></script>
 
 <script>
 (() => {
@@ -81,6 +81,15 @@
     padding: 24px; text-align: center; line-height: 1.6;
   }
   body.ready .boot-loading { display: none; }
+
+  /* 首屏期间：侧边栏及其遮罩完全不参与渲染。
+     用 display:none 而不是 transition:none ——
+     display:none 的元素既不能播放过渡，也不会出现在文档流里，
+     从根源上排除「加载中途露出来」和「播放一次滑出动画」两种闪烁。 */
+  body:not(.ready) .sidebar-drawer,
+  body:not(.ready) .sidebar-backdrop {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
