@@ -335,10 +335,10 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color var(--input-t) var(--input-ease);
 }
 
-/* 修复下拉框里 svg 图标的大小 */
+/* 下拉框里的 svg 图标固定 14px */
 .dropdown-trigger svg {
-  width: 1.5em;
-  height: 1.5em;
+  width: 14px;
+  height: 14px;
   display: block;
   flex-shrink: 0;
 }
@@ -348,8 +348,8 @@ input[type="range"]::-moz-range-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5em;
-  height: 1.5em;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 .dropdown-trigger .icon-slot svg,
