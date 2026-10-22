@@ -1,6 +1,7 @@
 /* ============================================================
  * buttons.css —— 按钮
- * 宽度由内容自适应（不拉伸）。图标 = 14px 定死。
+ * 有文字的按钮：图标 14px。纯图标按钮：图标 18px。
+ * 图标和文字间距 2px。危险按钮有淡红色边框。
  * ============================================================ */
 
 :root {
@@ -8,8 +9,8 @@
   --btn-h-export: 48px;
   --btn-font: 12px;
   --btn-font-export: 14px;
-  --btn-px: 5px;    /* 两侧空白 5px */
-  --btn-gap: 0px;   /* 图标和文字无间距 */
+  --btn-px: 5px;    
+  --btn-gap: 2px;   /* 图标和文字之间的细微间距 */
   --btn-border: 1px;
   --btn-t: 0.3s;
   --btn-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -28,7 +29,7 @@
   justify-content: center;
   gap: var(--btn-gap);
   white-space: nowrap;
-  flex: none; /* 严禁被父容器拉伸 */
+  flex: none; 
   transition: all var(--btn-t) var(--btn-ease);
   user-select: none;
   -webkit-appearance: none;
@@ -39,21 +40,15 @@
   box-sizing: border-box;
 }
 
-/* 按钮内所有 svg（包含被 span 包裹的） */
-.btn svg,
-.btn-icon svg,
-.float-btn svg {
+/* 1. 有文字的按钮，图标较小 (14px) */
+.btn svg {
   width: 14px;
   height: 14px;
   display: block;
   flex-shrink: 0;
 }
-
-/* 按钮内包裹图标的容器（.icon-slot 或 .collapse-icon） */
 .btn .icon-slot,
-.btn-icon .icon-slot,
-.btn .collapse-icon,
-.btn-icon .collapse-icon {
+.btn .collapse-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -61,10 +56,32 @@
   height: 14px;
   flex-shrink: 0;
 }
-
-/* 容器里的 svg 撑满 */
 .btn .icon-slot svg,
 .btn .collapse-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 2. 纯图标按钮，图标较大 (18px) */
+.btn-icon svg,
+.float-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex-shrink: 0;
+}
+.btn-icon .icon-slot,
+.float-btn .icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.btn-icon .icon-slot svg,
+.float-btn .icon-slot svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -92,11 +109,11 @@
 .btn-icon:active:not(:disabled) { background: var(--bg-sunken); }
 .btn-icon:disabled { opacity: var(--btn-op-muted); cursor: not-allowed; }
 
-/* 危险颜色（叠加用） */
+/* 危险颜色（叠加用）：恢复了红色的边框 */
 .btn-danger {
   background: var(--danger-bg);
   color: var(--danger);
-  border-color: transparent;
+  border-color: var(--danger-border);
 }
 .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
 
