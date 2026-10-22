@@ -8,24 +8,16 @@
  *   · 点触发器开关；点面板外关闭；点选项关闭并派发 dropdown:select
  *   · 打开时改用 position: fixed，绕过祖先 overflow 裁剪
  *   · 上下自动翻转、水平自动内收，永不超出安全区
- *   · 自动抵消祖先 transform 造成的坐标偏移（弹窗内的下拉也准）
+ *   · 内容装得下时【完全不夹高度】，避免出现多余的滚动条
+ *   · 自动抵消祖先 transform 造成的坐标偏移
  *   · Esc 关闭并归还焦点
  * ------------------------------------------------------------
- * app.js 里只需监听（不再需要自己绑 document 点击）：
- *   el.addEventListener('dropdown:select', e => {
- *     e.detail.value;  // data-value
- *     e.detail.label;  // 选项文字
- *   });
- * ------------------------------------------------------------
- * v2 变更：
- *  1. 水平边界钳制 + 最小宽度（靠右的下拉不再溢出屏幕）
- *  2. 重写方向判断：先定方向再定高度，修复「Math.max(60,…) 把面板顶出安全区」
- *  3. 先落位再量 scrollHeight（宽度影响换行，量早了高度不准）
- *  4. 新增 ancestor transform 偏移抵消，弹窗内下拉定位正确
- *  5. 关闭改为延迟复位，消除「瞬移回原位再淡出」
- *  6. 派发 dropdown:select 事件（让「不需要在 app.js 里写绑定」成为事实）
- *  7. GAP / MARGIN / 复位延迟 全部从 CSS 令牌读取，不再与 --gap 双份维护
- *  8. 新增 Esc 关闭、aria-expanded、visualViewport 适配
+ * v3 修正：
+ *  1. 【修掉多余滚动条】原来无条件设 max-height = scrollHeight，
+ *     而 scrollHeight 是四舍五入的整数，可能比真实内容矮 0.5px，
+ *     于是 overflow-y:auto 判定"有溢出" → 弹出滚动条。
+ *     现在：装得下就 max-height:none，装不下才夹。
+ *  2. 同时尊重 CSS 里的 --input-panel-max-h 上限，避免面板过高。
  * ============================================================ */
 (() => {
   'use strict';
@@ -34,7 +26,7 @@
   const FIXED = 'is-fixed';
 
   const MIN_H = 60;        // 面板最小高度
-  const MIN_W = 140;       // 面板最小宽度（窄触发器不至于变成一条缝）
+  const MIN_W = 140;       // 面板最小宽度
   const FLIP_SPACE = 160;  // 下方空间低于此值时优先向上展开
 
   let active = null;
@@ -48,7 +40,7 @@
     return Number.isFinite(v) ? v : fallback;
   }
 
-  /* 找到会建立「固定定位包含块」的祖先：transform / filter / backdrop-filter / perspective / contain:paint */
+  /* 找到会建立「固定定位包含块」的祖先 */
   function fixedOrigin(el) {
     let node = el.parentElement;
     while (node && node !== document.documentElement) {
@@ -75,6 +67,7 @@
 
     const gap = token(dropdown, '--gap', 8);
     const margin = token(dropdown, '--gap-lg', 16);
+    const cssMaxH = token(dropdown, '--input-panel-max-h', 280) || 280;
     const vw = document.documentElement.clientWidth;
     const vh = window.innerHeight;
     const rect = trigger.getBoundingClientRect();
@@ -85,22 +78,31 @@
     if (left + width > vw - margin) left = vw - margin - width;
     if (left < margin) left = margin;
 
-    /* —— 先落位，再量高度（宽度决定换行，量早了不准）—— */
+    /* —— 先落位，再量高度（宽度影响换行） —— */
     panel.classList.add(FIXED);
     panel.style.width = `${width}px`;
     panel.style.left = `${left}px`;
 
-    /* —— 垂直：先定方向，再由方向定高度 —— */
+    /* —— 垂直：先定方向 —— */
     const below = vh - rect.bottom - gap - margin;
     const above = rect.top - gap - margin;
     const openUp = below < MIN_H || (below < FLIP_SPACE && above > below);
     const available = Math.max(0, openUp ? above : below);
-    const height = Math.max(MIN_H, Math.min(panel.scrollHeight, available));
+    const limit = Math.min(available, cssMaxH);
+
+    /* —— 再由方向定高度：装得下就完全不夹 —— */
+    const needed = panel.scrollHeight;
+    let height;
+    if (needed <= limit) {
+      panel.style.maxHeight = 'none';   /* 关键：不给 overflow 触发机会 */
+      height = needed;
+    } else {
+      height = Math.max(MIN_H, limit);
+      panel.style.maxHeight = `${height}px`;
+    }
 
     let top = openUp ? rect.top - gap - height : rect.bottom + gap;
     top = Math.min(Math.max(top, margin), Math.max(margin, vh - margin - height));
-
-    panel.style.maxHeight = `${height}px`;
     panel.style.top = `${Math.round(top)}px`;
 
     /* —— 抵消祖先 transform 造成的坐标偏移 —— */
