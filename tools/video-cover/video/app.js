@@ -1,11 +1,27 @@
 /* =========================================================================
- * 视频封面 · app.js (2026 现代扁平终极版)
+ * 视频封面 · app.js
+ * =========================================================================
+ * v2 变更：
+ *  1. 【功能修复】「文字亮度」滑块真正生效
+ *     —— 原来 capTextBrightness 从未参与渲染，拖动完全没反应。
+ *        现在：图片填充时给 pattern 里的 image 套 feComponentTransfer；
+ *              纯色填充时按倍率算灰度。
+ *  2. 【性能】背景模糊改为半分辨率渲染 + JPEG 编码
+ *     —— 原来每次都在 3840×2160 上做 100px 高斯模糊并转成 PNG base64，
+ *        体积大、耗时长；现在像素量降到 1/4，体积小一个数量级。
+ *  3. 【性能】拖动模糊/亮度滑块时对预览做 80ms 防抖，不再每个 input 都全量重绘
+ *  4. 【健壮】init() 补齐错误兜底，任何一步失败都不再白屏
+ *  5. 【健壮】importConfig 加了字段归一化，残缺/旧版本 JSON 不会打乱 state
+ *  6. 【体积】exportConfig 剥离 fontData（字体数据可达数 MB），导入时按文件名重挂
+ *  7. 【健壮】exportPNG 增加防连点，并补上成功提示
+ *  8. 【清理】删除 init 末尾重复的 injectIcons()；SVG 样式里去掉 font-synthesis:none
  * ========================================================================= */
 'use strict';
 
 const SVG_W = 3840;
 const SVG_H = 2160;
 const BLUR_MAX_PX = 100;
+const BLUR_RENDER_SCALE = 0.5;   /* 模糊层按半分辨率渲染：像素量降到 1/4 */
 
 const BOSS_BASE_URL = '../../../shared/assets/video-cover/boss-base.png';
 const LOGO_BASE_URL = '../../../shared/assets/video-cover/';
@@ -74,6 +90,9 @@ let LOGO_LIST = [];
 let FONT_LIST = [];
 let loadedFontFace = null;
 
+/* =========================================================================
+ * 数据文件
+ * ========================================================================= */
 async function loadDataFiles() {
   try {
     const res = await fetch('../../../shared/data/characters.txt?t=' + Date.now());
@@ -141,15 +160,27 @@ async function loadDataFiles() {
   }
 }
 
+/* =========================================================================
+ * 工具函数
+ * ========================================================================= */
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+/* 以 #1a1a1a 为基准，按倍率算灰度（k=1 → #1a1a1a） */
+function greyHex(base, k) {
+  const v = Math.max(0, Math.min(255, Math.round(base * k)));
+  const h = v.toString(16).padStart(2, '0');
+  return '#' + h + h + h;
+}
+
 function getFormattedDateStr() {
   const now = new Date();
-  return `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 }
+
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -159,6 +190,7 @@ function loadImage(src) {
     img.src = src;
   });
 }
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -166,9 +198,11 @@ function downloadBlob(blob, filename) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
 function stripElementSuffix(name) {
   return String(name || '').replace(/[（(][^）)]*[）)]\s*$/, '').trim();
 }
+
 function padOrder(n) { return String(n).padStart(3, '0'); }
 
 async function urlToDataURL(url) {
@@ -249,6 +283,9 @@ function injectIcons() {
   });
 }
 
+/* =========================================================================
+ * 背景图与模糊层
+ * ========================================================================= */
 async function loadBgImage() {
   if (state.bg === cachedBgSrc) return;
   cachedBgSrc = state.bg;
@@ -264,9 +301,12 @@ function generateBlurredBgSync() {
   const key = cachedBgImage.src + '|' + state.midBlur + '|' + state.midBrightness;
   if (cachedBlurredBgKey === key && cachedBlurredBg) return cachedBlurredBg;
 
-  const W = SVG_W, H = SVG_H;
+  const SS = BLUR_RENDER_SCALE;
+  const W = Math.round(SVG_W * SS);
+  const H = Math.round(SVG_H * SS);
   const img = cachedBgImage;
-  const blurPx = (Math.min(100, Math.max(0, Number(state.midBlur) || 0)) / 100) * BLUR_MAX_PX;
+  const blurNorm = Math.min(100, Math.max(0, Number(state.midBlur) || 0)) / 100;
+  const blurPx = blurNorm * BLUR_MAX_PX * SS;      /* 半径随分辨率等比缩放，视觉等价 */
   const slope = 1 + Number(state.midBrightness || 0) / 100;
 
   const c = document.createElement('canvas');
@@ -284,20 +324,20 @@ function generateBlurredBgSync() {
     tmp1.width = W; tmp1.height = H;
     tmp1.getContext('2d').drawImage(img, coverX, coverY, coverW, coverH);
 
-    const pad = Math.ceil(blurPx * 3) + 20;
+    const pad = Math.ceil(blurPx * 3) + 10;
     const BW = W + pad * 2, BH = H + pad * 2;
     const tmp2 = document.createElement('canvas');
     tmp2.width = BW; tmp2.height = BH;
     const t2 = tmp2.getContext('2d');
     t2.drawImage(tmp1, pad, pad);
     t2.drawImage(tmp1, 0, 0, W, 1, pad, 0, W, pad);
-    t2.drawImage(tmp1, 0, H - 1, W, 1, pad, pad+H, W, pad);
+    t2.drawImage(tmp1, 0, H - 1, W, 1, pad, pad + H, W, pad);
     t2.drawImage(tmp1, 0, 0, 1, H, 0, pad, pad, H);
-    t2.drawImage(tmp1, W-1, 0, 1, H, pad+W, pad, pad, H);
+    t2.drawImage(tmp1, W - 1, 0, 1, H, pad + W, pad, pad, H);
     t2.drawImage(tmp1, 0, 0, 1, 1, 0, 0, pad, pad);
-    t2.drawImage(tmp1, W-1, 0, 1, 1, pad+W, 0, pad, pad);
-    t2.drawImage(tmp1, 0, H-1, 1, 1, 0, pad+H, pad, pad);
-    t2.drawImage(tmp1, W-1, H-1, 1, 1, pad+W, pad+H, pad, pad);
+    t2.drawImage(tmp1, W - 1, 0, 1, 1, pad + W, 0, pad, pad);
+    t2.drawImage(tmp1, 0, H - 1, 1, 1, 0, pad + H, pad, pad);
+    t2.drawImage(tmp1, W - 1, H - 1, 1, 1, pad + W, pad + H, pad, pad);
 
     ctx.filter = `blur(${blurPx}px)`;
     ctx.drawImage(tmp2, -pad, -pad);
@@ -306,9 +346,7 @@ function generateBlurredBgSync() {
     const coverScale = Math.max(W / img.width, H / img.height);
     const coverW = img.width * coverScale;
     const coverH = img.height * coverScale;
-    const coverX = (W - coverW) / 2;
-    const coverY = (H - coverH) / 2;
-    ctx.drawImage(img, coverX, coverY, coverW, coverH);
+    ctx.drawImage(img, (W - coverW) / 2, (H - coverH) / 2, coverW, coverH);
   }
 
   if (slope < 1) {
@@ -319,12 +357,16 @@ function generateBlurredBgSync() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  const dataURL = c.toDataURL('image/png');
+  /* 模糊后的背景不需要透明通道，JPEG 比 PNG 小一个数量级 */
+  const dataURL = c.toDataURL('image/jpeg', 0.92);
   cachedBlurredBg = dataURL;
   cachedBlurredBgKey = key;
   return dataURL;
 }
 
+/* =========================================================================
+ * 文本测量与胶囊几何
+ * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d');
 function getFontFamily() { return state.fontName ? `'${state.fontName}'` : 'system-ui, sans-serif'; }
 function measureTextWidth(text, size, font) {
@@ -359,10 +401,15 @@ function getFloatGeom(o) {
   return { x: o.x - imgW / 2, y: (SVG_H - imgH) / 2, imgW, imgH };
 }
 
+/* =========================================================================
+ * SVG 构建
+ * ========================================================================= */
 function buildSVG(showGuides, forExport = false) {
   const s = state;
   const font = getFontFamily();
-  const fontFace = (forExport && s.fontData) ? `@font-face{font-family:'${s.fontName}';src:url("${s.fontData}");font-display:block}` : '';
+  const fontFace = (forExport && s.fontData)
+    ? `@font-face{font-family:'${s.fontName}';src:url("${s.fontData}");font-display:block}`
+    : '';
 
   const cap = getCapsuleGeometry();
   const logoX = cap.logoX, logoY = cap.logoY;
@@ -410,13 +457,32 @@ function buildSVG(showGuides, forExport = false) {
       <feDropShadow dx="${cap.R * 0.18}" dy="${cap.R * 0.18}" stdDeviation="0" flood-color="#000000" flood-opacity="0.5"/>
     </filter>`;
 
+  /* —— 胶囊文字亮度（0–200%，100% 为原始亮度） —— */
+  const brightRaw = Number(s.capTextBrightness);
+  const brightK = Number.isFinite(brightRaw) ? Math.max(0, Math.min(2, brightRaw / 100)) : 1;
+
   const usePattern = !!(s.bg && s.capText);
-  const capTextFill = usePattern ? 'url(#capTextPattern)' : '#1a1a1a';
+  const capTextFill = usePattern ? 'url(#capTextPattern)' : greyHex(0x1a, brightK);
+
+  const capBrightFilter = (usePattern && brightK !== 1) ? `
+    <filter id="capBrightFilter" x="0" y="0" width="100%" height="100%">
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="${brightK.toFixed(3)}"/>
+        <feFuncG type="linear" slope="${brightK.toFixed(3)}"/>
+        <feFuncB type="linear" slope="${brightK.toFixed(3)}"/>
+      </feComponentTransfer>
+    </filter>` : '';
+
+  const capPattern = usePattern ? `
+    <pattern id="capTextPattern" patternUnits="userSpaceOnUse" x="0" y="0" width="${SVG_W}" height="${SVG_H}">
+      <image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"${brightK !== 1 ? ' filter="url(#capBrightFilter)"' : ''}/>
+    </pattern>` : '';
+
   const blurredBgUrl = cachedBgImage ? generateBlurredBgSync() : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
 <defs>
-  <style>${fontFace} text { font-family: ${font}; paint-order: fill; text-rendering: geometricPrecision; font-synthesis: none; }</style>
+  <style>${fontFace} text { font-family: ${font}; paint-order: fill; text-rendering: geometricPrecision; }</style>
   <linearGradient id="midMask" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0%" stop-color="#fff"/><stop offset="40%" stop-color="#fff"/>
     <stop offset="60%" stop-color="#000"/><stop offset="100%" stop-color="#000"/>
@@ -424,13 +490,12 @@ function buildSVG(showGuides, forExport = false) {
   <mask id="midMaskUse"><rect x="0" y="0" width="${SVG_W}" height="${SVG_H}" fill="url(#midMask)"/></mask>
   ${s.capLogo ? `<clipPath id="logoClip"><rect x="${logoX}" y="${logoY}" width="${LOGO_SIZE_FIXED}" height="${LOGO_SIZE_FIXED}" rx="${LOGO_ROUNDED_FIXED}" ry="${LOGO_ROUNDED_FIXED}"/></clipPath>` : ''}
   ${capShadowFilter}
-  ${usePattern ? `<pattern id="capTextPattern" patternUnits="userSpaceOnUse" x="0" y="0" width="${SVG_W}" height="${SVG_H}">
-    <image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>
-  </pattern>` : ''}
+  ${capBrightFilter}
+  ${capPattern}
   ${floatClipDefs}
 </defs>
 
-${s.bg ? `<image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>` : '<rect width="3840" height="2160" fill="#1c1c22"/>'}
+${s.bg ? `<image href="${s.bg}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/>` : `<rect width="${SVG_W}" height="${SVG_H}" fill="#1c1c22"/>`}
 ${floatImages(lowerFloats)}
 ${blurredBgUrl ? `<g mask="url(#midMaskUse)"><image id="midBlurImage" href="${blurredBgUrl}" x="0" y="0" width="${SVG_W}" height="${SVG_H}" preserveAspectRatio="xMidYMid slice"/></g>` : ''}
 ${floatImages(upperFloats)}
@@ -506,13 +571,26 @@ function collectFloats() {
   return state.floatImg;
 }
 
+/* =========================================================================
+ * 预览挂载与增量更新
+ * ========================================================================= */
 let previewSvgEl = null;
+let heavyPreviewTimer = 0;
 
 function mountPreview() {
   const host = $('svgPreviewHost');
   if (!host) return;
   host.innerHTML = buildSVG(state.showGuides);
   previewSvgEl = host.querySelector('svg');
+}
+
+/* 模糊/亮度这类重活：80ms 防抖后再重绘，拖动滑块不再卡顿 */
+function scheduleHeavyPreview() {
+  if (heavyPreviewTimer) clearTimeout(heavyPreviewTimer);
+  heavyPreviewTimer = setTimeout(() => {
+    heavyPreviewTimer = 0;
+    mountPreview();
+  }, 80);
 }
 
 function updateCharImgX() {
@@ -533,6 +611,9 @@ function updateFieldText(field, text) {
   return true;
 }
 
+/* =========================================================================
+ * 模式切换与输入
+ * ========================================================================= */
 function applyModeUI() {
   const type = state.guideType;
 
@@ -739,6 +820,9 @@ async function matchBossName(name) {
   persist();
 }
 
+/* =========================================================================
+ * 浮动素材
+ * ========================================================================= */
 function addFloat() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
@@ -782,9 +866,9 @@ function renderFloatList() {
           <span class="float-thumb-meta">${o.w}×${o.h}</span>
         </div>
         <div class="float-item-head-actions">
-          <button class="btn-icon" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
-          <button class="btn-icon" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
-          <button class="btn-icon btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
+          <button type="button" class="btn-icon" data-icon="up" onclick="App.moveFloat('${o.id}',-1)"></button>
+          <button type="button" class="btn-icon" data-icon="down" onclick="App.moveFloat('${o.id}',1)"></button>
+          <button type="button" class="btn-icon btn-danger" data-icon="trash" onclick="App.removeFloat('${o.id}')"></button>
         </div>
       </div>
       <div class="slider-group">
@@ -797,15 +881,15 @@ function renderFloatList() {
       <div class="slider-group">
         <div class="slider-label"><span>缩放</span></div>
         <div class="slider-row">
-          <input type="range" min="10" max="200" value="${Math.round(o.scale*100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)">
-          <div class="number-box"><input type="number" min="10" max="200" value="${Math.round(o.scale*100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)"><span class="number-unit">%</span></div>
+          <input type="range" min="10" max="200" value="${Math.round(o.scale * 100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)">
+          <div class="number-box"><input type="number" min="10" max="200" value="${Math.round(o.scale * 100)}" oninput="App.setFloat('${o.id}','scale',Number(this.value)/100)"><span class="number-unit">%</span></div>
         </div>
       </div>
       <div class="slider-group">
         <div class="slider-label"><span>圆角</span></div>
         <div class="slider-row">
-          <input type="range" min="0" max="100" value="${Math.round(o.rounded||0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))">
-          <div class="number-box"><input type="number" min="0" max="100" value="${Math.round(o.rounded||0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))"><span class="number-unit">%</span></div>
+          <input type="range" min="0" max="100" value="${Math.round(o.rounded || 0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))">
+          <div class="number-box"><input type="number" min="0" max="100" value="${Math.round(o.rounded || 0)}" oninput="App.setFloat('${o.id}','rounded',Number(this.value))"><span class="number-unit">%</span></div>
         </div>
       </div>
       <label class="under-middle-row">
@@ -817,6 +901,9 @@ function renderFloatList() {
   injectIcons();
 }
 
+/* =========================================================================
+ * 字体
+ * ========================================================================= */
 async function loadFontList() {
   try {
     const res = await fetch('../../../shared/fonts/fonts.json?t=' + Date.now());
@@ -974,7 +1061,7 @@ async function selectFont(index) {
     try {
       const ff = new FontFace(f.name, buf);
       const loaded = await ff.load();
-      if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch(e){} }
+      if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch (e) {} }
       document.fonts.add(loaded);
       loadedFontFace = loaded;
     } catch (fontErr) {
@@ -1017,6 +1104,17 @@ async function selectFont(index) {
   }
 }
 
+/* 按 fontFileName 重新挂载字体（导入配置时用：导出的 JSON 不含 fontData） */
+async function reloadFontByName() {
+  if (!state.fontFileName) return;
+  if (!FONT_LIST.length) { try { await loadFontList(); } catch (e) {} }
+  const idx = FONT_LIST.findIndex(f => f.file === state.fontFileName);
+  if (idx >= 0) { try { await selectFont(idx); } catch (e) {} }
+}
+
+/* =========================================================================
+ * IndexedDB 持久化
+ * ========================================================================= */
 const IDB_NAME = 'video_cover_db';
 const IDB_STORE = 'state';
 
@@ -1054,6 +1152,9 @@ async function loadPersist() {
   } catch (e) {}
 }
 
+/* =========================================================================
+ * 导出 / 导入
+ * ========================================================================= */
 function getExportBaseName() {
   const raw = state.sub2?.trim() || state.sub1?.trim() || state.mainText?.trim() || '视频封面';
   return raw.replace(/[\r\n]+/g, '').replace(/[\\/:*?"<>|]/g, '_');
@@ -1109,40 +1210,117 @@ async function bakeAndExport() {
   }
 }
 
+let exporting = false;
 async function exportPNG() {
+  if (exporting) return;          /* 防连点：导出过程可能持续数秒 */
+  exporting = true;
   try {
     if (document.fonts) await document.fonts.ready;
     await bakeAndExport();
+    showToast('导出成功', 'success');
   } catch (e) {
-    showToast('导出失败：' + e.message, 'error');
+    showToast('导出失败：' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    exporting = false;
   }
 }
 
 function exportConfig() {
+  /* fontData 通常是最大的单项（字体二进制 base64，可达数 MB），
+   * 导出时剥离，导入时按 fontFileName 重新挂载 */
+  const out = { ...state, fontData: '' };
+
   downloadBlob(
-    new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }),
+    new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }),
     '视频封面配置_' + getFormattedDateStr() + '.json'
   );
 }
 
+function numOr(v, fb) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fb;
+}
+function strOr(v, fb = '') {
+  return typeof v === 'string' ? v : fb;
+}
+
+/* 导入归一化：残缺 / 旧版本 / 手改过的 JSON 都不会打乱 state */
+function normalizeImported(raw) {
+  const r = (raw && typeof raw === 'object') ? raw : {};
+
+  const art = (o) => (o && typeof o === 'object' && typeof o.url === 'string' && o.url)
+    ? { url: o.url, w: numOr(o.w, 1), h: numOr(o.h, 1) }
+    : null;
+
+  return {
+    showGuides: r.showGuides !== false,
+    safeBoundX: numOr(r.safeBoundX, state.safeBoundX),
+    bg: strOr(r.bg),
+    midBrightness: numOr(r.midBrightness, state.midBrightness),
+    midBlur: numOr(r.midBlur, state.midBlur),
+    capX: numOr(r.capX, state.capX),
+    capY: numOr(r.capY, state.capY),
+    capH: numOr(r.capH, state.capH),
+    capFontSize: numOr(r.capFontSize, state.capFontSize),
+    capText: strOr(r.capText),
+    capTextBrightness: numOr(r.capTextBrightness, 100),
+    capLogo: strOr(r.capLogo),
+    capEdgeInset: numOr(r.capEdgeInset, state.capEdgeInset),
+    capLogoGap: numOr(r.capLogoGap, state.capLogoGap),
+    mainText: strOr(r.mainText),
+    mainColor: strOr(r.mainColor, '#ffffff'),
+    sub1: strOr(r.sub1),
+    sub2: strOr(r.sub2),
+    sub1Size: numOr(r.sub1Size, 200),
+    sub2Size: numOr(r.sub2Size, 250),
+    subColor: strOr(r.subColor, '#ffffff'),
+    sigColor: strOr(r.sigColor, '#ffffff'),
+    fontData: strOr(r.fontData),
+    fontName: strOr(r.fontName),
+    fontFileName: strOr(r.fontFileName),
+    guideType: ['character', 'boss', 'custom'].includes(r.guideType) ? r.guideType : 'character',
+    bossAvatar: art(r.bossAvatar),
+    characterArt: art(r.characterArt),
+    characterX: numOr(r.characterX, state.characterX),
+    floatImg: Array.isArray(r.floatImg)
+      ? r.floatImg
+          .filter(o => o && typeof o === 'object' && typeof o.url === 'string' && o.url)
+          .map(o => ({
+            id: strOr(o.id, 'f_' + Math.random().toString(36).slice(2, 9)),
+            url: o.url,
+            w: numOr(o.w, 1),
+            h: numOr(o.h, 1),
+            x: numOr(o.x, SVG_W * 0.75),
+            scale: numOr(o.scale, 1),
+            rounded: numOr(o.rounded, 0),
+            underMiddle: o.underMiddle !== false
+          }))
+      : []
+  };
+}
+
 async function importConfig(input) {
-  const f = input.files[0];
+  const f = input.files && input.files[0];
   if (!f) return;
   const reader = new FileReader();
   reader.onload = async e => {
     try {
-      Object.assign(state, JSON.parse(e.target.result));
+      Object.assign(state, normalizeImported(JSON.parse(e.target.result)));
       syncInputsFromState();
       applyModeUI();
       if (state.fontData) await installFont();
+      else await reloadFontByName();
       await loadBgImage();
       renderFloatList();
       mountPreview();
       persist();
-    } catch (err) { showToast('导入失败', 'error'); }
+      showToast('配置导入成功', 'success');
+    } catch (err) {
+      showToast('导入失败：' + (err && err.message ? err.message : err), 'error');
+    }
+    input.value = '';
   };
   reader.readAsText(f);
-  input.value = '';
 }
 
 async function clearAll() {
@@ -1160,6 +1338,9 @@ async function clearAll() {
   }
 }
 
+/* =========================================================================
+ * 表单同步与事件绑定
+ * ========================================================================= */
 function syncInputsFromState() {
   const map = {
     capTextInput: state.capText,
@@ -1260,7 +1441,7 @@ function bindEvents() {
     mountPreview(); persist();
   });
 
-  // 下拉项点击（Logo / 字号 / 字体）
+  /* 下拉项点击（Logo / 字号 / 字体） */
   document.addEventListener('click', e => {
     const item = e.target.closest('.dropdown-item');
     if (!item) return;
@@ -1302,6 +1483,9 @@ function bindEvents() {
   });
 }
 
+/* =========================================================================
+ * 对外接口
+ * ========================================================================= */
 const App = {
   set(key, value) {
     if (state[key] === value) return;
@@ -1319,6 +1503,9 @@ const App = {
 
     if (key === 'characterX') {
       updateCharImgX();
+    } else if (key === 'midBlur' || key === 'midBrightness') {
+      /* 这两个会触发 4K 级别的背景重算，防抖后再画 */
+      scheduleHeavyPreview();
     } else {
       mountPreview();
     }
@@ -1390,31 +1577,52 @@ const App = {
 };
 window.App = App;
 
+/* =========================================================================
+ * 启动
+ * ========================================================================= */
 (async function init() {
-  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+  try {
+    try {
+      await window.__bootPromise;
+    } catch (e) {
+      console.warn('[boot]', e);
+    }
 
-  injectIcons();
-  try { await loadDataFiles(); } catch(e) {}
-  try { await loadFontList(); } catch(e) {}
-  try { await loadPersist(); } catch(e) {}
+    if (typeof window.ICONS === 'undefined') {
+      throw new Error('图标库未加载（ui-icons.js），请刷新重试');
+    }
 
-  if (state.guideType === 'character' || state.guideType === 'boss') {
-    state.mainText = MODE_MAIN_TEXTS[state.guideType];
-    state.capText = MODE_CAP_TEXT[state.guideType];
+    injectIcons();
+
+    try { await loadDataFiles(); } catch (e) {}
+    try { await loadFontList(); } catch (e) {}
+    try { await loadPersist(); } catch (e) {}
+
+    if (state.guideType === 'character' || state.guideType === 'boss') {
+      state.mainText = MODE_MAIN_TEXTS[state.guideType];
+      state.capText = MODE_CAP_TEXT[state.guideType];
+    }
+
+    try { await installFont(); } catch (e) {}
+    try { await loadBgImage(); } catch (e) {}
+
+    syncInputsFromState();
+    renderFontDropdown();
+    applyModeUI();
+    renderFloatList();          /* 内部会调用 injectIcons() 处理动态生成的按钮 */
+    bindEvents();
+    mountPreview();
+
+    document.body.classList.add('ready');
+  } catch (err) {
+    console.error('[init]', err);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '初始化失败：' + (err && err.message ? err.message : String(err)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
   }
-
-  try { await installFont(); } catch(e) {}
-  try { await loadBgImage(); } catch(e) {}
-
-  syncInputsFromState();
-  renderFontDropdown();
-  applyModeUI();
-  renderFloatList();
-  bindEvents();
-  mountPreview();
-  injectIcons();
-
-  document.body.classList.add('ready');
 })();
 
 window.addEventListener('message', function (e) {
