@@ -1,14 +1,6 @@
 /* =========================================================================
  * 原神一图流生成器 · style.css
  * 仅角色一图流特化。通用控件在 shared/css/ 各文件。
- *
- * 例外区（不进体系）：
- *   · .app-container max-width 1400px（超宽屏约束）
- *   · .preview-frame 移动端 max-height 32vh（响应式视口高）
- *   · #121212 预览框暗底（模拟卡片渲染环境）
- *   · 100dvh / 100vh 视口高
- *   · .panel-primary-row .field min-width 130px
- *   · .artifact-dual-item min-width 140px
  * ========================================================================= */
 
 body {
@@ -73,7 +65,6 @@ body {
   }
 }
 
-/* 预览容器：仅定位 + 布局，无白底/边框/阴影 */
 .preview-card {
   display: flex;
   flex-direction: column;
@@ -81,7 +72,6 @@ body {
   position: relative;
 }
 
-/* 预览框：桌面端由 SVG 自然撑开，移动端 32vh 上限（覆盖 preview.css） */
 .preview-frame {
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
@@ -165,12 +155,12 @@ body {
   display: flex;
 }
 
-/* 4. 命座网格 */
+/* 4. 命座网格（点亮发光效果） */
 .cons-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  padding: 16px;
+  padding: 8px;
 }
 @media (max-width: 600px) { .cons-grid { grid-template-columns: 1fr; } }
 
@@ -179,7 +169,7 @@ body {
   align-items: center;
   gap: 8px;
   background: var(--bg-surface-2);
-  border-radius: 4px;
+  border-radius: 4.8px;
   padding: 8px;
   border: 1px solid var(--border-subtle);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -187,6 +177,8 @@ body {
 .cons-item.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
+  /* 外部白色光晕 */
+  box-shadow: 0 0 12px var(--accent-soft); 
 }
 
 .cons-badge {
@@ -209,6 +201,8 @@ body {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
+  /* 内部元素色光晕 */
+  box-shadow: 0 0 8px var(--accent);
 }
 
 /* 5. 元素主题色 */
@@ -216,7 +210,7 @@ body {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  padding: 16px;
+  padding: 8px;
 }
 .swatch-btn {
   display: flex;
@@ -224,7 +218,7 @@ body {
   justify-content: center;
   gap: 8px;
   background: var(--bg-surface-2);
-  border-radius: 4px;
+  border-radius: 4.8px;
   height: 32px;
   cursor: pointer;
   font-size: 12px;
@@ -240,20 +234,20 @@ body {
   color: var(--swatch-color, var(--accent));
 }
 .swatch-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   fill: currentColor;
   flex-shrink: 0;
   display: block;
 }
 .swatch-icon-wrap {
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 .swatch-name { color: var(--text-secondary); }
 
-/* 6. 折叠按钮（图标由 JS 切换，此处不做任何旋转） */
+/* 6. 折叠按钮 */
 .collapse-toggle .collapse-icon {
   display: inline-flex !important;
   align-items: center !important;
@@ -261,14 +255,8 @@ body {
 }
 
 /* 7. 业务布局 */
-.action-row {
-  display: flex;
-  gap: 8px;
-  padding: 16px;
-}
-
-.slider-wrap { padding: 16px; }
-.sub-stats-wrap { padding: 0 16px 16px 16px; }
+.slider-wrap { padding: 8px; }
+.sub-stats-wrap { padding: 8px; }
 
 .panel-primary-row { gap: 8px; flex-wrap: wrap; }
 .panel-primary-row .field { min-width: 130px; }
@@ -280,7 +268,7 @@ body {
   gap: 8px;
 }
 
-.group-card { padding: 16px; }
+.group-card { padding: 8px; }
 .group-header {
   display: flex;
   align-items: center;
@@ -312,7 +300,6 @@ body {
   gap: 8px;
 }
 
-/* character 的卡片比通用紧凑，覆盖 padding */
 .editor-list .card,
 .editor-list-large .card {
   padding: 8px;
@@ -320,7 +307,7 @@ body {
 
 .artifact-dual-row {
   display: flex;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .artifact-dual-item {
@@ -354,23 +341,15 @@ body {
 }
 .sub-card:hover { border-color: var(--accent); }
 
-/* 三分列网格（panels.css 只有两列基础，此处补三列修饰） */
 .panel-grid.three {
   grid-template-columns: repeat(3, 1fr);
 }
 @media (max-width: 640px) {
   .panel-grid.three { grid-template-columns: 1fr; }
 }
-/* ============================================================
- * 8. 卡片按钮组：强制按钮宽度由内容决定
- * 解决 flex-wrap 下按钮被拉伸、宽度异常
- * ============================================================ */
 
-.card-actions .btn,
-.group-actions .btn,
-.card-actions .btn-icon,
-.group-actions .btn-icon {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
+/* 修复左侧文字显得空、垂直居中的问题 */
+.panel-row > .flex-1 {
+  display: flex;
+  align-items: center;
 }
