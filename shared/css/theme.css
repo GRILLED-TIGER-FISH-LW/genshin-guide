@@ -1,8 +1,5 @@
 /* ============================================================
  * 原神攻略工具集 · 共享主题（入口）
- * ============================================================
- * 本文件只含：颜色调色板 + 主题切换 + 全局重置 + 布局小工具
- * 控件尺寸/圆角/字号/边框/间距/阴影/动画由各控件文件自己定义
  * ============================================================ */
 
 @import url('buttons.css');
@@ -89,8 +86,13 @@ html.theme-switching *::after {
   animation: none !important;
 }
 
-/* 全局重置 */
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* 全局重置（核心铁律：严禁 margin，防止间距翻倍） */
+* { 
+  box-sizing: border-box; 
+  margin: 0 !important; 
+  padding: 0; 
+  -webkit-tap-highlight-color: transparent; 
+}
 
 html, body, input, button, select, textarea {
   font-family: var(--std-font);
@@ -116,61 +118,46 @@ button, input[type="button"], input[type="submit"] {
 
 .hidden:not(.float-toolbar) { display: none !important; }
 
-/* 全局滚动条（Chrome / Safari） */
+/* 滚动条 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
-/* 全局滚动条（Firefox） */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
+/* ============================================================
+ * 布局小工具（一劳永逸的“网兜”，控制间距不重合）
+ * ============================================================ */
 
-/* 布局小工具 */
-.flex-1 { flex: 1; min-width: 0; }
-.flex-col, .stack { display: flex; flex-direction: column; gap: 8px; }
-.inline { display: inline-flex; align-items: center; gap: 4px; }
+/* 纵向排列：子元素相隔 8px */
+.stack { display: flex; flex-direction: column; gap: 8px; }
+
+/* 纵向排列：子元素相隔 16px */
+.stack-lg { display: flex; flex-direction: column; gap: 16px; }
+
+/* 横向排列：子元素相隔 8px，垂直居中 */
 .row { display: flex; align-items: center; gap: 8px; }
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.form-stack, .form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 16px;
-}
-.row-pad { padding: 16px; }
-.mb-0 { margin-bottom: 0 !important; }
-.mb-8 { margin-bottom: 8px; }
-.ml-auto { margin-left: auto; }
+
+/* 横向排列：子元素相隔 8px，垂直靠顶 */
+.row-top { display: flex; align-items: flex-start; gap: 8px; }
+
+/* 内边距工具 */
+.p-sm { padding: 8px; }
+.p-lg { padding: 16px; }
+.px-sm { padding-left: 8px; padding-right: 8px; }
+.px-lg { padding-left: 16px; padding-right: 16px; }
+.py-sm { padding-top: 8px; padding-bottom: 8px; }
+.py-lg { padding-top: 16px; padding-bottom: 16px; }
+
+/* 弹性占位 */
+.flex-1 { flex: 1; min-width: 0; }
+
+/* 字体与文本截断 */
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .text-accent { color: var(--accent); }
 .text-primary { color: var(--text-primary); }
 .text-secondary { color: var(--text-secondary); }
 .text-tertiary { color: var(--text-tertiary); }
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-}
-.font-label {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.upload-text {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
 
 /* 细滚动条（局部容器） */
 .scroll-thin::-webkit-scrollbar { width: 6px; }
