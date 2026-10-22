@@ -1,12 +1,27 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F4F1EA">
+<meta name="theme-color" content="#F4F1EA" />
 <title>原神攻略工具集</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="favicon.ico">
+
+<!-- ① 一次性迁移：旧主题键 gtt_theme → 新键 gi-theme（只在 gi-theme 缺失时写一次） -->
+<script>
+(() => {
+  try {
+    if (!localStorage.getItem('gi-theme')) {
+      const legacy = localStorage.getItem('gtt_theme');
+      if (legacy === 'dark' || legacy === 'light') localStorage.setItem('gi-theme', legacy);
+    }
+  } catch (e) {}
+})();
+</script>
+
+<!-- ② 主题初始化：必须同步加载（不能加 defer / async），否则首帧会闪 -->
+<script src="shared/css/theme-init.js?v=20261022"></script>
 
 <script>
 (() => {
@@ -38,11 +53,22 @@
     loadStyle('shared/css/theme.css'),
     loadScript('shared/ui-icons.js')
   ]);
+
+  /* ③ 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
+  window.__bootPromise.catch((err) => {
+    console.error('[boot]', err);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '载入失败：' + (err && err.message ? err.message : String(err)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
+  });
 })();
 </script>
 
 <style>
-  body { visibility: hidden; }
+  body { visibility: hidden; height: 100dvh; overflow: hidden; }
   body.ready { visibility: visible; }
   .boot-loading {
     position: fixed; inset: 0; z-index: 99999;
@@ -52,15 +78,9 @@
     font-size: 12px;
     font-family: var(--std-font, system-ui, sans-serif);
     visibility: visible;
+    padding: 24px; text-align: center; line-height: 1.6;
   }
   body.ready .boot-loading { display: none; }
-
-  html, body { height: 100%; height: 100dvh; }
-  body {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
 </style>
 </head>
 <body>
@@ -89,12 +109,12 @@
 
 <main class="home-view" id="homeView"></main>
 
-<main class="frame-container" id="frameContainer">
+<div class="frame-container" id="frameContainer">
   <div class="loading-mask" id="loadingMask">
     <div class="spinner"></div>
     <span>正在载入工具…</span>
   </div>
-</main>
+</div>
 
 <script>
 'use strict';
@@ -160,8 +180,6 @@ const TOOLS = [
   }
 ];
 
-const THEME_KEY = 'gtt_theme';
-
 const homeView        = document.getElementById('homeView');
 const frameContainer  = document.getElementById('frameContainer');
 const sidebarDrawer   = document.getElementById('sidebarDrawer');
@@ -176,7 +194,6 @@ const btnTheme        = document.getElementById('btnTheme');
 const frameCache = new Map();
 const expandedTools = new Set();
 
-let currentTheme  = 'light';
 let isHome        = true;
 let activeTool    = '';
 let activeSubtool = '';
@@ -184,48 +201,29 @@ let activeSubtool = '';
 const cacheKeyOf = (tool, sub) => (sub && sub.src) ? (tool.key + '::' + sub.key) : tool.key;
 const srcOf = (tool, sub) => (sub && sub.src) ? sub.src : tool.src;
 
-function applyTheme(theme) {
-  currentTheme = theme === 'dark' ? 'dark' : 'light';
-  document.documentElement.classList.add('theme-switching');
-  document.documentElement.setAttribute('data-theme', currentTheme);
-
+/* =========================================================================
+ * 主题：唯一来源是 theme-init.js 暴露的 Theme 模块
+ * ========================================================================= */
+function syncThemeToFrames() {
+  const theme = Theme.get();
   frameCache.forEach(record => {
     if (!record.loaded) return;
+    /* 已迁移的工具页自己能处理主题；这里直写一份作为未迁移页面的兜底 */
     try {
       const doc = record.iframe.contentDocument;
-      if (doc && doc.documentElement) {
-        doc.documentElement.classList.add('theme-switching');
-        doc.documentElement.setAttribute('data-theme', currentTheme);
-      }
+      if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
     } catch (e) {}
     try {
-      if (record.iframe.contentWindow) {
-        record.iframe.contentWindow.postMessage({ type: 'theme', theme: currentTheme }, '*');
-      }
+      record.iframe.contentWindow?.postMessage({ type: 'theme', theme }, '*');
     } catch (e) {}
   });
-
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', currentTheme === 'dark' ? '#1A1816' : '#F4F1EA');
-
-  try { localStorage.setItem(THEME_KEY, currentTheme); } catch (e) {}
-
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    document.documentElement.classList.remove('theme-switching');
-    frameCache.forEach(record => {
-      if (!record.loaded) return;
-      try {
-        const doc = record.iframe.contentDocument;
-        if (doc && doc.documentElement) doc.documentElement.classList.remove('theme-switching');
-      } catch (e) {}
-    });
-  }));
 }
 
-function toggleTheme() {
-  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
-}
+document.addEventListener('theme:change', syncThemeToFrames);
 
+/* =========================================================================
+ * 侧边栏
+ * ========================================================================= */
 function openSidebar() {
   sidebarDrawer.classList.add('is-open');
   sidebarBackdrop.classList.add('is-active');
@@ -255,7 +253,7 @@ function renderMenu() {
 
     const mainBtn = document.createElement('button');
     mainBtn.type = 'button';
-    mainBtn.className = 'menu-main' + (isActive ? ' is-active' : '') + (isExpanded && subs.length ? ' expanded' : '');
+    mainBtn.className = 'menu-main' + (isActive ? ' is-active' : '') + (isExpanded && subs.length ? ' is-expanded' : '');
 
     const iconKey = isActive ? tool.iconBold : tool.icon;
     const iconSvg = (ICONS.nav && ICONS.nav[iconKey]) || '';
@@ -269,9 +267,9 @@ function renderMenu() {
       if (subs.length) {
         const subWrap = sidebarMenu.querySelector('.menu-sub[data-tool="' + tool.key + '"]');
         if (subWrap) {
-          const willOpen = !subWrap.classList.contains('open');
-          subWrap.classList.toggle('open', willOpen);
-          mainBtn.classList.toggle('expanded', willOpen);
+          const willOpen = !subWrap.classList.contains('is-open');
+          subWrap.classList.toggle('is-open', willOpen);
+          mainBtn.classList.toggle('is-expanded', willOpen);
           if (willOpen) expandedTools.add(tool.key);
           else expandedTools.delete(tool.key);
         }
@@ -284,7 +282,7 @@ function renderMenu() {
 
     if (subs.length) {
       const subWrap = document.createElement('div');
-      subWrap.className = 'menu-sub' + (isExpanded ? ' open' : '');
+      subWrap.className = 'menu-sub' + (isExpanded ? ' is-open' : '');
       subWrap.dataset.tool = tool.key;
       const inner = document.createElement('div');
       inner.className = 'menu-sub-inner';
@@ -304,6 +302,9 @@ function renderMenu() {
   });
 }
 
+/* =========================================================================
+ * 首页 Bento
+ * ========================================================================= */
 function renderHome() {
   homeView.innerHTML = '';
   TOOLS.forEach(tool => {
@@ -320,6 +321,9 @@ function renderHome() {
   });
 }
 
+/* =========================================================================
+ * iframe 管理
+ * ========================================================================= */
 function ensureFrame(tool, sub) {
   const key = cacheKeyOf(tool, sub);
   if (frameCache.has(key)) return frameCache.get(key);
@@ -342,12 +346,13 @@ function ensureFrame(tool, sub) {
   iframe.addEventListener('load', () => {
     record.loaded = true;
     if (view.classList.contains('is-active')) loadingMask.classList.remove('is-visible');
+    const theme = Theme.get();
     try {
       const doc = iframe.contentDocument;
-      if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', currentTheme);
+      if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
     } catch (e) {}
     try {
-      if (iframe.contentWindow) iframe.contentWindow.postMessage({ type: 'theme', theme: currentTheme }, '*');
+      iframe.contentWindow?.postMessage({ type: 'theme', theme }, '*');
     } catch (e) {}
   });
 
@@ -357,6 +362,9 @@ function ensureFrame(tool, sub) {
   return record;
 }
 
+/* =========================================================================
+ * 导航
+ * ========================================================================= */
 function goHome() {
   isHome = true;
   activeTool = '';
@@ -447,6 +455,9 @@ function updateNavTitle() {
   }
 }
 
+/* =========================================================================
+ * 事件绑定
+ * ========================================================================= */
 window.addEventListener('message', (e) => {
   const data = e.data;
   if (!data || typeof data !== 'object') return;
@@ -462,7 +473,7 @@ window.addEventListener('message', (e) => {
 
 btnMenu.addEventListener('click', openSidebar);
 sidebarBackdrop.addEventListener('click', closeSidebar);
-btnTheme.addEventListener('click', toggleTheme);
+btnTheme.addEventListener('click', () => Theme.toggle());
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSidebar();
@@ -477,30 +488,47 @@ window.addEventListener('hashchange', () => {
   }
 });
 
+/* =========================================================================
+ * 启动
+ * ========================================================================= */
 (async function init() {
-  try { await window.__bootPromise; } catch (e) { console.warn(e); }
+  try {
+    try {
+      await window.__bootPromise;
+    } catch (e) {
+      console.warn('[boot]', e);
+    }
 
-  btnMenu.innerHTML = ICONS.app.hamburger;
+    if (typeof Theme === 'undefined' || typeof ICONS === 'undefined') {
+      throw new Error('核心脚本未加载（theme-init.js / ui-icons.js），请刷新重试');
+    }
 
-  const sunEl  = btnTheme.querySelector('[data-theme-icon="sun"]');
-  const moonEl = btnTheme.querySelector('[data-theme-icon="moon"]');
-  if (sunEl)  sunEl.innerHTML  = ICONS.app.sunBold  || '';
-  if (moonEl) moonEl.innerHTML = ICONS.app.moonBold || '';
+    btnMenu.innerHTML = ICONS.app.hamburger || '';
 
-  let savedTheme = 'light';
-  try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
-  applyTheme(savedTheme);
+    const sunEl  = btnTheme.querySelector('[data-theme-icon="sun"]');
+    const moonEl = btnTheme.querySelector('[data-theme-icon="moon"]');
+    if (sunEl)  sunEl.innerHTML  = ICONS.app.sunBold  || '';
+    if (moonEl) moonEl.innerHTML = ICONS.app.moonBold || '';
 
-  renderHome();
+    renderHome();
 
-  const hashKey = (location.hash || '').replace(/^#/, '');
-  if (hashKey && TOOLS.some(t => t.key === hashKey)) {
-    selectTool(hashKey, { silent: true });
-  } else {
-    goHome();
+    const hashKey = (location.hash || '').replace(/^#/, '');
+    if (hashKey && TOOLS.some(t => t.key === hashKey)) {
+      selectTool(hashKey, { silent: true });
+    } else {
+      goHome();
+    }
+
+    document.body.classList.add('ready');
+  } catch (err) {
+    console.error('[init]', err);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '初始化失败：' + (err && err.message ? err.message : String(err)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
   }
-
-  document.body.classList.add('ready');
 })();
 </script>
 </body>
