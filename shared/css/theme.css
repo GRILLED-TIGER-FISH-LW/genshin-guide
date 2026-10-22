@@ -1,5 +1,27 @@
 /* ============================================================
- * 原神攻略工具集 · 共享主题（入口）
+ * 原神攻略工具集 · 主题入口
+ * 唯一职责：定义令牌 → 重置浏览器 → 建立应用外壳 → 提供排版网兜
+ * ------------------------------------------------------------
+ * 【怎么用】组件文件里只写结构与状态，颜色/尺寸/动效/层级一律引用本文件令牌：
+ *   高度  → var(--h-ctl)        内边距 → var(--pad-ctl)
+ *   圆角  → var(--r-ctl) / var(--r-panel) / var(--r-pill)
+ *   间距  → var(--gap-xs|sm|gap|lg)   字号 → var(--fs-xs|sm|md|lg)
+ *   图标  → var(--icon-sm|icon|icon-lg)
+ *   动效  → var(--dur) var(--ease)
+ *   层级  → var(--z-toolbar|sticky|nav|dock|dropdown|status|drawer-backdrop|drawer|modal|toast)
+ *   浮层  → var(--glass) / var(--shadow-pop)
+ * 【禁止】在本文件之外写死颜色、写死 0.3s、写死 z-index 数字。
+ * ------------------------------------------------------------
+ * v2 变更：
+ *  1. 新增统一令牌层（尺寸/间距/字号/动效/层级/浮层）
+ *  2. :root[data-theme="dark"]，不再依赖源码顺序
+ *  3. 收敛硬编码色：--glass / --shadow-pop / --success
+ *  4. body 启用 flex 纵向外壳 + 100dvh + 子项 min-height:0
+ *  5. 表单控件继承字号（修复 input 默认 13.33px）
+ *  6. img/svg/canvas/video 块级化（各文件可删掉重复的 display:block）
+ *  7. 移除 font-synthesis / text-rendering / body transition 三处有害或死掉的声明
+ *  8. 移除 .hidden 的 .float-toolbar 例外（移交 preview.css 自行处理）
+ *  9. 删除死代码：scrollbar-width/color、.scroll-thin、.page-scroll、.ellipsis 内字号
  * ============================================================ */
 
 @import url('buttons.css');
@@ -10,8 +32,13 @@
 @import url('overlays.css');
 @import url('home.css');
 
-/* 变量 · 浅色 */
+/* ============================================================
+ * 1. 令牌 · 浅色
+ * ============================================================ */
 :root {
+  color-scheme: light;
+
+  /* —— 表面 —— */
   --bg-base: #F4F1EA;
   --bg-surface: #FFFFFF;
   --bg-surface-2: #F9F8F6;
@@ -19,34 +46,90 @@
   --bg-hover: #F0ECE5;
   --bg-seg-track: #E8E4DC;
 
+  /* —— 描边 —— */
   --border-subtle: rgba(0, 0, 0, 0.06);
   --border-default: rgba(0, 0, 0, 0.1);
   --border-strong: rgba(0, 0, 0, 0.15);
 
+  /* —— 文字 —— */
   --text-primary: #312E2B;
   --text-secondary: #7A736B;
   --text-tertiary: #A69E95;
 
+  /* —— 主色 —— */
   --accent: #9E6C47;
-  --accent-dark: #805535;
   --accent-hover: #805535;
+  --accent-press: #805535;
   --accent-soft: rgba(158, 108, 71, 0.1);
+  --accent-dark: var(--accent-press);          /* 兼容旧名，勿新增使用 */
   --on-accent: #F4F1EA;
 
+  /* —— 语义色 —— */
   --danger: #C7665C;
   --danger-bg: #F6ECE9;
   --danger-hover: #F0DFDA;
   --danger-border: rgba(199, 102, 92, 0.2);
+  --success: #82A79A;
+  --success-bg: rgba(130, 167, 154, 0.15);
 
+  /* —— 浮层 —— */
   --mask: rgba(49, 46, 43, 0.3);
+  --glass: rgba(244, 241, 234, 0.86);                                  /* 旧浏览器回退 */
+  --glass: color-mix(in srgb, var(--bg-base) 86%, transparent);        /* 现代浏览器 */
+  --shadow-pop: 0 6px 20px rgba(0, 0, 0, 0.15);
+
+  /* —— 尺寸刻度 —— */
+  --h-ctl: 32px;
+  --pad-ctl: 8px;
+  --r-ctl: calc(var(--h-ctl) * 0.15);
+  --r-panel: 12px;
+  --r-pill: 999px;
+
+  /* —— 间距刻度 —— */
+  --gap-xs: 2px;
+  --gap-sm: 4px;
+  --gap: 8px;
+  --gap-lg: 16px;
+
+  /* —— 图标刻度 —— */
+  --icon-sm: 14px;
+  --icon: 18px;
+  --icon-lg: 24px;
+
+  /* —— 字号刻度 —— */
+  --fs-xs: 10px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+
+  /* —— 动效 —— */
+  --dur: 0.3s;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* —— 层级表（唯一出处，禁止再写魔法数字）—— */
+  --z-toolbar: 15;
+  --z-sticky: 30;
+  --z-nav: 40;
+  --z-dock: 45;
+  --z-dropdown: 50;
+  --z-status: 60;
+  --z-drawer-backdrop: 90;
+  --z-drawer: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+
+  /* —— 布局留白 —— */
+  --dock-space: 88px;                          /* 底部固定胶囊占位高度 */
 
   --std-font: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-
-  color-scheme: light;
 }
 
-/* 变量 · 深色 */
-[data-theme="dark"] {
+/* ============================================================
+ * 2. 令牌 · 深色
+ * ============================================================ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
   --bg-base: #1A1816;
   --bg-surface: #23211F;
   --bg-surface-2: #2A2725;
@@ -63,8 +146,8 @@
   --text-tertiary: #736C64;
 
   --accent: #D8A47F;
-  --accent-dark: #BD8B66;
   --accent-hover: #E5B695;
+  --accent-press: #BD8B66;
   --accent-soft: rgba(216, 164, 127, 0.15);
   --on-accent: #1A1816;
 
@@ -74,11 +157,12 @@
   --danger-border: rgba(222, 128, 117, 0.3);
 
   --mask: rgba(0, 0, 0, 0.5);
-
-  color-scheme: dark;
+  --shadow-pop: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* 主题切换禁过渡 */
+/* ============================================================
+ * 3. 切换主题时禁用过渡（防逐元素闪动）
+ * ============================================================ */
 html.theme-switching *,
 html.theme-switching *::before,
 html.theme-switching *::after {
@@ -86,84 +170,95 @@ html.theme-switching *::after {
   animation: none !important;
 }
 
-/* 全局重置（核心铁律：严禁 margin，杜绝自带的推力乱搞） */
-* { 
-  box-sizing: border-box; 
-  margin: 0; 
-  padding: 0; 
-  -webkit-tap-highlight-color: transparent; 
+/* ============================================================
+ * 4. 重置
+ * ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+* {
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html, body, input, button, select, textarea {
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: var(--std-font);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--bg-base);
-  color: var(--text-primary);
-  font-size: 12px;
-  line-height: 1.5;
-  letter-spacing: 0;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+/* 纵向外壳里的直接子项必须允许收缩，否则整页滚动、内部滚动失效 */
+body > * { min-height: 0; }
+
+/* 表单控件继承字体与字号（浏览器默认会把 input 设成 13.33px） */
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
+button { cursor: pointer; }
+::placeholder { color: var(--text-tertiary); opacity: 1; }
 
-button, input[type="button"], input[type="submit"] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.hidden:not(.float-toolbar) { display: none !important; }
-
-/* 滚动条 */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+/* 媒体元素块级化：各组件里重复的 display:block 均可删除 */
+img, svg, canvas, video { display: block; max-width: 100%; }
 
 /* ============================================================
- * 布局网兜（一劳永逸控制间距，全部用 gap）
+ * 5. 显隐
  * ============================================================ */
+[hidden] { display: none !important; }
+.hidden { display: none !important; }
 
-/* 纵向排列：子元素相隔 8px */
-.stack { display: flex; flex-direction: column; gap: 8px; }
+/* ============================================================
+ * 6. 焦点可见性（appearance:none 后部分浏览器焦点框会消失）
+ * ============================================================ */
+:is(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
-/* 纵向排列：子元素相隔 16px */
-.stack-lg { display: flex; flex-direction: column; gap: 16px; }
+/* ============================================================
+ * 7. 滚动条
+ * ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--gap-sm); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 
-/* 横向排列：子元素相隔 8px，垂直居中 */
-.row { display: flex; align-items: center; gap: 8px; }
+/* ============================================================
+ * 8. 排版网兜（间距只走 gap，禁用 margin）
+ * ============================================================ */
+.stack { display: flex; flex-direction: column; gap: var(--gap); }
+.stack-lg { display: flex; flex-direction: column; gap: var(--gap-lg); }
+.row { display: flex; align-items: center; gap: var(--gap); }
+.row-top { display: flex; align-items: flex-start; gap: var(--gap); }
 
-/* 横向排列：子元素相隔 8px，垂直靠顶 */
-.row-top { display: flex; align-items: flex-start; gap: 8px; }
+/* ============================================================
+ * 9. 工具类
+ * ============================================================ */
+.p-sm { padding: var(--gap); }
+.p-lg { padding: var(--gap-lg); }
+.px-sm { padding-left: var(--gap); padding-right: var(--gap); }
+.px-lg { padding-left: var(--gap-lg); padding-right: var(--gap-lg); }
+.py-sm { padding-top: var(--gap); padding-bottom: var(--gap); }
+.py-lg { padding-top: var(--gap-lg); padding-bottom: var(--gap-lg); }
 
-/* 内边距工具 */
-.p-sm { padding: 8px; }
-.p-lg { padding: 16px; }
-.px-sm { padding-left: 8px; padding-right: 8px; }
-.px-lg { padding-left: 16px; padding-right: 16px; }
-.py-sm { padding-top: 8px; padding-bottom: 8px; }
-.py-lg { padding-top: 16px; padding-bottom: 16px; }
+.flex-1 { flex: 1; min-width: 0; min-height: 0; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 弹性占位 */
-.flex-1 { flex: 1; min-width: 0; }
-
-/* 字体与文本截断 */
-.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .text-accent { color: var(--accent); }
 .text-primary { color: var(--text-primary); }
 .text-secondary { color: var(--text-secondary); }
 .text-tertiary { color: var(--text-tertiary); }
-
-/* 细滚动条（局部容器） */
-.scroll-thin::-webkit-scrollbar { width: 6px; }
-.scroll-thin::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
-.scroll-thin::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
-.scroll-thin::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
-
-/* 页面滚动 */
-.page-scroll { -webkit-overflow-scrolling: touch; }
