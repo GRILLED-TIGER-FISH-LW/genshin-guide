@@ -1,15 +1,19 @@
 /* ============================================================
  * inputs.css —— 输入区（文本框/勾选/滑块/字段/下拉/搜索/联想/Tab/分段）
  * ------------------------------------------------------------
- * 【原则】全局元素样式一律用 :where() 包裹（特异性 0），组件类永远能覆盖，
- *        因此本文件不再出现任何 !important。
+ * 【原则】元素级输入样式使用 input:where(...) —— 特异性 (0,0,1)：
+ *         · 高于 theme.css 的 * { padding: 0 }  → 内边距不会被清零
+ *         · 低于任何组件类（.uid-input / .search-input 等）→ 可被覆盖
+ *        因此本文件不出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
- * v3 修正（相对 v2）：
- *  1. 恢复 .dropdown-trigger .icon-slot 的尺寸规则（v2 误改名导致图标失去尺寸）
- *  2. 恢复 .dropdown-arrow .arrow-down / .arrow-up 的尺寸规则（v2 误删）
- *  3. 箭头显隐改用 .is-open 驱动，与 dropdown.js 完全对齐
- * 其余内容与 v2 一致。
+ * v4 修正（相对 v3）：
+ *  · 修复文本框水平内边距被清零的问题（文字贴着左边框）
+ *    原因：:where(...) 特异性为 (0,0,0)，与 theme.css 的
+ *          * { padding: 0 } 相同，且后者在 @import 之后 → 后者胜出
+ *    修法：改为 input:where(...) → (0,0,1)，既高于 * 又低于组件类
+ *  · 同步修正 :focus 规则的同样问题
+ *  · 其余内容与 v3 完全一致
  * ============================================================ */
 
 :root {
@@ -35,9 +39,10 @@
 }
 
 /* ============================================================
- * 1. 基础输入（:where → 零特异性，永远可被组件类覆盖）
+ * 1. 基础输入
  * ============================================================ */
-:where(input[type="text"], input[type="number"], input[type="search"], textarea) {
+input:where([type="text"], [type="number"], [type="search"]),
+textarea {
   width: 100%;
   color: var(--text-primary);
   background: var(--bg-surface);
@@ -46,7 +51,7 @@
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-:where(input[type="text"], input[type="number"], input[type="search"]) {
+input:where([type="text"], [type="number"], [type="search"]) {
   height: var(--h-ctl);
   padding: 0 var(--pad-ctl);
   border-radius: var(--r-ctl);
@@ -60,7 +65,8 @@ textarea {
   resize: vertical;
 }
 
-:where(input[type="text"], input[type="number"], input[type="search"], textarea):focus {
+input:where([type="text"], [type="number"], [type="search"]):focus,
+textarea:focus {
   border-color: var(--accent);
   box-shadow: var(--input-shadow-focus);
 }
