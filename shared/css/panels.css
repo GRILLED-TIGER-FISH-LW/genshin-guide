@@ -7,8 +7,8 @@
 
 :root {
   --panel-radius: 12px;
-  --panel-row-p: 16px;
-  --panel-row-gap: 8px;
+  --panel-row-p: 8px;       /* 修改点：内边距从 16 改为 8 */
+  --panel-row-gap: 8px;     /* 内间隔保持不变 */
   --panel-row-min-h: 32px;
   --panel-header-px: 4px;
   --panel-font: 12px;
