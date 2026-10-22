@@ -262,3 +262,22 @@ img, svg, canvas, video { display: block; max-width: 100%; }
 .text-primary { color: var(--text-primary); }
 .text-secondary { color: var(--text-secondary); }
 .text-tertiary { color: var(--text-tertiary); }
+
+/* ============================================================
+ * 首屏加载保护
+ * ------------------------------------------------------------
+ * CSS 首次生效时，元素会从「无样式」变成有样式，属性值的变化会被
+ * 浏览器当成一次"改变"，从而播放一遍过渡动画。
+ * 典型症状：侧边栏 .sidebar-drawer 从 transform:none 变成
+ *           translateX(-100%)，会播一次 0.3s 的滑出动画，
+ *           而 body.ready 正好在这段动画中途把页面显示出来 → 看到"跳一下"。
+ *
+ * html.booting 由 theme-init.js 在最早时机加上、资源加载完后移除。
+ * 没引入 theme-init.js 的页面不会带上这个类，因此不受影响。
+ * 注意：只禁 transition，不禁 animation —— 加载动画的 spinner 照常转。
+ * ============================================================ */
+html.booting *,
+html.booting *::before,
+html.booting *::after {
+  transition: none !important;
+}
