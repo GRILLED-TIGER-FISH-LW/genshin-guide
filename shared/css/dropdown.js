@@ -9,15 +9,13 @@
  *   · 打开时改用 position: fixed，绕过祖先 overflow 裁剪
  *   · 上下自动翻转、水平自动内收，永不超出安全区
  *   · 内容装得下时【完全不夹高度】，避免出现多余的滚动条
+ *   · 面板宽度跟随触发器；可用 CSS 变量 --dropdown-min-w 调整下限
  *   · 自动抵消祖先 transform 造成的坐标偏移
  *   · Esc 关闭并归还焦点
  * ------------------------------------------------------------
- * v3 修正：
- *  1. 【修掉多余滚动条】原来无条件设 max-height = scrollHeight，
- *     而 scrollHeight 是四舍五入的整数，可能比真实内容矮 0.5px，
- *     于是 overflow-y:auto 判定"有溢出" → 弹出滚动条。
- *     现在：装得下就 max-height:none，装不下才夹。
- *  2. 同时尊重 CSS 里的 --input-panel-max-h 上限，避免面板过高。
+ * v4 变更：
+ *  · MIN_W 改为可被 CSS 覆盖：读 --dropdown-min-w，默认 140
+ *    （星级选择器这类内容很短的控件可设成 0，让面板与按钮同宽）
  * ============================================================ */
 (() => {
   'use strict';
@@ -26,7 +24,7 @@
   const FIXED = 'is-fixed';
 
   const MIN_H = 60;        // 面板最小高度
-  const MIN_W = 140;       // 面板最小宽度
+  const MIN_W = 140;       // 面板最小宽度的默认值（可被 --dropdown-min-w 覆盖）
   const FLIP_SPACE = 160;  // 下方空间低于此值时优先向上展开
 
   let active = null;
@@ -68,12 +66,13 @@
     const gap = token(dropdown, '--gap', 8);
     const margin = token(dropdown, '--gap-lg', 16);
     const cssMaxH = token(dropdown, '--input-panel-max-h', 280) || 280;
+    const minW = token(dropdown, '--dropdown-min-w', MIN_W);
     const vw = document.documentElement.clientWidth;
     const vh = window.innerHeight;
     const rect = trigger.getBoundingClientRect();
 
-    /* —— 水平：夹在安全区内 —— */
-    const width = Math.min(Math.max(rect.width, MIN_W), vw - margin * 2);
+    /* —— 水平：夹在安全区内，宽度跟随触发器 —— */
+    const width = Math.min(Math.max(rect.width, minW), vw - margin * 2);
     let left = Math.round(rect.left);
     if (left + width > vw - margin) left = vw - margin - width;
     if (left < margin) left = margin;
