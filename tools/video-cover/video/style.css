@@ -171,10 +171,9 @@ body {
   cursor: pointer;
 }
 
-/* ---- 字体行：名称占剩余宽度，下拉固定 150px ----
- * 用相邻兄弟选择器，不依赖 :has()，兼容性更好 */
+/* ---- 字体行：下拉按内容自适应（约 100px），不占满半行 ---- */
 .panel-row > .font-label + .dropdown {
-  flex: 0 1 150px;
-  min-width: 0;
+  flex: 0 1 auto;
   width: auto;
+  max-width: 160px;
 }
