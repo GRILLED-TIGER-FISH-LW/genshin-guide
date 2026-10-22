@@ -1,6 +1,5 @@
 /* ============================================================
  * inputs.css —— 输入区
- * 输入框、滑条、表单字段、表单头部、下拉、搜索、联想、特殊输入、计数徽标、Tab 切换、分段控件
  * ============================================================ */
 
 :root {
@@ -237,12 +236,15 @@ input[type="range"]::-moz-range-thumb {
 .field {
   display: flex;
   flex-direction: column;
+  align-items: flex-start; /* 修复：强制左对齐 */
   gap: var(--input-gap-sm);
+  width: 100%;
 }
 .field-label {
   font-size: var(--input-font);
   color: var(--text-secondary);
   font-weight: 500;
+  text-align: left; /* 修复：强制文字左对齐 */
 }
 .field-hint {
   font-size: var(--input-font);
@@ -314,6 +316,7 @@ input[type="range"]::-moz-range-thumb {
 .dropdown {
   position: relative;
   min-width: 0;
+  width: 100%; /* 修复：强制撑满父容器，不再缩短 */
 }
 .dropdown-trigger {
   width: 100%;
@@ -335,7 +338,6 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color var(--input-t) var(--input-ease);
 }
 
-/* 下拉框里的 svg 图标固定 14px */
 .dropdown-trigger svg {
   width: 14px;
   height: 14px;
