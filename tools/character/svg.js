@@ -1,11 +1,19 @@
 /* =========================================================================
- * 原神一图流生成器 · svg.js (2026 现代 ES6+ 彻底重构版)
+ * 原神一图流生成器 · svg.js
  * =========================================================================
- * 核心改造：
- * 1. 消灭所有 var，全面采用 const / let。
- * 2. 使用模板字符串重组 SVG 拼接，大幅减少 + 号拼接带来的混乱。
- * 3. 抽象绘图原语，去除冗余的变量声明。
- * 4. 确保所有绘制坐标、排版逻辑与原版 100% 一致。
+ * 预览与导出的 SVG 构建层
+ * ------------------------------------------------------------
+ * v2 修正：
+ *  1. 【真 bug】doubleArtifact 里 `const { gap } = LAYOUT` 解构到 undefined
+ *     （LAYOUT 只有 doubleGap），导致 w = NaN → 散搭圣遗物右图不显示、
+ *     左上角冒出无效矩形、标签字号被压到最小值。
+ *     → 改为 `const { doubleGap: gap } = LAYOUT`
+ *  2. 【真 bug】导出的 @font-face 注册家族名用了 d.fontName（如"思源黑体"），
+ *     但文本 font-family 用的是 CardCustomFont → 名字对不上，导出 PNG 时
+ *     自定义字体完全不生效，且测宽与实际渲染不一致导致溢字。
+ *     → @font-face 统一注册为 'CardCustomFont'
+ *  3. tightenAllIconViewBoxes 增加幂等保护，避免重复执行时二次收紧
+ *  4. 其余绘制逻辑、坐标、取整方式与原文完全一致（未做任何视觉改动）
  * ========================================================================= */
 
 /* =========================================================================
@@ -33,7 +41,7 @@ const tightenSvgToSquareViewBox = (svgString) => {
     minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
     maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height);
   });
-  
+
   host.remove();
   if (!isFinite(minX) || !isFinite(minY)) return svgString;
 
@@ -41,12 +49,18 @@ const tightenSvgToSquareViewBox = (svgString) => {
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
   const nx = cx - side / 2, ny = cy - side / 2;
   const fmt = n => +n.toFixed(4);
-  
+
   return svgString.replace(/viewBox="[^"]*"/, `viewBox="${fmt(nx)} ${fmt(ny)} ${fmt(side)} ${fmt(side)}"`);
 };
 
+let elementViewBoxTightened = false;
 const tightenAllIconViewBoxes = () => {
-  Object.keys(ELEMENT_ICONS).forEach(k => { ELEMENT_ICONS[k] = tightenSvgToSquareViewBox(ELEMENT_ICONS[k]); });
+  if (elementViewBoxTightened) return;
+  elementViewBoxTightened = true;
+
+  Object.keys(ELEMENT_ICONS).forEach(k => {
+    ELEMENT_ICONS[k] = tightenSvgToSquareViewBox(ELEMENT_ICONS[k]);
+  });
   document.querySelectorAll('svg.icon').forEach(svg => {
     const outer = svg.outerHTML;
     const fixed = tightenSvgToSquareViewBox(outer);
@@ -86,7 +100,7 @@ const wrapTextLines = (content, maxW, size, maxLines) => {
   if (!chars.length) return [];
   const lines = [];
   let line = '';
-  
+
   chars.forEach(ch => {
     const next = line + ch;
     if (!line || measureTextWidth(next, size) <= maxW) {
@@ -110,7 +124,7 @@ const wrappedCenteredText = (x, areaTop, areaW, areaH, content, maxW, base, min,
     const maxLines = Math.max(1, Math.floor(areaH / lineH));
     const lines = wrapTextLines(content, maxW, size, maxLines);
     if (!lines) continue;
-    
+
     const blockH = lines.length * lineH;
     const firstY = areaTop + (areaH - blockH) / 2 + lineH / 2;
     return lines.map((line, i) => text(centerX, firstY + i * lineH, line, size, { fill, anchor: 'middle' })).join('');
@@ -125,7 +139,7 @@ const wrappedLeftText = (x, areaTop, areaW, areaH, content, maxW, base, min, fil
     const maxLines = Math.max(1, Math.floor(fitH / lineH));
     const lines = wrapTextLines(content, maxW, size, maxLines);
     if (!lines) continue;
-    
+
     const blockH = lines.length * lineH;
     const firstY = areaTop + (areaH - blockH) / 2 + lineH / 2;
     return lines.map((line, i) => text(x, firstY + i * lineH, line, size, { fill })).join('');
@@ -148,9 +162,9 @@ const text = (x, y, content, size, opts = {}) => {
   const weight = opts.weight || '400';
   const opacity = opts.opacity == null ? 1 : opts.opacity;
   const baseline = opts.baseline || 'middle';
-  
+
   let attrs = `x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" dominant-baseline="${baseline}" opacity="${opacity}"`;
-  
+
   if (opts.stroke) {
     attrs += ` stroke="${opts.stroke}" stroke-width="${opts.strokeWidth || 0}" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke fill"`;
   }
@@ -159,7 +173,7 @@ const text = (x, y, content, size, opts = {}) => {
   if (opts.fit) {
     attrs += ` data-fit-max-w="${opts.fit.maxW}" data-fit-base="${opts.fit.base}" data-fit-min="${opts.fit.min || 8}"`;
   }
-  
+
   return `<text ${attrs}>${esc(content)}</text>`;
 };
 
@@ -190,7 +204,7 @@ const slot = (x, y, size, img, name, key, field) => {
   const labelSize = fitSize(name, maxW, base, 3);
   const labelTextY = y + size - labelH / 2 + labelSize * 0.35;
   const showLabel = !!(name || field);
-  
+
   let labelEl = '';
   if (showLabel) {
     const opts = { anchor: 'middle', baseline: 'alphabetic' };
@@ -198,7 +212,7 @@ const slot = (x, y, size, img, name, key, field) => {
     labelEl = text(x + size / 2, labelTextY, name || '', labelSize, opts);
   }
   const bg = showLabel ? `<rect x="${x}" y="${y + size - labelH}" width="${size}" height="${labelH}" fill="url(#slotBottomGrad)" clip-path="url(#${cp})"/>` : '';
-  
+
   return `
     <clipPath id="${cp}"><rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${radius}"/></clipPath>
     ${rect(x, y, size, size, 'rgba(0,0,0,.4)', '', 0, radius)}
@@ -207,7 +221,7 @@ const slot = (x, y, size, img, name, key, field) => {
 };
 
 const doubleArtifact = (x, y, size, a, key) => {
-  const { gap } = LAYOUT;
+  const { doubleGap: gap } = LAYOUT;      /* 修正：原为 LAYOUT.gap（不存在）→ NaN */
   const w = size * 2 + gap, h = size;
   const radius = Math.round(size * LAYOUT.radius.slotFactor);
   const cpL = `clip_${key}_l`, cpR = `clip_${key}_r`;
@@ -218,14 +232,14 @@ const doubleArtifact = (x, y, size, a, key) => {
   const fs = fitSize(displayName, maxW, base, 4);
   const labelTextY = y + h - labelH / 2 + fs * 0.35;
   const showLabel = !!displayName;
-  
+
   let labelEl = '';
   if (showLabel) labelEl = text(x + w / 2, labelTextY, displayName, fs, { anchor: 'middle', baseline: 'alphabetic' });
   const bg = showLabel ? `
     <rect x="${x}" y="${y + h - labelH}" width="${size}" height="${labelH}" fill="url(#slotBottomGrad)" clip-path="url(#${cpL})"/>
     <rect x="${x + size}" y="${y + h - labelH}" width="${gap}" height="${labelH}" fill="url(#slotBottomGrad)"/>
     <rect x="${x + size + gap}" y="${y + h - labelH}" width="${size}" height="${labelH}" fill="url(#slotBottomGrad)" clip-path="url(#${cpR})"/>` : '';
-    
+
   return `
     <clipPath id="${cpL}"><path d="M${x + radius} ${y}H${x + size}V${y + size}H${x + radius}Q${x} ${y + size} ${x} ${y + size - radius}V${y + radius}Q${x} ${y} ${x + radius} ${y}Z"/></clipPath>
     <clipPath id="${cpR}"><path d="M${x + size + gap} ${y}H${x + size + gap + size - radius}Q${x + size + gap + size} ${y} ${x + size + gap + size} ${y + radius}V${y + size - radius}Q${x + size + gap + size} ${y + size} ${x + size + gap + size - radius} ${y + size}H${x + size + gap}Z"/></clipPath>
@@ -255,13 +269,13 @@ const midSection = (layerCfg, title, contentSvg) => {
 const buildWeapons = () => {
   const keys = WEAPON_ORDER.filter(k => State.data.weaponData[k].length);
   if (!keys.length) return '';
-  
+
   let out = '';
   const step = LAYOUT.iconSize + LAYOUT.iconGap, size = LAYOUT.iconSize;
   const { weaponSlotY: slotY, weaponLabelFs: labelFs, weaponLabelOffsetY: labelOffsetY } = LAYOUT;
   const sepGap = 20;
   let x = LAYOUT.right.x + LAYOUT.padX;
-  
+
   keys.forEach((k, groupIndex) => {
     if (groupIndex > 0) {
       out += `<rect x="${x - sepGap - 1}" y="${slotY}" width="2" height="${size}" fill="url(#sepGrad)"/>`;
@@ -270,7 +284,7 @@ const buildWeapons = () => {
     group.slice(0, WEAPON_MAX).forEach((w, i) => {
       out += slot(x + i * step, slotY, size, w.img, w.name, `w_${k}_${i}`, `weapon.${k}.${i}.name`);
     });
-    
+
     const labelTop = slotY + size + labelOffsetY;
     const labelY = labelTop + labelFs / 2;
     const labelX = x + Math.max(26, (group.length * step - (step - size)) / 2);
@@ -297,7 +311,7 @@ const buildArtifacts = () => {
   const doubleStep = size * 2 + LAYOUT.doubleGap + LAYOUT.iconGap;
   const iconY = LAYOUT.artifactSlotY;
   let x = LAYOUT.layers.artifact.x + LAYOUT.padX;
-  
+
   State.data.artifactData.forEach((a, i) => {
     if (a.type === 'double') { out += doubleArtifact(x, iconY, size, a, `a_${i}`); x += doubleStep; }
     else { out += slot(x, iconY, size, a.img, a.name, `a_${i}`, `artifact.${i}.name`); x += step; }
@@ -318,7 +332,7 @@ const statBox = (x, y, w, h, iconKey, title, value, field) => {
   const iconElem = renderArtifactIcon(iconKey, iconCx, centerY, iconSize);
   const valueAreaTop = y + 32, valueAreaH = h - 36;
   const maxW = w - boxRx * 2;
-  
+
   const valueSvg = value ? wrappedCenteredText(x + boxRx, valueAreaTop, maxW, valueAreaH, value, maxW, 12, 6, '#fff') : '';
   return `
     ${rect(x, y, w, h, LAYOUT.innerBoxFill, '', 0, boxRx)}
@@ -341,7 +355,7 @@ const buildStats = () => {
   const subTextX = subLabelX + subLabelW + 5;
   const subRightLimit = offsetX + totalW - 10;
   const subTextW = subRightLimit - subTextX;
-  
+
   return `
     ${statBox(offsetX, contentY, boxW, boxH, 'flower', '时之沙', State.data.sandMain, 'stat.sandMain')}
     ${statBox(offsetX + boxW + gap, contentY, boxW, boxH, 'cup', '空之杯', State.data.gobMain, 'stat.gobMain')}
@@ -360,13 +374,13 @@ const buildTalents = () => {
   const { boxH, colGap, labelFs, valueFs } = LAYOUT.talent;
   const colW = (contentW - colGap * 2) / 3;
   const r = LAYOUT.radius.inner;
-  
+
   const items = [
     ['普通攻击', State.data.talentA, 'talent.A'],
     ['元素战技', State.data.talentE, 'talent.E'],
     ['元素爆发', State.data.talentQ, 'talent.Q']
   ];
-  
+
   return items.map((it, i) => {
     const x = contentX + i * (colW + colGap);
     const val = it[1] || '—';
@@ -387,7 +401,7 @@ const buildPanel = () => {
   const baseY = MID_CONTENT_Y;
   const r = LAYOUT.radius.inner;
   const { cols, cellW, cellH, gapX, gapY, innerPadX, labelFs, valueFs } = LAYOUT.panel;
-  
+
   const primaryLabel = PANEL_PRIMARY_LABELS[d.primaryKey] || PANEL_PRIMARY_LABELS.hp;
   const items = [
     { key: 'primaryValue', label: primaryLabel, value: d.primaryValue || '' },
@@ -396,7 +410,7 @@ const buildPanel = () => {
     { key: 'cd', label: '暴击伤害', value: d.cd || '' },
     { key: 'er', label: '充能效率', value: d.er || '' }
   ];
-  
+
   return items.map((it, i) => {
     const col = i % cols, row = Math.floor(i / cols);
     const cx = contentX + col * (cellW + gapX);
@@ -418,7 +432,7 @@ const buildConstellations = () => {
   const contentY = MID_CONTENT_Y;
   const theme = State.data.theme;
   const list = State.data.constellationData;
-  
+
   return list.map((c, i) => {
     const col = i % 2, row = Math.floor(i / 2);
     const x = colX + col * (boxW + gapX);
@@ -431,7 +445,7 @@ const buildConstellations = () => {
     const descAreaW = descRightLimit - descX;
     const descText = c.desc ? wrappedLeftText(descX, y + 2, descAreaW, boxH - 4, c.desc, descAreaW, descFs, 6, '#fff') : '';
     const badgeFill = active ? theme : 'rgba(0,0,0,.4)';
-    
+
     if (active) {
       return `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${boxRx}" fill="${theme}" fill-opacity="0.25" stroke="${theme}" stroke-opacity="0.5" stroke-width="1"/>
         <circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${badgeFill}"/>
@@ -451,23 +465,23 @@ const buildTeams = () => {
   const T = LAYOUT.team;
   const whiteBoxY = LAYOUT.layers.team.y + LAYOUT.contentOffsetY;
   const whiteBoxH = LAYOUT.layers.team.h - LAYOUT.contentOffsetY - LAYOUT.bottomPad;
-  
+
   return State.data.teamData.slice(0, 3).map((team, ti) => {
     const x = LAYOUT.right.x + LAYOUT.padX + ti * (T.w + T.gap);
     const teamRx = LAYOUT.radius.inner;
     let out = `<rect x="${x}" y="${whiteBoxY}" width="${T.w}" height="${whiteBoxH}" rx="${teamRx}" fill="${LAYOUT.innerBoxFill}"/>`;
     const nameY = whiteBoxY + T.nameOffsetY;
-    
+
     if (team.name) {
       out += text(x + T.w / 2, nameY, team.name, fitSize(team.name, 240, T.nameFs, 8),
         { fill: LAYOUT.labelColor, anchor: 'middle', weight: 500, field: `team.${ti}.name`, fit: { maxW: 240, base: T.nameFs, min: 8 } });
     }
-    
+
     const mainStartX = x + (T.w - (T.mainSize * 4 + T.mainGap * 3)) / 2;
     const mainY = whiteBoxY + T.mainOffsetY;
     const coreChar = { name: State.data.charName || team.chars[0].name || '', img: State.data.teamCoreImg || team.chars[0].img || '' };
     const mainChars = [coreChar, ...team.chars.slice(1, 4)];
-    
+
     mainChars.forEach((c, ci) => {
       const cx = mainStartX + ci * (T.mainSize + T.mainGap);
       const mainField = ci === 0 ? 'charName' : `team.${ti}.char.${ci}.name`;
@@ -479,7 +493,7 @@ const buildTeams = () => {
         out += `<g transform="translate(${plusX}, ${plusY}) scale(${plusScale})"><path d="${PLUS_ICON_PATH}" fill="${LAYOUT.labelColor}" stroke="${LAYOUT.labelColor}" stroke-width="${LAYOUT.plusStrokeW}" stroke-linejoin="round"/></g>`;
       }
     });
-    
+
     const altStartY = whiteBoxY + T.altOffsetY;
     team.chars.slice(1, 4).forEach((c, ci) => {
       const rowY = altStartY + ci * (T.altSize + T.altRowGap);
@@ -494,10 +508,10 @@ const buildTeams = () => {
       const clusterW = alts.length ? alts.length * T.altSize + (alts.length - 1) * T.altGap : 0;
       const startX = centerX - clusterW / 2;
       const emptyAltText = c.emptyAltText || '暂无备选';
-      
+
       out += text(x + T.altLabelPadL, rowY + T.altSize / 2, label, labelFs, { fill: LAYOUT.labelColor, weight: 500 });
       if (!alts.length) out += wrappedCenteredText(rangeL, rowY, rangeW, T.altSize, emptyAltText, rangeW, 10, 5, EMPTY_FILL);
-      
+
       alts.forEach((a, ai) => {
         const ax = startX + ai * (T.altSize + T.altGap);
         const altField = `team.${ti}.char.${ci + 1}.alt.${ai}.name`;
@@ -514,11 +528,15 @@ const buildTeams = () => {
 const buildSVG = (scale = 1, forExport = false) => {
   const d = State.data;
   const W = SVG_W * scale, H = SVG_H * scale;
-  
-  const fontFace = (forExport && d.fontData) ? `@font-face{font-family:'${d.fontName}';src:url("${d.fontData}");font-display:block}` : '';
+
+  /* 修正：@font-face 的家族名必须与 FONT_FAMILY_CUSTOM 的首项一致（CardCustomFont），
+   * 否则导出 PNG 时自定义字体不生效 */
+  const fontFace = (forExport && d.fontData)
+    ? `@font-face{font-family:'CardCustomFont';src:url("${d.fontData}");font-display:block}`
+    : '';
   const fontFamily = d.fontData ? FONT_FAMILY_CUSTOM : FONT_FAMILY_DEFAULT;
   const nameFs = fitSize(d.charName, 280, 50, 18);
-  
+
   const imgX = Number(d.imgX) || 0;
   const leftX = LAYOUT.left.x, leftY = LAYOUT.left.y, leftW = LAYOUT.left.w, leftH = LAYOUT.left.h;
   const imgMeta = d.charImgMeta || {};
@@ -528,10 +546,10 @@ const buildSVG = (scale = 1, forExport = false) => {
   const charDrawW = (imgIW > 0 && imgIH > 0) ? Math.round(leftH * imgIW / imgIH) : leftW;
   const charDrawY = leftY;
   const charDrawX = leftX + (leftW - charDrawW) / 2 + imgX;
-  
+
   const nameElemCenterX = leftX + leftW / 2;
   const nameElemCenterY = leftY + leftH - 100;
-  
+
   const nbMeta = d.nameBgImgMeta || {};
   const nbW = Number(nbMeta.w) || 0, nbH = Number(nbMeta.h) || 0;
   let elemBgW, elemBgH;
@@ -539,29 +557,29 @@ const buildSVG = (scale = 1, forExport = false) => {
     if (nbW >= nbH) { elemBgW = leftW / 2; elemBgH = Math.round(elemBgW * nbH / nbW); }
     else { elemBgH = leftW / 2; elemBgW = Math.round(elemBgH * nbW / nbH); }
   } else { elemBgW = leftW / 2; elemBgH = elemBgW; }
-  
+
   const elemBgX = nameElemCenterX - elemBgW / 2;
   const elemBgY = nameElemCenterY - elemBgH / 2;
-  
+
   const infoRows = [
     d.version ? ['当前版本:', d.version, 'version'] : null,
     d.date ? ['制作日期:', d.date, 'date'] : null,
     d.author ? ['作者:', d.author, 'author'] : null
   ].filter(Boolean);
-  
+
   const infoFs = 12;
   const CI = LAYOUT.charInfo;
   const infoBottomCenterY = leftY + leftH - CI.padB - infoFs / 2;
   let info = '';
-  
+
   infoRows.forEach((r, i) => {
     const ix = leftX + CI.padL;
     const iy = infoBottomCenterY - (infoRows.length - 1 - i) * CI.lineGap;
     info += text(ix, iy, `${r[0]} ${r[1]}`, infoFs, { fill: '#ffffff', stroke: '#000000', strokeWidth: 1.2, field: r[2] });
   });
-  
+
   const row2Y = LAYOUT.layers.row2.y, row2H = LAYOUT.layers.row2.h;
-  
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
     <defs>
       <style>${fontFace} text { font-family: ${fontFamily}; paint-order: stroke fill; }</style>
@@ -577,35 +595,35 @@ const buildSVG = (scale = 1, forExport = false) => {
       </linearGradient>
       <clipPath id="leftClip"><rect x="${leftX}" y="${leftY}" width="${leftW}" height="${leftH}" rx="${LAYOUT.radius.panel}"/></clipPath>
     </defs>
-    
+
     <rect width="${SVG_W}" height="${SVG_H}" fill="#141312"/>
-    
+
     ${d.bgImg ? image(d.bgImg, 0, 0, SVG_W, SVG_H) : ''}
-    
+
     ${panelRect(leftX, leftY, leftW, leftH, LAYOUT.radius.panel)}
-    
+
     ${d.charImg ? image(d.charImg, charDrawX, charDrawY, charDrawW, charDrawH, 'xMidYMid meet', 'clip-path="url(#leftClip)" id="charImgEl"') : ''}
     ${info}
     ${d.nameBgImg ? image(d.nameBgImg, elemBgX, elemBgY, elemBgW, elemBgH, 'xMidYMid meet', 'opacity="0.75"') : ''}
-    
+
     ${text(nameElemCenterX, nameElemCenterY, d.charName, nameFs, { anchor: 'middle', weight: 400, field: 'charName', fit: { maxW: 280, base: 50, min: 18 }, extra: 'filter="drop-shadow(0 2px 8px rgba(0,0,0,.6))"' })}
-    
+
     ${panelRect(LAYOUT.right.x, LAYOUT.layers.weapon.y, LAYOUT.right.w, LAYOUT.layers.weapon.h, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.right.x + LAYOUT.title.offX, LAYOUT.layers.weapon.y + LAYOUT.title.offY, '武器推荐')}
     ${buildWeapons()}
-    
+
     ${panelRect(LAYOUT.layers.artifact.x, row2Y, LAYOUT.layers.artifact.w, row2H, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.layers.artifact.x + LAYOUT.title.offX, row2Y + LAYOUT.title.offY, '圣遗物推荐')}
     ${buildArtifacts()}
-    
+
     ${panelRect(LAYOUT.layers.talent.x, row2Y, LAYOUT.layers.talent.w, row2H, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.layers.talent.x + LAYOUT.title.offX, row2Y + LAYOUT.title.offY, '天赋加点')}
     ${buildTalents()}
-    
+
     ${midSection(LAYOUT.layers.mid.stat, '词条推荐', buildStats())}
     ${midSection(LAYOUT.layers.mid.panel, '面板参考', buildPanel())}
     ${midSection(LAYOUT.layers.mid.cons, '核心命座', buildConstellations())}
-    
+
     ${panelRect(LAYOUT.right.x, LAYOUT.layers.team.y, LAYOUT.right.w, LAYOUT.layers.team.h, LAYOUT.radius.panel)}
     ${sectionTitle(LAYOUT.right.x + LAYOUT.title.offX, LAYOUT.layers.team.y + LAYOUT.title.offY, '配队参考')}
     ${buildTeams()}
