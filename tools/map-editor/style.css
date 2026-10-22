@@ -1,175 +1,167 @@
 /* =========================================================================
- * 图标字典编辑器 · style.css (修复版)
+ * 图标字典编辑器 · style.css
+ * 仅本工具特化。通用控件在 shared/css/ 各文件。
+ * -------------------------------------------------------------------------
+ * v2 变更：
+ *  1. 【致命】修掉 4 个不存在的变量
+ *     var(--radius-sm) / var(--radius-md) / var(--ctl-h) / var(--ease-spring)
+ *     —— 它们让圆角全为 0、过渡全部失效、输入框高度失控
+ *  2. .sticky-head 去掉 backdrop-filter 与硬编码毛玻璃色，改用 --glass
+ *  3. 删除 .status-bar 本地重写（overlays.css 已有完整实现）
+ *  4. 删除 body 中与 theme.css 重复的声明，去掉 margin: 0
+ *  5. 去掉 3 处 margin（.sticky-inner / .main / .big-icon）
+ *  6. 搜索框改用共享 .search 结构，删除 .search-wrap 一整套
+ *  7. .item-card 只保留紧凑内边距，其余复用 .card
+ *  8. .star-select（原生 select）→ .star-dropdown（共享 .dropdown）
+ *  9. .entry-del 改用共享 .btn-icon.btn-danger
+ * 10. 空态改用共享 .empty-state + ICONS 图标
+ * 11. 全面 token 化，删除死代码（-webkit-overflow-scrolling / transition:all）
  * ========================================================================= */
 
-body { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100vh; 
-  height: 100dvh; 
-  margin: 0; 
-  overflow: hidden; 
+/* ============================================================
+ * 0. 页面外壳
+ *    theme.css 已提供 display:flex / flex-direction:column / min-height:100dvh
+ * ============================================================ */
+body {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;        /* 整页不滚，只有 .main 内部滚 */
 }
 
-/* =========================================================================
- * 【CSS 模块 1】sticky 头部 + 操作按钮组 (毛玻璃化)
- * ========================================================================= */
+/* ============================================================
+ * 1. 吸顶头（本页组件：只有菜单，不含预览窗）
+ *    视觉与共享 .preview-sticky 一致，内边距按本页内容调整
+ * ============================================================ */
 .sticky-head {
-  position: sticky; top: 0; z-index: 40;
-  background: rgba(244, 241, 234, 0.85);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  background: var(--glass);
   border-bottom: 1px solid var(--border-subtle);
 }
-[data-theme="dark"] .sticky-head { background: rgba(26, 24, 22, 0.85); }
 
-.sticky-inner { 
-  max-width: 800px; margin: 0 auto; 
-  padding: 12px 16px; 
-  display: flex; flex-direction: column; gap: 10px; 
+.sticky-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: 100%;
+  max-width: 800px;
+  padding: var(--gap) var(--gap-lg);
 }
 
-/* 按钮组：横向滑动，紧凑 */
+/* 共享 .search 默认 flex:1，在纵向容器里必须改成不伸缩 */
+.sticky-inner .search {
+  flex: 0 0 auto;
+}
+
+/* ============================================================
+ * 2. 操作按钮组（横向可滑动）
+ * ============================================================ */
 .actions-group {
-  display: flex; gap: 8px; 
-  overflow-x: auto; padding-bottom: 2px;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  gap: var(--gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
 .actions-group::-webkit-scrollbar { display: none; }
-.actions-group > button { flex-shrink: 0; }
-.actions-group .ios-btn-fill { flex-shrink: 0; }
 
-/* =========================================================================
- * 【CSS 模块 2】搜索框 (极简去边框)
- * ========================================================================= */
-.search-wrap {
-  display: flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 12px;
-  background: var(--bg-sunken);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s var(--ease-spring);
+/* ============================================================
+ * 3. 条目列表（内容区，唯一滚动容器）
+ * ============================================================ */
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 800px;
+  align-self: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--gap) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
 }
-.search-wrap:focus-within {
-  background: var(--bg-surface);
-  border-color: var(--border-default);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
 }
-.search-icon { display: inline-flex; color: var(--text-tertiary); }
-.search-icon svg { width: 16px; height: 16px; }
 
-input.search-input {
-  flex: 1; min-width: 0; height: 100%;
-  padding: 0; border: none; background: transparent;
-  color: var(--text-primary); font-size: 13px;
-  outline: none; box-shadow: none;
+/* 卡片：背景 / 边框 / 圆角 / 纵向 gap 全部来自共享 .card，这里只收窄内边距 */
+.item-card {
+  padding: var(--pad-ctl);
 }
-input.search-input:focus { border: none; background: transparent; box-shadow: none; }
-input.search-input::placeholder { color: var(--text-tertiary); }
 
-.search-clear {
-  display: none; align-items: center; justify-content: center;
-  width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
-  background: var(--border-default); color: var(--text-secondary);
-  cursor: pointer; flex-shrink: 0;
-  transition: all 0.15s var(--ease-spring);
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
 }
-.search-clear:hover { background: var(--border-strong); color: var(--text-primary); }
-.search-clear:active { transform: scale(0.9); }
-.search-clear svg { width: 12px; height: 12px; }
-.search-clear.show { display: inline-flex; }
 
-/* =========================================================================
- * 【CSS 模块 3】条目列表 (极致紧凑)
- * ========================================================================= */
-.main { 
-  flex: 1; overflow-y: auto; 
-  max-width: 800px; margin: 0 auto; width: 100%;
-  padding: 12px 16px calc(80px + env(safe-area-inset-bottom)); 
-  display: flex; flex-direction: column; gap: 8px; 
+/* ---- 序号 ---- */
+.entry-order {
+  width: 44px;
+  flex-shrink: 0;
+  padding: 0 var(--gap-sm);
+  text-align: center;
+  font-weight: 600;
 }
-.entries { display: flex; flex-direction: column; gap: 8px; }
-
-.item-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 8px 10px; }
-.entry-row { display: flex; align-items: center; gap: 8px; }
-
-/* 序号：极窄 */
-input.entry-order {
-  width: 40px; flex-shrink: 0; text-align: center;
-  padding: 0 4px; font-weight: 600; font-size: 12px;
-  -moz-appearance: textfield;
+.entry-order::-webkit-outer-spin-button,
+.entry-order::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;              /* UA 伪元素，必需 */
 }
-input.entry-order::-webkit-outer-spin-button,
-input.entry-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* 缩略图：固定 36×36，去掉边框 */
+/* ---- 缩略图（带星级径向渐变底色） ---- */
 .entry-thumb {
-  width: 36px; height: 36px; border-radius: var(--radius-sm);
-  border: none;
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  border-radius: var(--r-ctl);
   background: radial-gradient(circle, var(--star-color, transparent), var(--star-edge, transparent));
 }
-.entry-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
-
-/* 名字：占满剩余空间，高度对齐 */
-input.entry-name { flex: 1; min-width: 0; height: var(--ctl-h); }
-
-/* 星级下拉：极窄且统一样式 */
-select.star-select {
-  width: 60px; flex-shrink: 0; height: var(--ctl-h);
-  padding: 0 20px 0 8px;
-  background-position: right 6px center;
-  background-size: 8px 5px;
-  font-size: 12px;
+.entry-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-/* 删除：强制正方形，高度与输入框一致 */
-.entry-del { 
-  width: 36px; 
-  height: 36px; 
-  padding: 0; 
-  flex-shrink: 0; 
-  border-radius: var(--radius-sm); 
-  display: inline-flex; align-items: center; justify-content: center;
+/* ---- 名字 ---- */
+.entry-name {
+  flex: 1;
+  min-width: 0;
 }
-.entry-del svg { width: 16px; height: 16px; }
 
-/* =========================================================================
- * 【CSS 模块 4】空状态
- * ========================================================================= */
-.empty-tip { 
-  display: none; padding: 60px 20px; text-align: center; 
-  color: var(--text-tertiary); font-size: 13px; line-height: 1.7; 
+/* ---- 星级下拉（复用共享 .dropdown） ---- */
+.star-dropdown {
+  flex: 0 0 72px;
+  width: 72px;
 }
-.empty-tip.show { display: block; }
-.empty-tip .big-icon { font-size: 36px; opacity: 0.4; margin-bottom: 8px; display: block; }
 
-/* =========================================================================
- * 【CSS 模块 5】粘贴弹窗特化
- * ========================================================================= */
+/* ============================================================
+ * 4. 空态
+ *    结构 / 内边距 / 文字样式来自共享 .empty-state
+ * ============================================================ */
+.empty-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============================================================
+ * 5. 粘贴弹窗的文本框
+ *    边框 / 背景 / 圆角 / 内边距来自共享 textarea 规则
+ * ============================================================ */
 .modal-box textarea {
-  width: 100%; height: 140px; padding: 10px;
-  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
-  background: var(--bg-sunken); color: var(--text-primary);
-  font-family: inherit; font-size: 12px;
-  resize: none; outline: none; line-height: 1.6;
+  width: 100%;
+  min-height: 140px;
+  resize: none;
 }
-
-/* =========================================================================
- * 【CSS 模块 6】悬浮状态胶囊
- * ========================================================================= */
-.status-bar {
-  position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  background: rgba(35, 35, 40, 0.85); 
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  color: #ffffff; font-size: 12px; font-weight: 500;
-  padding: 8px 20px; border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.3s var(--ease-spring), transform 0.3s var(--ease-spring);
-}
-.status-bar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-.status-bar.ok { color: #82A79A; }
-.status-bar.err { color: #DE8075; }
