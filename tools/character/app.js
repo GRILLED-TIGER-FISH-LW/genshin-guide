@@ -518,11 +518,12 @@ function renderColorPicker() {
   });
 }
 
+/* --- 核心修复 1：注入 --theme-color，让命座跟随元素色 --- */
 function renderConstellationEditor() {
   const el = document.getElementById('constellationEditor');
   if (!el) return;
   el.innerHTML = State.data.constellationData.map((c, i) => `
-    <div class="cons-item ${c.active ? 'is-active' : ''}">
+    <div class="cons-item ${c.active ? 'is-active' : ''}" style="--theme-color: ${State.data.theme}">
       <div class="cons-badge" onclick="App.toggleConstellation(${i})">${i + 1}</div>
       <input type="text" value="${esc(c.desc)}" placeholder="${i + 1}命核心效果描述" oninput="App.setConstellationDesc(${i}, this.value)" />
     </div>`).join('');
@@ -1532,10 +1533,15 @@ function setConstellationDesc(i, value) {
   State.data.constellationData[i].desc = value;
   mountPreview(); debouncedSave();
 }
+
+/* --- 核心修复 2：切换主题色时，重新渲染命座以更新 --theme-color --- */
 function setTheme(color) {
   State.data.theme = color;
-  renderColorPicker(); mountPreview(); debouncedSave();
+  renderColorPicker(); 
+  renderConstellationEditor(); 
+  mountPreview(); debouncedSave();
 }
+
 function setPanelPrimaryKey(key) {
   State.data.panel.primaryKey = PANEL_PRIMARY_KEYS.includes(key) ? key : 'hp';
   renderPanelPrimaryDropdown();
@@ -1568,7 +1574,6 @@ const App = {
 };
 window.App = App;
 
-/* 按硬编码 id 注入图标（这些按钮的 HTML 里没有 data-icon） */
 function injectFloatIcons() {
   const S = window.ICONS || { ui: {} };
   const icons = ['floatExportBtn', 'floatImportBtn', 'floatClearBtn', 'btnDelCharImg', 'btnDelNameBg', 'btnDelBg', 'btnDelTeamCore', 'btnAddTeamIcon', 'btnMatchStyleIcon', 'btnLoadSaveIcon'];
@@ -1582,7 +1587,6 @@ function injectFloatIcons() {
   });
 }
 
-/* 按 data-icon 属性注入图标（面板下拉箭头、字体下拉箭头、字体按钮图标） */
 function injectIcons() {
   const ui = window.ICONS?.ui ?? {};
   const iconMap = {
@@ -1610,7 +1614,6 @@ function bindPreviewTapToggle() {
   frame.addEventListener('click', () => toolbar.classList.toggle('hidden'));
 }
 
-/* 全局点击委托：字体 / 面板属性类型 */
 document.addEventListener('click', (e) => {
   const fontItem = e.target.closest('#fontSheetList .dropdown-item');
   if (fontItem && fontItem.dataset.fontIndex !== undefined) {
