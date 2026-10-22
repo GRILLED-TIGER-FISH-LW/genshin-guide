@@ -1,27 +1,26 @@
 /* ============================================================
  * preview.css —— 预览区
  * 吸顶玻璃条（与 editor.css 的 .sticky-header 共用一套视觉）
- * 预览框：32svh，桌面封顶 200 / 手机封顶 160
+ * 预览框：按内容宽高比自适应，默认 16:9，铺满宽度且无黑边
  * ------------------------------------------------------------
- * v2 变更：
- *  1. 删除 .preview-sticky 的 backdrop-filter
- *     → 它会成为后代的「包含块」，导致内部 position:fixed 的下拉定位错乱
- *  2. 硬编码的 --preview-sticky-bg / -dark 两份颜色 → 统一用主题的 --glass
- *     → 删除 [data-theme="dark"] 整段覆盖（--glass 会随主题自动重算）
- *  3. .float-toolbar.hidden 的淡出语义由本文件接管
- *     （theme.css 的 .hidden 现在是纯硬隐藏，不再有 .float-toolbar 例外）
- *  4. 淡出补 visibility，避免「看不见但能被聚焦/点击」
- *  5. 32vh → 32svh（地址栏收放时高度不再跳动）
- *  6. 断点 1023 → 1024，与全局统一
- *  7. 层级改用 --z-sticky / --z-toolbar
- *  8. 删除死代码：svg display:block（theme 统一）、-webkit-backdrop-filter
+ * v3 变更：
+ *  1. 【修掉左右黑边】原来把预览框写死成 height: 32svh + max-height 封顶，
+ *     与 16:9 的内容比例不一致 → SVG 被 letterbox，两侧露出 #121212 底色。
+ *     现在改为由 aspect-ratio 推导高度，宽度永远占满，内容正好铺满。
+ *  2. --preview-frame-h / --preview-frame-max-h(-mobile) 保留定义但已不再使用，
+ *     仅为兼容可能引用它们的工具本地样式。
  * ============================================================ */
 
 :root {
+  /* —— 已废弃：保留仅为兼容，请勿新用 —— */
   --preview-frame-h: 32vh;
-  --preview-frame-h: 32svh;          /* 现代浏览器：小视口，不随地址栏跳动 */
+  --preview-frame-h: 32svh;
   --preview-frame-max-h: 200px;
   --preview-frame-max-h-mobile: 160px;
+
+  /* 预览内容的宽高比（16:9）；换成竖屏内容时只改这一行 */
+  --preview-ratio: 16 / 9;
+
   --preview-frame-bg: #121212;
   --preview-toolbar-offset: var(--pad-ctl);
 
@@ -54,6 +53,7 @@
 
 /* ============================================================
  * 2. 预览框
+ *    宽度占满容器，高度由宽高比推导 → 16:9 内容正好铺满，无黑边
  * ============================================================ */
 .preview-frame {
   position: relative;
@@ -61,8 +61,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: var(--preview-frame-h);
-  max-height: var(--preview-frame-max-h);
+  height: auto;
+  aspect-ratio: var(--preview-ratio);
   background: var(--preview-frame-bg);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-panel);
@@ -70,12 +70,7 @@
   cursor: pointer;
 }
 
-@media (max-width: 1024px) {
-  .preview-frame {
-    max-height: var(--preview-frame-max-h-mobile);
-  }
-}
-
+/* 内容比例与 --preview-ratio 不一致时的兜底：等比缩放居中 */
 .preview-frame > img,
 .preview-frame > svg,
 .preview-frame > canvas {
@@ -100,9 +95,7 @@
   transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
 }
 
-/* 注意：.hidden 在 theme.css 里是硬隐藏（display:none !important），
- * 这里用更高特异性把它接管为「淡出」。app.js 无需改动即可继续工作。
- * TODO：将来把 app.js 的 .hidden 换成 .is-faded，本段即可删除。 */
+/* .hidden 在 theme.css 里是硬隐藏，这里用更高特异性接管为「淡出」 */
 .float-toolbar.hidden {
   display: flex !important;
   opacity: 0;
