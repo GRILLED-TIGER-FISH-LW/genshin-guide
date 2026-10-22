@@ -7,15 +7,16 @@
  * 行为：
  *   · 点触发器开关；点面板外关闭；点选项关闭并派发 dropdown:select
  *   · 打开时改用 position: fixed，绕过祖先 overflow 裁剪
+ *   · 面板宽度始终等于触发器宽度（不再有 140px 的隐式下限）
  *   · 上下自动翻转、水平自动内收，永不超出安全区
  *   · 内容装得下时【完全不夹高度】，避免出现多余的滚动条
- *   · 面板宽度跟随触发器；可用 CSS 变量 --dropdown-min-w 调整下限
  *   · 自动抵消祖先 transform 造成的坐标偏移
  *   · Esc 关闭并归还焦点
  * ------------------------------------------------------------
- * v4 变更：
- *  · MIN_W 改为可被 CSS 覆盖：读 --dropdown-min-w，默认 140
- *    （星级选择器这类内容很短的控件可设成 0，让面板与按钮同宽）
+ * v5 变更：
+ *  · 面板最小宽度默认改为 0 —— 宽度完全跟随触发器
+ *    （原来固定 140px，导致星级、字体等窄按钮的下拉比按钮宽出一倍）
+ *  · 需要保底宽度的组件，自己写 --dropdown-min-w 即可
  * ============================================================ */
 (() => {
   'use strict';
@@ -24,7 +25,7 @@
   const FIXED = 'is-fixed';
 
   const MIN_H = 60;        // 面板最小高度
-  const MIN_W = 140;       // 面板最小宽度的默认值（可被 --dropdown-min-w 覆盖）
+  const MIN_W = 0;         // 面板最小宽度的默认值：0 = 完全跟随触发器
   const FLIP_SPACE = 160;  // 下方空间低于此值时优先向上展开
 
   let active = null;
@@ -71,7 +72,7 @@
     const vh = window.innerHeight;
     const rect = trigger.getBoundingClientRect();
 
-    /* —— 水平：夹在安全区内，宽度跟随触发器 —— */
+    /* —— 水平：宽度跟随触发器，夹在安全区内 —— */
     const width = Math.min(Math.max(rect.width, minW), vw - margin * 2);
     let left = Math.round(rect.left);
     if (left + width > vw - margin) left = vw - margin - width;
