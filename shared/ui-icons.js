@@ -251,3 +251,44 @@ window.ICONS = {
   }
 
 };
+
+/* ============================================================
+ * 兼容与增强（追加块，不修改上方任何图标数据）
+ * ------------------------------------------------------------
+ * 1. close 已从 app 迁入 ui → 旧写法 ICONS.app.close 保持可用
+ * 2. 另一仓库旧全局名 icons 在迁移期保持可用
+ * 3. 统一补无障碍属性：装饰性图标对读屏隐藏、不被 Tab 聚焦
+ * ------------------------------------------------------------
+ * 迁移全部完成后，本块可整体删除（届时需确保：
+ *   · 没有任何地方再用 ICONS.app.close
+ *   · 另一仓库 9 个文件已全部改用 ICONS.handbook.*）
+ * ============================================================ */
+(() => {
+  'use strict';
+
+  const ICONS = window.ICONS;
+  if (!ICONS) return;
+
+  /* 1. close 兼容别名 */
+  ICONS.app.close ??= ICONS.ui.close;
+  ICONS.app.closeBold ??= ICONS.ui.closeBold;
+
+  /* 2. 另一仓库旧全局名兼容（若已有 window.icons 则不覆盖） */
+  window.icons ??= ICONS;
+
+  /* 3. 给所有图标补 aria-hidden / focusable，避免图标被读屏朗读或被 Tab 聚焦。
+   *    只处理以 "<svg " 开头的字符串，card.plusPath 与 artifact 路径数组不受影响。 */
+  const enhance = (node) => {
+    for (const key of Object.keys(node)) {
+      const val = node[key];
+      if (typeof val === 'string') {
+        if (val.startsWith('<svg ')) {
+          node[key] = val.replace('<svg ', '<svg aria-hidden="true" focusable="false" ');
+        }
+      } else if (val && typeof val === 'object') {
+        enhance(val);
+      }
+    }
+  };
+  enhance(ICONS);
+})();
