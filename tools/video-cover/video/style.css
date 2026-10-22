@@ -170,3 +170,11 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
 }
+
+/* ---- 字体行：名称占剩余宽度，下拉固定 150px ----
+ * 用相邻兄弟选择器，不依赖 :has()，兼容性更好 */
+.panel-row > .font-label + .dropdown {
+  flex: 0 1 150px;
+  min-width: 0;
+  width: auto;
+}
