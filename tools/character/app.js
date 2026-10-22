@@ -508,7 +508,7 @@ function renderColorPicker() {
   el.innerHTML = elementColors.map(([name, color, iconKey]) => {
     const isMatch = (State.data.theme || '').toLowerCase() === color.toLowerCase();
     const icon = ELEMENT_ICONS[iconKey] || '';
-    return `<div class="swatch-btn ${isMatch ? 'active' : ''}" data-color="${color}" onclick="App.setTheme('${color}')">
+    return `<div class="swatch-btn ${isMatch ? 'is-active' : ''}" data-color="${color}" onclick="App.setTheme('${color}')">
       <span class="swatch-icon-wrap">${icon}</span>
       <span class="swatch-name">${name}</span>
     </div>`;
@@ -522,7 +522,7 @@ function renderConstellationEditor() {
   const el = document.getElementById('constellationEditor');
   if (!el) return;
   el.innerHTML = State.data.constellationData.map((c, i) => `
-    <div class="cons-item ${c.active ? 'active' : ''}">
+    <div class="cons-item ${c.active ? 'is-active' : ''}">
       <div class="cons-badge" onclick="App.toggleConstellation(${i})">${i + 1}</div>
       <input type="text" value="${esc(c.desc)}" placeholder="${i + 1}命核心效果描述" oninput="App.setConstellationDesc(${i}, this.value)" />
     </div>`).join('');
@@ -724,7 +724,7 @@ function renderEditorsByKey() {
 }
 
 /* =========================================================================
- * 【模块 6.5】面板区 · 属性类型下拉（渲染由本文件负责，开关由 dropdown.js 接管）
+ * 【模块 6.5】面板区 · 属性类型下拉
  * ========================================================================= */
 const PANEL_PRIMARY_OPTIONS = [
   { key: 'hp',  label: '生命值' },
