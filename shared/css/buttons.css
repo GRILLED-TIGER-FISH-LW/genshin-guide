@@ -1,5 +1,6 @@
 /* ============================================================
  * buttons.css —— 按钮
+ * 宽度由内容自适应（不拉伸）。图标 = 14px 定死。
  * ============================================================ */
 
 :root {
@@ -42,8 +43,8 @@
 .btn svg,
 .btn-icon svg,
 .float-btn svg {
-  width: 1.6em;
-  height: 1.6em;
+  width: 14px;
+  height: 14px;
   display: block;
   flex-shrink: 0;
 }
@@ -56,8 +57,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.6em;
-  height: 1.6em;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
