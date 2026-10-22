@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#F4F1EA">
 <title>视频封面</title>
+
+<!-- ① 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
+<script src="../../../shared/css/theme-init.js?v=20261024"></script>
 
 <script>
 (() => {
@@ -33,7 +36,17 @@
     ]);
     await loadScript('app.js');
   })();
-  window.__bootPromise.catch(e => console.error('[Boot]', e));
+
+  /* ② 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
+  window.__bootPromise.catch(e => {
+    console.error('[Boot]', e);
+    const bootEl = document.querySelector('.boot-loading');
+    if (bootEl) {
+      bootEl.style.whiteSpace = 'pre-wrap';
+      bootEl.textContent = '载入失败：' + (e && e.message ? e.message : String(e)) +
+        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
+    }
+  });
 })();
 </script>
 
@@ -46,6 +59,7 @@
     background: var(--bg-base, #F4F1EA); color: var(--text-tertiary, #A69E95);
     font-size: 12px; font-family: var(--std-font, sans-serif);
     visibility: visible;
+    padding: 24px; text-align: center; line-height: 1.6;
   }
   body.ready .boot-loading { display: none; }
 </style>
@@ -166,7 +180,8 @@
   <section id="capSection">
     <div class="panel-header">胶囊标签</div>
     <div class="panel">
-      <label class="field row-pad">标签文字
+      <label class="field row-pad">
+        <span class="field-label">标签文字</span>
         <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
       </label>
       <div class="slider-group row-pad">
@@ -192,7 +207,7 @@
     <div class="panel-header">副标题</div>
     <div class="panel">
       <label class="field row-pad">
-        <span id="sub1Label">第一行</span>
+        <span class="field-label" id="sub1Label">第一行</span>
         <input type="text" id="sub1Input" placeholder="第一行文字" oninput="App.onSub1Input(this.value)" onblur="App.onSub1Blur(this.value)">
       </label>
       <div class="field row-pad hidden" id="sub1SizeRow">
@@ -212,7 +227,7 @@
         </div>
       </div>
       <label class="field row-pad">
-        <span id="sub2Label">第二行</span>
+        <span class="field-label" id="sub2Label">第二行</span>
         <input type="text" id="sub2Input" placeholder="第二行文字" oninput="App.onSub2Input(this.value)" onblur="App.onSub2Blur(this.value)">
       </label>
       <div class="field row-pad hidden" id="sub2SizeRow">
@@ -235,7 +250,7 @@
   </section>
 </main>
 
-<button class="export-btn" onclick="App.exportPNG()">导出图片</button>
+<button type="button" class="export-btn" onclick="App.exportPNG()">导出图片</button>
 
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-backdrop" id="modalBackdrop">
