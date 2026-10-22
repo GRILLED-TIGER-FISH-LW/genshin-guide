@@ -376,7 +376,7 @@ body {
   border-color: var(--accent);
 }
 
-/* ---- 卡片嵌入字体行：名称占剩余宽度，下拉固定 150px ----
+/* ---- 卡片嵌入字体行：名称占剩余宽度，下拉按内容自适应 ----
  * 原来 .flex-1(基准0) + .dropdown(基准100%) 会把名称挤成 0 宽 */
 #labelCustomFont {
   flex: 1 1 auto;
@@ -384,7 +384,8 @@ body {
 }
 
 #fontDropdown {
-  flex: 0 1 150px;
-  min-width: 0;
+  flex: 0 1 auto;      /* 不抢占空间，宽度由内容决定（约 100px） */
   width: auto;
+  max-width: 160px;    /* 字体名特别长时的保险 */
+  min-width: 0;
 }
