@@ -1,26 +1,62 @@
 /* =========================================================================
  * 视频封面 · style.css
  * 仅视频封面特化。通用控件在 shared/css/ 各文件。
+ * -------------------------------------------------------------------------
+ * v2 变更：
+ *  1. 补 .form —— 原注释声称"由 theme.css 控制"，但 theme.css 里从未有过这个类，
+ *     导致 section 之间零间距、面板左右直接顶到屏幕边缘
+ *  2. 补 .row-pad —— 原来从未定义，9 处面板内控件（滑块/输入框）全部贴边
+ *  3. 补 .font-label —— 原来从未定义
+ *  4. .panel-row 内的下拉改为可伸缩宽度，避免 width:100% 把左侧文字挤成 0 宽
+ *  5. 硬编码的 12px / 16px / 6px / 0.1s 全部改为令牌
+ *  6. 删除 #svgPreviewHost > svg 的冗余 display:block（theme.css 已全局设置）
+ *  7. 底部留白只在 .form 上保留一处（原来 body 与 .form 会叠加）
  * ========================================================================= */
 
-/* 底部留白：导出按钮 48 + 底距 16 + 呼吸 16 = 80 */
+/* ============================================================
+ * 0. 页面外壳
+ *    本页是新窗口滚动：预览吸顶、表单随页面滚动
+ * ============================================================ */
 body {
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* 表单内 section 结构
- * .form 在 theme.css 控制 section 之间（gap 16），
- * 每个 section 内部（header + panel）需要 8px 间距，此处补。
- * 注：后续 character 迁移时若也用 .form > section，可考虑提升到 theme.css
- */
+/* ============================================================
+ * 1. 表单容器
+ *    body 已是 flex 纵向布局，.form 作为主内容区：
+ *      · 左右内边距
+ *      · 底部为固定导出胶囊留出 --dock-space
+ *      · section 之间 16px
+ * ============================================================ */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-lg);
+  width: 100%;
+  max-width: 900px;
+  align-self: center;
+  padding: var(--gap-lg) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
+}
+
+/* section 内部：panel-header 与 panel 之间 8px */
 .form > section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--gap);
 }
 
-/* 预览宿主撑满预览框，内部 svg 按比例缩放居中 */
+/* ============================================================
+ * 2. 面板内的行内边距
+ *    .panel 本身没有内边距（内边距由 .panel-row 提供），
+ *    所以非 .panel-row 的子元素需要 .row-pad 自己补
+ * ============================================================ */
+.row-pad {
+  padding: var(--gap) var(--pad-ctl);
+}
+
+/* ============================================================
+ * 3. 预览宿主
+ * ============================================================ */
 #svgPreviewHost {
   width: 100%;
   height: 100%;
@@ -31,16 +67,38 @@ body {
 #svgPreviewHost > svg {
   max-width: 100%;
   max-height: 100%;
-  display: block;
 }
 
-/* 浮动素材 */
+/* ============================================================
+ * 4. 字体名称显示
+ * ============================================================ */
+.font-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 面板行里的下拉：共享样式给的是 width:100%，在 flex 行里会挤死左侧，
+ * 这里改为可伸缩并给一个 140px 的基准宽度 */
+.panel-row > .dropdown {
+  flex: 1 1 140px;
+  min-width: 0;
+  width: auto;
+}
+
+/* ============================================================
+ * 5. 浮动素材
+ * ============================================================ */
 .custom-head {
   padding-bottom: 0;
   justify-content: space-between;
 }
 .custom-head-label {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -48,56 +106,59 @@ body {
 .float-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--gap-lg);
 }
 
 .float-item {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--gap);
+  padding: var(--gap-lg);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
+  border-radius: var(--r-panel);
 }
 
 .float-item-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: var(--gap);
 }
 .float-item-head-thumb {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--gap);
 }
 .float-item-head-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--gap-sm);
 }
 
 .float-thumb {
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   object-fit: cover;
-  border-radius: 6px;
   border: 1px solid var(--border-subtle);
+  border-radius: calc(var(--h-ctl) * 0.15);
   cursor: pointer;
-  transition: opacity 0.1s;
+  transition: opacity var(--dur) var(--ease);
 }
-.float-thumb:hover { opacity: 0.8; }
+.float-thumb:hover {
+  opacity: 0.8;
+}
 
 .float-thumb-meta {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
 .under-middle-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--gap);
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   cursor: pointer;
 }
