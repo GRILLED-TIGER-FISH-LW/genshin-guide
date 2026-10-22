@@ -1,19 +1,11 @@
 /* =========================================================================
  * 图标字典编辑器 · app.js
  * =========================================================================
- * v2 变更：
- *  1. 【致命】状态类名 .show → .is-visible（状态胶囊 / 弹窗 / 搜索清除按钮）
- *     —— overlays.css 与 inputs.css 用的都是 .is-visible，原来这些全都不显示
- *  2. 【致命】弹窗重构成「单一 Promise 入口」
- *     —— 原来 modalConfirm 上同时挂了 addEventListener 和 onclick，
- *        点「清空」的确定会顺带执行一次粘贴解析
- *     —— 同时补上 pasteWrap 的显隐切换（确认框不再误显示输入框）
- *  3. 星级原生 <select> → 共享 .dropdown 组件
- *  4. render() 不再在「名字失焦」时全量重建 → 打字后不失焦、长列表不卡
- *  5. loadLocal() 恢复 config（原来 saveLocal 存了却从不读回）
- *  6. init() 补齐错误兜底，图标注入加空值保护
- *  7. 新增 injectIcons()，支持限定作用域（列表重建时只扫局部）
- *  8. parsePastedUrls() 改为批量提交，从「每加一条渲染一次」降到最多两次
+ * v3 变更（相对 v2）：
+ *  · darkenHex 改为 HSL 实现，与 shared/gi-icons/icon-loader.js 的
+ *    darken(hex, 0.5) 完全等价 —— 缩略图渐变边缘色从此与 loader 烘焙
+ *    出来的图片一模一样（原来用的是 RGB 各减 50，颜色偏亮偏橙）
+ *  · 其余逻辑与 v2 一致
  * ========================================================================= */
 (function () {
   "use strict";
@@ -111,7 +103,61 @@
   }
 
   /* =========================================================================
-   * 【模块 3】弹窗（确认框与粘贴框共用一个外壳，单一 Promise 入口）
+   * 【模块 3】颜色：与 icon-loader.js 的 applyBackground 完全一致
+   * ========================================================================= */
+
+  /* 与 icon-loader.js 的 hexToHsl 等价 */
+  function hexToHsl(hex) {
+    const num = parseInt(String(hex).replace("#", ""), 16);
+    const r = ((num >> 16) & 0xFF) / 255;
+    const g = ((num >> 8) & 0xFF) / 255;
+    const b = (num & 0xFF) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+
+  /* 与 icon-loader.js 的 hslToHex 等价 */
+  function hslToHex(h, s, l) {
+    s /= 100;
+    l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else { r = c; b = x; }
+    const toHex = (v) => Math.max(0, Math.min(255, Math.round((v + m) * 255)))
+      .toString(16)
+      .padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  /* 与 icon-loader.js 的 darken(hex, percent) 等价
+   * 语义：保持色相与饱和度不变，亮度 × (1 - percent)
+   * 缩略图边缘色固定传 0.5，与 loader 的 applyBackground 完全一致 */
+  function darkenHex(hex, percent) {
+    if (!hex || typeof hex !== "string" || hex.length !== 7) return "#333333";
+    const [h, s, l] = hexToHsl(hex);
+    if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return "#333333";
+    return hslToHex(h, s, Math.max(0, l * (1 - percent)));
+  }
+
+  /* =========================================================================
+   * 【模块 4】弹窗（确认框与粘贴框共用一个外壳，单一 Promise 入口）
    * ========================================================================= */
   let modalResolve = null;
 
@@ -157,7 +203,7 @@
   }
 
   /* =========================================================================
-   * 【模块 4】数据获取层
+   * 【模块 5】数据获取层
    * ========================================================================= */
   async function loadCharOrderTxt() {
     try {
@@ -219,7 +265,7 @@
   }
 
   /* =========================================================================
-   * 【模块 5】本地存储与解析
+   * 【模块 6】本地存储与解析
    * ========================================================================= */
   function saveLocal() {
     try {
@@ -234,7 +280,6 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return;
 
-      /* config（原来存了却从不读回，这里补上） */
       if (parsed.config && typeof parsed.config === "object") {
         ALL_TYPES.forEach(t => {
           const cfg = parsed.config[t];
@@ -246,7 +291,6 @@
         });
       }
 
-      /* 条目数据 */
       if (parsed.data && typeof parsed.data === "object") {
         ALL_TYPES.forEach(t => {
           editorData[t] = Array.isArray(parsed.data[t]) ? parsed.data[t] : [];
@@ -271,7 +315,6 @@
     return s.replace(/\.[^.]+$/, "");
   }
 
-  /* 生成 JS 源码时用：转义反斜杠、双引号，换行压成空格 */
   function esc(s) {
     return String(s ?? "")
       .replace(/\\/g, "\\\\")
@@ -297,16 +340,8 @@
     return hit ? hit.name : (CHAR_ORDER_TO_NAME[order] || "");
   }
 
-  function darkenHex(hex, amt) {
-    if (!hex || typeof hex !== "string" || hex.length !== 7) return "#333333";
-    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amt);
-    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amt);
-    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amt);
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-  }
-
   /* =========================================================================
-   * 【模块 6】渲染
+   * 【模块 7】渲染
    * ========================================================================= */
   function showEmptyState(iconKey, html) {
     if (!el.emptyTip) return;
@@ -320,7 +355,7 @@
     if (el.emptyTip) el.emptyTip.classList.add("hidden");
   }
 
-  /* 星级：复用共享 .dropdown 组件（原生 select 已废弃） */
+  /* 星级：复用共享 .dropdown 组件（面板宽度跟随按钮，见 style.css 的 --dropdown-min-w） */
   function buildStarDropdown(row) {
     const wrap = document.createElement("div");
     wrap.className = "dropdown star-dropdown";
@@ -341,7 +376,6 @@
       `<button type="button" class="dropdown-item${s === (row.star || 5) ? " is-active" : ""}" data-value="${s}">${s}★</button>`
     ).join("");
 
-    /* 面板只挂一个监听，避免每条选项各挂一个 */
     panel.addEventListener("click", (e) => {
       const item = e.target.closest(".dropdown-item");
       if (!item) return;
@@ -385,7 +419,7 @@
         row.order = newOrder;
       }
       saveLocal();
-      render();          /* 序号变了要重排，这里重建是必要的 */
+      render();          /* 序号变了要重排 */
     });
     line.appendChild(inpOrder);
 
@@ -395,7 +429,7 @@
     if (row.star != null) {
       const c = window.ICON_LIB?.starColors?.[row.star] || "#939393";
       thumb.style.setProperty("--star-color", c);
-      thumb.style.setProperty("--star-edge", darkenHex(c, 50));
+      thumb.style.setProperty("--star-edge", darkenHex(c, 0.5));   /* 与 loader 完全一致 */
     }
     const thumbImg = document.createElement("img");
     thumbImg.alt = "";
@@ -418,7 +452,6 @@
       row.name = inpName.value;
       saveLocal();
     });
-    /* 失焦只做归一化，不重建列表 → 打字后不失焦、长列表不卡 */
     inpName.addEventListener("blur", () => {
       row.name = (inpName.value || "").trim();
       inpName.value = row.name;
@@ -482,11 +515,11 @@
     filtered.forEach(row => frag.appendChild(buildRow(row)));
     el.entries.appendChild(frag);
 
-    injectIcons(el.entries);   /* 只扫列表，不扫整页 */
+    injectIcons(el.entries);
   }
 
   /* =========================================================================
-   * 【模块 7】业务逻辑
+   * 【模块 8】业务逻辑
    * ========================================================================= */
   async function parsePastedUrls(text) {
     const urls = String(text || "")
@@ -520,7 +553,7 @@
     });
 
     saveLocal();
-    render();                     /* 第一次：先把条目显示出来 */
+    render();
 
     if (created.length) {
       setStatus("正在查询中文名…");
@@ -533,7 +566,7 @@
       }
       if (changed) {
         saveLocal();
-        render();                 /* 第二次：名字补全后统一重建 */
+        render();
       }
     }
 
@@ -586,7 +619,6 @@
     setStatus("正在从 Amber 同步…");
     config = structuredCloneSafe(DEFAULT_CONFIG);
 
-    /* 先收集自定义来源（local / url），同步时优先保留 */
     const customByName = {};
     ALL_TYPES.forEach(type => {
       customByName[type] = {};
@@ -614,13 +646,11 @@
       const customMap = customByName[type] || {};
       const customNames = new Set(Object.keys(customMap));
 
-      /* 1. 自定义优先 */
       Object.keys(customMap).forEach(name => {
         const row = customMap[name];
         merged[row.key] = { name: row.name, star: row.star, order: row.order, local: row.local, url: row.url };
       });
 
-      /* 2. Amber 补入，跳过重名 */
       const amberNames = new Set();
       Object.keys(amberResult[type] || {}).forEach(key => {
         const item = amberResult[type][key];
@@ -629,7 +659,6 @@
         merged[key] = item;
       });
 
-      /* 3. 保留现有但 Amber 没有的 */
       const existingByName = {};
       (editorData[type] || []).forEach(row => { if (row.name) existingByName[row.name] = row; });
       Object.keys(existingByName).forEach(name => {
@@ -662,7 +691,6 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       const code = await res.text();
 
-      /* 在隔离的 window 对象里执行，取出 ICON_DICT */
       const sandbox = { window: {} };
       new Function("window", code)(sandbox.window);
       const dict = sandbox.window.ICON_DICT || {};
@@ -742,10 +770,9 @@
   }
 
   /* =========================================================================
-   * 【模块 8】事件绑定
+   * 【模块 9】事件绑定
    * ========================================================================= */
   function bindEvents() {
-    /* Tab 切换 */
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         currentTab = btn.dataset.tab;
@@ -761,7 +788,6 @@
       });
     });
 
-    /* 搜索 */
     if (el.searchInput) {
       el.searchInput.addEventListener("input", () => {
         searchQuery = el.searchInput.value.trim().toLowerCase();
@@ -778,7 +804,6 @@
       });
     }
 
-    /* 弹窗按钮：只在这里绑一次，避免和 openModal 抢同一个按钮 */
     if (el.modalCancel) el.modalCancel.addEventListener("click", () => closeModal(false));
     if (el.modalConfirm) el.modalConfirm.addEventListener("click", () => closeModal(true));
     if (el.modalBackdrop) {
@@ -787,7 +812,6 @@
       });
     }
 
-    /* 顶部操作按钮 */
     document.getElementById("btnSync")?.addEventListener("click", syncFromAmber);
     document.getElementById("btnLoad")?.addEventListener("click", loadFromRepo);
     document.getElementById("btnExport")?.addEventListener("click", exportJS);
@@ -802,7 +826,6 @@
       setStatus("已清空", "ok");
     });
 
-    /* Esc 关闭弹窗 */
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && el.modalBackdrop?.classList.contains("is-visible")) {
         closeModal(false);
@@ -811,7 +834,7 @@
   }
 
   /* =========================================================================
-   * 【模块 9】启动
+   * 【模块 10】启动
    * ========================================================================= */
   (async function init() {
     try {
@@ -825,7 +848,7 @@
         throw new Error("图标库未加载（ui-icons.js），请刷新重试");
       }
 
-      injectIcons();                     /* 静态区域图标：搜索 / 按钮 / 空态 */
+      injectIcons();
       await loadCharOrderTxt();
       loadLocal();
 
