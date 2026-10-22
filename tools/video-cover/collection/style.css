@@ -1,49 +1,65 @@
 /* =========================================================================
- * 合集封面 · style.css (2026 现代扁平重构版)
+ * 合集封面 · style.css
+ * 仅合集封面特化。通用控件在 shared/css/ 各文件。
+ * -------------------------------------------------------------------------
+ * v2 变更：
+ *  1. 删 .hidden / .flex-1          → theme.css 已有
+ *  2. 删 .upload-text               → 用 panels.css 共享版（12px 次要色，与
+ *                                     character / video 统一）
+ *  3. 删 .form-pad / .form-pad-t    → 用 panels.css 的 .row-pad
+ *  4. 删 .upload-row / .clickable-thumb → 用 panels.css 的 .thumb
+ *  5. 删 .preview-sticky 本地重写   → 用 preview.css（含删掉 backdrop-filter）
+ *  6. 删 .preview-frame 本地重写    → 宽高比已由 preview.css 统一
+ *  7. 删 .font-label 本地重写       → 用 panels.css 共享版
+ *  8. .grid 改名 .form，与 video-cover 对齐；去掉 margin；数值改令牌
+ *  9. 底部留白从 body 收进 .form（只保留一处）
  * ========================================================================= */
 
+/* ============================================================
+ * 0. 页面外壳
+ *    本页是整页滚动：预览吸顶、表单随页面滚动
+ * ============================================================ */
 body {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* 基础工具类 */
-.hidden { display: none !important; }
-.flex-1 { flex: 1; min-width: 0; }
-.form-pad { padding: 10px; }
-.form-pad-t { padding: 10px 10px 0 10px; }
-.upload-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
-
-/* 统一背景图的正方形尺寸 */
-.upload-row img.clickable-thumb {
-  width: 40px; height: 40px; object-fit: cover; flex-shrink: 0;
+/* ============================================================
+ * 1. 表单容器（与 video-cover 的 .form 结构保持一致）
+ *    body 已是 flex 纵向布局，.form 作为主内容区：
+ *      · 左右 16px、上下 8px
+ *      · 底部为固定导出胶囊留出 --dock-space
+ *      · section 之间 16px
+ * ============================================================ */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-lg);
+  width: 100%;
+  max-width: 900px;
+  align-self: center;
+  padding: var(--gap) var(--gap-lg) calc(var(--dock-space) + env(safe-area-inset-bottom));
 }
 
-/* 预览区毛玻璃 */
-.preview-sticky {
-  position: sticky; top: 0; z-index: 35;
-  background: rgba(244, 241, 234, 0.85);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-subtle);
+/* section 内部：panel-header 与 panel 之间 8px */
+.form > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
 }
-[data-theme="dark"] .preview-sticky { background: rgba(26, 24, 22, 0.85); }
 
-.preview-frame { width: 100%; height: auto; }
-
-/* Canvas 挂载点 */
+/* ============================================================
+ * 2. 预览挂载点
+ *    预览框自身的宽高比由 preview.css 的 --preview-ratio 决定，
+ *    这里只负责让 canvas 铺满
+ * ============================================================ */
 #collectionPreview {
-  width: 100%; height: 100%; aspect-ratio: 16 / 9;
-  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-#collectionPreview canvas { width: 100%; height: 100%; display: block; }
-
-/* 表单布局 */
-.grid {
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 14px; max-width: 900px; margin: 0 auto; width: 100%;
-}
-.font-label {
-  flex: 1; min-width: 0; font-size: 13px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+#collectionPreview canvas {
+  width: 100%;
+  height: 100%;
 }
