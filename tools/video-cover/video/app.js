@@ -1,6 +1,15 @@
 /* =========================================================================
  * 视频封面 · app.js
  * =========================================================================
+ * v3 变更：
+ *  1. 【交互】setGuideType 切换攻略模式前弹确认框
+ *     —— 切换会重置主标题 / 副标题 / 胶囊标签，并清空背景图、立绘、Boss 头像，
+ *        原来点一下就没了。现在先确认，取消则完全不动 state 和 DOM。
+ *  2. 【健壮】showConfirm 支持「覆盖上一个未决确认框」
+ *     —— 原来连点两次会让第一个 Promise 永远挂起（onclick 被覆盖，没人 resolve）。
+ *        现在新确认框弹出前，先把旧的按「取消」结束。
+ *  3. 【健壮】setGuideType 主体包 try/catch，失败不会产生 unhandled rejection
+ *     （它由 HTML 的 onclick 直接调用，返回值没人接）。
  * v2 变更：
  *  1. 【功能修复】「文字亮度」滑块真正生效
  *     —— 原来 capTextBrightness 从未参与渲染，拖动完全没反应。
@@ -42,6 +51,11 @@ const MODE_SUB_LABELS = {
   character: { sub1: '第一行（自动编号）', sub2: '第二行（角色名）' },
   boss:      { sub1: '第一行（BOSS 名）',  sub2: '第二行' },
   custom:    { sub1: '第一行',             sub2: '第二行' }
+};
+const MODE_LABEL = {
+  character: '角色攻略',
+  boss: 'Boss攻略',
+  custom: '自定义'
 };
 const MIME_MAP = {
   ttf: 'font/ttf',
@@ -237,6 +251,9 @@ function showToast(message, type = 'info') {
   }, 2400);
 }
 
+/* 当前未决确认框的收尾函数：新确认框弹出前先把旧的按「取消」结束 */
+let pendingConfirmCleanup = null;
+
 function showConfirm(title, message) {
   return new Promise(resolve => {
     const backdrop = $('modalBackdrop');
@@ -246,16 +263,21 @@ function showConfirm(title, message) {
     const confirmBtn = $('modalConfirm');
     if (!backdrop || !cancelBtn || !confirmBtn) { resolve(false); return; }
 
+    if (pendingConfirmCleanup) pendingConfirmCleanup(false);
+
     if (titleEl) titleEl.textContent = title;
     if (msgEl) msgEl.textContent = message;
 
     const cleanup = (result) => {
+      if (pendingConfirmCleanup === cleanup) pendingConfirmCleanup = null;
       backdrop.classList.remove('is-visible');
       cancelBtn.onclick = null;
       confirmBtn.onclick = null;
       backdrop.onclick = null;
       resolve(result);
     };
+    pendingConfirmCleanup = cleanup;
+
     cancelBtn.onclick = () => cleanup(false);
     confirmBtn.onclick = () => cleanup(true);
     backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(false); };
@@ -650,53 +672,74 @@ function applyModeUI() {
 }
 
 async function setGuideType(type) {
-  state.guideType = type;
+  /* 点当前模式不弹框、不做任何事 */
+  if (type === state.guideType) return;
 
-  if (type === 'character' || type === 'boss') {
-    state.mainText = MODE_MAIN_TEXTS[type];
-    state.capText = MODE_CAP_TEXT[type];
-  } else {
-    state.mainText = '';
-    state.capText = '';
+  /* 切换会重置内容，先确认；取消则 state 与 DOM 全部原样不动 */
+  const lost = [];
+  if (state.bg) lost.push('背景图');
+  if (state.characterArt) lost.push('角色立绘');
+  if (state.bossAvatar) lost.push('Boss 头像');
+  const tail = lost.length ? `\n\n同时会清空：${lost.join('、')}` : '';
+
+  const ok = await showConfirm(
+    '切换攻略模式',
+    `切换到「${MODE_LABEL[type] ?? type}」后，主标题、副标题、胶囊标签会按新模式重置。${tail}`
+  );
+  if (!ok) return;
+
+  try {
+    state.guideType = type;
+
+    if (type === 'character' || type === 'boss') {
+      state.mainText = MODE_MAIN_TEXTS[type];
+      state.capText = MODE_CAP_TEXT[type];
+    } else {
+      state.mainText = '';
+      state.capText = '';
+    }
+
+    state.sub1 = '';
+    state.sub2 = '';
+
+    if (type === 'character') {
+      state.sub1Size = 200;
+      state.sub2Size = 250;
+    } else if (type === 'boss') {
+      state.sub1Size = 250;
+      state.sub2Size = 200;
+    }
+
+    state.bg = '';
+
+    if (type !== 'character') state.characterArt = null;
+    if (type !== 'boss') state.bossAvatar = null;
+
+    const mainInput = $('mainTextInput');
+    if (mainInput) mainInput.value = state.mainText;
+    const capInput = $('capTextInput');
+    if (capInput) capInput.value = state.capText;
+    const sub1Input = $('sub1Input');
+    if (sub1Input) sub1Input.value = '';
+    const sub2Input = $('sub2Input');
+    if (sub2Input) sub2Input.value = '';
+
+    const bgNameEl = $('bgFileName');
+    if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
+    const bgThumb = $('bgThumb');
+    if (bgThumb) bgThumb.removeAttribute('src');
+
+    updateSizeDropdown('sub1', state.sub1Size);
+    updateSizeDropdown('sub2', state.sub2Size);
+
+    applyModeUI();
+    await loadBgImage();
+    mountPreview();
+    persist();
+  } catch (e) {
+    console.error('[setGuideType]', e);
+    showToast('切换模式失败：' + (e && e.message ? e.message : e), 'error');
   }
-
-  state.sub1 = '';
-  state.sub2 = '';
-
-  if (type === 'character') {
-    state.sub1Size = 200;
-    state.sub2Size = 250;
-  } else if (type === 'boss') {
-    state.sub1Size = 250;
-    state.sub2Size = 200;
-  }
-
-  state.bg = '';
-
-  if (type !== 'character') state.characterArt = null;
-  if (type !== 'boss') state.bossAvatar = null;
-
-  const mainInput = $('mainTextInput');
-  if (mainInput) mainInput.value = state.mainText;
-  const capInput = $('capTextInput');
-  if (capInput) capInput.value = state.capText;
-  const sub1Input = $('sub1Input');
-  if (sub1Input) sub1Input.value = '';
-  const sub2Input = $('sub2Input');
-  if (sub2Input) sub2Input.value = '';
-
-  const bgNameEl = $('bgFileName');
-  if (bgNameEl) bgNameEl.textContent = '点击上传背景图';
-  const bgThumb = $('bgThumb');
-  if (bgThumb) bgThumb.removeAttribute('src');
-
-  updateSizeDropdown('sub1', state.sub1Size);
-  updateSizeDropdown('sub2', state.sub2Size);
-
-  applyModeUI();
-  await loadBgImage();
-  mountPreview();
-  persist();
 }
 
 function onSub1Input(v) {
