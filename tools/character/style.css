@@ -3,6 +3,10 @@
  * =========================================================================
  * 布局 / 预览 / 编辑器 / 命座 / 元素色
  * ------------------------------------------------------------
+ * v5 变更：
+ *  1. 新增 .alt-row —— 配队区「备选角色」紧凑行
+ *     头像 32px + 名字 + 三个图标按钮挤在一行，替代原来的整块 card。
+ *  2. 删除 .sub-card（已无任何引用，被 .alt-row 取代）。
  * v4 变更：
  *  1. 删除本地 .preview-frame 的全部定义（基础块 + 两段媒体查询）
  *     —— 宽高比现在由 shared/css/preview.css 的 --preview-ratio 统一决定，
@@ -366,14 +370,19 @@ body {
   border-left: 1px solid var(--border-subtle);
 }
 
-.sub-card {
-  background: transparent;
-  border-style: dashed;
-  border-color: var(--border-default);
-  padding: var(--pad-ctl);
+/* ---- 备选角色紧凑行：头像 + 名字 + ↑ ↓ ✕ ----
+ * 替代原来的「备选 #N」标题行 + 整块 card，
+ * 一行一个备选，全部操作在同一水平线上，扫读更快。
+ * 间距用 --gap-sm 而非 --gap，给名字输入框留出更多宽度。 */
+.alt-row {
+  gap: var(--gap-sm);
 }
-.sub-card:hover {
-  border-color: var(--accent);
+.alt-row .thumb {
+  width: 32px;
+  height: 32px;
+}
+.alt-row .btn-icon {
+  flex-shrink: 0;
 }
 
 /* ---- 卡片嵌入字体行：名称占剩余宽度，下拉按内容自适应 ----
