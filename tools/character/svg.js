@@ -3,6 +3,10 @@
  * =========================================================================
  * 预览与导出的 SVG 构建层
  * ------------------------------------------------------------
+ * v3 修正：
+ *  1. 天赋区空值统一走 TALENT_EMPTY_TEXT / EMPTY_FILL
+ *     —— 原本用 '#fff' 纯白显示「—」，和填了值的文字一样亮，
+ *        语义上和面板区的「任意」不一致。现在三处占位共用同一档灰色。
  * v2 修正：
  *  1. 【真 bug】doubleArtifact 里 `const { gap } = LAYOUT` 解构到 undefined
  *     （LAYOUT 只有 doubleGap），导致 w = NaN → 散搭圣遗物右图不显示、
@@ -383,13 +387,14 @@ const buildTalents = () => {
 
   return items.map((it, i) => {
     const x = contentX + i * (colW + colGap);
-    const val = it[1] || '—';
+    const isEmpty = !it[1];
+    const val = isEmpty ? TALENT_EMPTY_TEXT : it[1];
     const labelY = contentY + 17, valueY = contentY + 44;
     const maxW = colW - 16, base = valueFs;
     return `
       ${rect(x, contentY, colW, boxH, LAYOUT.innerBoxFill, '', 0, r)}
       ${text(x + colW / 2, labelY, it[0], labelFs, { fill: LAYOUT.labelColor, anchor: 'middle', weight: 500 })}
-      ${text(x + colW / 2, valueY, val, fitSize(val, maxW, base, 10), { fill: '#fff', anchor: 'middle', weight: 600, field: it[2], fit: { maxW, base, min: 10 } })}`;
+      ${text(x + colW / 2, valueY, val, fitSize(val, maxW, base, 10), { fill: isEmpty ? EMPTY_FILL : '#fff', anchor: 'middle', weight: 600, field: it[2], fit: { maxW, base, min: 10 } })}`;
   }).join('');
 };
 
