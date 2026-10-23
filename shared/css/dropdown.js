@@ -1,22 +1,10 @@
 /* ============================================================
  * dropdown.js —— 下拉面板交互引擎
  * ------------------------------------------------------------
- * HTML 结构：
- *   .dropdown > .dropdown-trigger + .dropdown-panel > .dropdown-item
- * ------------------------------------------------------------
- * 行为：
- *   · 点触发器开关；点面板外关闭；点选项关闭并派发 dropdown:select
- *   · 打开时改用 position: fixed，绕过祖先 overflow 裁剪
- *   · 面板宽度始终等于触发器宽度（不再有 140px 的隐式下限）
- *   · 上下自动翻转、水平自动内收，永不超出安全区
- *   · 内容装得下时【完全不夹高度】，避免出现多余的滚动条
- *   · 自动抵消祖先 transform 造成的坐标偏移
- *   · Esc 关闭并归还焦点
- * ------------------------------------------------------------
- * v5 变更：
- *  · 面板最小宽度默认改为 0 —— 宽度完全跟随触发器
- *    （原来固定 140px，导致星级、字体等窄按钮的下拉比按钮宽出一倍）
- *  · 需要保底宽度的组件，自己写 --dropdown-min-w 即可
+ * v6 变更：
+ *  · 水平定位不再取整（原 Math.round 会让面板与按钮错开最多 1px）
+ *    三栏等分等小数宽度场景下，取整会造成「宽度一致但边缘对不齐」
+ *  · 垂直方向仍保留取整（避免文字渲染模糊）
  * ============================================================ */
 (() => {
   'use strict';
@@ -24,22 +12,20 @@
   const OPEN = 'is-open';
   const FIXED = 'is-fixed';
 
-  const MIN_H = 60;        // 面板最小高度
-  const MIN_W = 0;         // 面板最小宽度的默认值：0 = 完全跟随触发器
-  const FLIP_SPACE = 160;  // 下方空间低于此值时优先向上展开
+  const MIN_H = 60;
+  const MIN_W = 0;
+  const FLIP_SPACE = 160;
 
   let active = null;
 
   const triggerOf = (d) => d.querySelector('.dropdown-trigger');
   const panelOf = (d) => d.querySelector('.dropdown-panel');
 
-  /* 从 CSS 令牌读取数值（拿不到就用回退值） */
   function token(el, name, fallback) {
     const v = parseFloat(getComputedStyle(el).getPropertyValue(name));
     return Number.isFinite(v) ? v : fallback;
   }
 
-  /* 找到会建立「固定定位包含块」的祖先 */
   function fixedOrigin(el) {
     let node = el.parentElement;
     while (node && node !== document.documentElement) {
@@ -72,13 +58,12 @@
     const vh = window.innerHeight;
     const rect = trigger.getBoundingClientRect();
 
-    /* —— 水平：宽度跟随触发器，夹在安全区内 —— */
+    /* —— 水平：全部使用精确值，不取整 —— */
     const width = Math.min(Math.max(rect.width, minW), vw - margin * 2);
-    let left = Math.round(rect.left);
+    let left = rect.left;
     if (left + width > vw - margin) left = vw - margin - width;
     if (left < margin) left = margin;
 
-    /* —— 先落位，再量高度（宽度影响换行） —— */
     panel.classList.add(FIXED);
     panel.style.width = `${width}px`;
     panel.style.left = `${left}px`;
@@ -90,11 +75,10 @@
     const available = Math.max(0, openUp ? above : below);
     const limit = Math.min(available, cssMaxH);
 
-    /* —— 再由方向定高度：装得下就完全不夹 —— */
     const needed = panel.scrollHeight;
     let height;
     if (needed <= limit) {
-      panel.style.maxHeight = 'none';   /* 关键：不给 overflow 触发机会 */
+      panel.style.maxHeight = 'none';
       height = needed;
     } else {
       height = Math.max(MIN_H, limit);
@@ -105,10 +89,10 @@
     top = Math.min(Math.max(top, margin), Math.max(margin, vh - margin - height));
     panel.style.top = `${Math.round(top)}px`;
 
-    /* —— 抵消祖先 transform 造成的坐标偏移 —— */
+    /* —— 抵消祖先 transform 的偏移（同样不取整）—— */
     const origin = fixedOrigin(panel);
     if (origin.x || origin.y) {
-      panel.style.left = `${Math.round(left - origin.x)}px`;
+      panel.style.left = `${left - origin.x}px`;
       panel.style.top = `${Math.round(top - origin.y)}px`;
     }
   }
@@ -136,7 +120,6 @@
     if (active === dropdown) active = null;
 
     if (!panel) return;
-    /* 等淡出结束再复位，避免面板瞬移回原位 */
     const delay = token(dropdown, '--dur', 0.3) * 1000 + 20;
     clearTimeout(panel._resetTimer);
     panel._resetTimer = setTimeout(() => {
@@ -161,9 +144,6 @@
     else open(dropdown);
   }
 
-  /* ============================================================
-   * 事件
-   * ============================================================ */
   document.addEventListener('click', (e) => {
     const target = e.target instanceof Element ? e.target : null;
     if (!target) return;
@@ -181,7 +161,7 @@
     }
 
     const item = target.closest('.dropdown-item');
-    if (!item) return;   /* 点在面板空白/滚动条上：保持展开 */
+    if (!item) return;
 
     dropdown.dispatchEvent(new CustomEvent('dropdown:select', {
       bubbles: true,
@@ -217,13 +197,10 @@
   window.addEventListener('scroll', (e) => {
     if (!active) return;
     const t = e.target;
-    if (t instanceof Node && active.contains(t)) return;  /* 面板内部滚动不关闭 */
+    if (t instanceof Node && active.contains(t)) return;
     close(active);
   }, true);
 
-  /* ============================================================
-   * 对外接口
-   * ============================================================ */
   window.Dropdown = {
     close() { if (active) close(active); },
     position() { if (active) positionPanel(active); }
