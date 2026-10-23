@@ -5,6 +5,11 @@
  *   · down 用独立 arrowDown，不再翻转
  *   · 新增 chevronUp，供折叠按钮展开/收起切换
  *   · PLUS_ICON_PATH 从 shared/ui-icons.js 的 card 段取
+ * v3 修正：
+ *   · 删除 darken()。它是早期「手算缩略图边缘暗色」的遗留，现已全部改由
+ *     icon-loader.js 的 applyBackground 烘焙，全仓库无任何调用点。
+ *     将来若真的需要调暗颜色，请从 map-editor/app.js 抄 darkenHex
+ *     （那份是 HSL 实现，与 icon-loader 逐行等价），不要用 RGB 减法。
  * v2 修正：
  *   · EMPTY_FILL 从 #A19A92 提亮到 #CFC9C1。原值在面板单元格
  *     （白 30% 叠黑 40% 叠 #141312，约 rgb(90)）上只有 1.7:1 对比度，
@@ -183,20 +188,6 @@ function esc(v) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-function darken(hex, amt) {
-  if (!hex || typeof hex !== 'string') return '#333333';
-  let h = hex.startsWith('#') ? hex.slice(1) : hex;
-  if (h.length === 3) h = h.split('').map(c => c + c).join('');
-  if (h.length !== 6) return '#333333';
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  if ([r, g, b].some(v => isNaN(v))) return '#333333';
-  const rr = Math.max(0, r - amt);
-  const gg = Math.max(0, g - amt);
-  const bb = Math.max(0, b - amt);
-  return `#${rr.toString(16).padStart(2,'0')}${gg.toString(16).padStart(2,'0')}${bb.toString(16).padStart(2,'0')}`;
 }
 function placeholder(label) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="100" y="112" font-size="52" text-anchor="middle" fill="#666" font-family="sans-serif">${esc(label)}</text></svg>`;
