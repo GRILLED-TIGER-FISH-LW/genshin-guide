@@ -2,6 +2,10 @@
  * 视频封面 · style.css
  * 仅视频封面特化。通用控件在 shared/css/ 各文件。
  * -------------------------------------------------------------------------
+ * v6 变更：
+ *  1. 补回 .preview-frame 的手型光标。
+ *     共享 preview.css v4 把默认改成了 default，但本页预览框是可以点的
+ *     ——点空白处切换浮动工具栏显隐（见 app.js 的 previewFrame click）。
  * v5 变更：
  *  1. 修复「浮动素材」加号按钮压在分隔线上：
  *     v4 的 `.form .panel > .panel-row { padding: 0 }` 把 .custom-head
@@ -28,6 +32,11 @@ body {
 /* 预览吸顶条固定在顶部，不参与纵向伸缩 */
 .preview-sticky {
   flex-shrink: 0;
+}
+
+/* 预览框可点击：点空白处切换浮动工具栏显隐（见 app.js） */
+.preview-frame {
+  cursor: pointer;
 }
 
 /* ============================================================
