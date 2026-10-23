@@ -1,16 +1,16 @@
 /* ============================================================
  * dropdown.js —— 下拉面板交互引擎
  * ------------------------------------------------------------
- * v7 变更：
- *  · 面板定位改为「闭环校正」：设完样式后读取实测渲染值，
- *    与目标值比对并补偿，最多两轮收敛。
- *    彻底摆脱对「包含块 / transform / will-change / 特异性」的依赖，
- *    任何 CSS 干扰都会被实测值纠正。
- *  · 删除 fixedOrigin()（靠 transform 特征反推包含块，漏检 will-change，
- *    且与闭环校正重复）
- *  · 定位前用内联样式锁死 position / right / margin / box-sizing /
- *    max-width，防止 CSS 规则把宽度和位置挤压回去
- *  · 宽度 = 触发器宽度，先收敛宽度再测高度（避免换行导致高度算错）
+ * v8 变更：
+ *  · 修正「面板左右对称内缩」——v7 把 --gap-lg(16px) 当成面板离
+ *    视口边缘的安全距离，当页面容器 padding < 16px 时，
+ *    width 被压窄 (32 − 2P)、left 被抬到 16，
+ *    导致左右各内缩 (16 − P) px。
+ *  · 水平方向不再无条件钳制：面板宽≡触发器宽、左边缘≡触发器左边缘时，
+ *    面板落在触发器框内，必然不溢出视口。
+ *    只有 --dropdown-min-w 让面板比触发器宽时才钳。
+ *  · 垂直方向保留 margin 钳制（面板高度可变，可能超出屏幕上下）。
+ *  · 闭环校正保留：以实测渲染值为准补差，不依赖任何 CSS 假设。
  * ============================================================ */
 (() => {
   'use strict';
@@ -75,7 +75,7 @@
     if (!trigger || !panel) return;
 
     const gap = token(dropdown, '--gap', 8);
-    const margin = token(dropdown, '--gap-lg', 16);
+    const edge = token(dropdown, '--gap-lg', 16);
     const cssMaxH = token(dropdown, '--input-panel-max-h', 280) || 280;
     const minW = token(dropdown, '--dropdown-min-w', MIN_W);
     const vw = document.documentElement.clientWidth;
@@ -87,19 +87,19 @@
     for (const k in LOCK) panel.style[k] = LOCK[k];
 
     /* —— 宽度 = 触发器宽度（先收敛，再量高度）—— */
-    const width = Math.min(Math.max(rect.width, minW), vw - margin * 2);
+    const width = Math.max(rect.width, minW);
     panel.style.width = `${width}px`;
     convergeWidth(panel, width);
 
-    /* —— 水平：左边缘对准触发器，越界再钳 —— */
+    /* —— 水平：左边缘对准触发器；仅当面板比触发器宽时才收 —— */
     let left = rect.left;
-    if (left + width > vw - margin) left = vw - margin - width;
-    if (left < margin) left = margin;
+    if (left + width > vw) left = Math.max(0, vw - width);
+    if (left < 0) left = 0;
     panel.style.left = `${left}px`;
 
     /* —— 垂直：先定方向 —— */
-    const below = vh - rect.bottom - gap - margin;
-    const above = rect.top - gap - margin;
+    const below = vh - rect.bottom - gap - edge;
+    const above = rect.top - gap - edge;
     const openUp = below < MIN_H || (below < FLIP_SPACE && above > below);
     const available = Math.max(0, openUp ? above : below);
     const limit = Math.min(available, cssMaxH);
@@ -115,7 +115,7 @@
     }
 
     let top = openUp ? rect.top - gap - height : rect.bottom + gap;
-    top = Math.min(Math.max(top, margin), Math.max(margin, vh - margin - height));
+    top = Math.min(Math.max(top, edge), Math.max(edge, vh - edge - height));
     top = Math.round(top);
     panel.style.top = `${top}px`;
 
