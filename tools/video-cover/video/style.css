@@ -2,6 +2,12 @@
  * 视频封面 · style.css
  * 仅视频封面特化。通用控件在 shared/css/ 各文件。
  * -------------------------------------------------------------------------
+ * v5 变更：
+ *  1. 修复「浮动素材」加号按钮压在分隔线上：
+ *     v4 的 `.form .panel > .panel-row { padding: 0 }` 把 .custom-head
+ *     的上下内边距一起清零，导致按钮底边紧贴 .panel-row 的分隔线。
+ *     改为 `:not(.custom-head)` 排除，并给 .custom-head 补回下内边距。
+ *     用 :not() 而非依赖书写顺序，不会再被后续规则压掉。
  * v4 变更：
  *  1. 锁定页面外壳：body 高度 = 视口、禁用整页滚动
  *     → 预览窗固定在顶部，滚动条只出现在表单区右侧
@@ -101,6 +107,8 @@ body {
  * ============================================================ */
 .custom-head {
   justify-content: space-between;
+  /* 加号按钮需要有下内边距，否则会贴住 .panel-row 的分隔线 */
+  padding-bottom: var(--gap);
 }
 .custom-head-label {
   font-size: var(--fs-sm);
@@ -167,18 +175,20 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
 }
+
 /* ============================================================
  * 面板内部节奏：与角色卡对齐（统一 8px）
  * ------------------------------------------------------------
  * 原来每个 .row-pad / .field 自己加 8px 上下内边距，
  * 相邻两块叠起来就是 16px，比角色卡松一倍。
  * 改成「.panel 自己出内边距 + 子元素 gap」，子块不再各加 padding。
+ * 例外：.custom-head 必须保留下内边距，否则加号按钮会压住分隔线。
  * ============================================================ */
 .form .panel {
   gap: var(--gap);
   padding: var(--pad-ctl);
 }
-.form .panel > .panel-row,
+.form .panel > .panel-row:not(.custom-head),
 .form .panel > .row-pad {
   padding: 0;
 }
