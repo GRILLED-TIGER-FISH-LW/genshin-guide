@@ -3,6 +3,11 @@
  * =========================================================================
  * 交互层：数据持久化 / 编辑器渲染 / 图片匹配 / 导出导入
  * ------------------------------------------------------------
+ * v3 变更：
+ *  1. 配队区「备选角色」改为紧凑行（头像 + 名字 + ↑ ↓ ✕），
+ *     删掉「备选 #N」标题行与整块 .card.sub-card，
+ *     嵌套层级从 4 层降到 3 层，一行一个备选，扫读更快。
+ *     —— 备选序号标签随之取消（顺序由列表位置和上下移按钮体现）。
  * v2 变更：
  *  1. init() 补齐错误兜底：任何一步失败都不再白屏，改为在加载遮罩上显示原因
  *  2. selectTab 改用 data-tab 查找，彻底摆脱 id 依赖（id="tab-panel" 的混淆点消除）
@@ -681,20 +686,13 @@ function renderTeamEditor() {
                   ${c.alts.map((a, ai) => {
                     const altTargetId = `t_${ti}_${ci}_${ai}_img`;
                     return `
-                    <div class="card sub-card">
-                      <div class="card-header">
-                        <span class="card-subtitle">备选 #${ai + 1}</span>
-                        <div class="card-actions">
-                          <button type="button" class="btn" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}<span class="btn-text">上移</span></button>
-                          <button type="button" class="btn" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}<span class="btn-text">下移</span></button>
-                          <button type="button" class="btn btn-danger" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}<span class="btn-text">删除</span></button>
-                        </div>
-                      </div>
-                      <div class="row">
-                        <img src="${a.img || placeholder('')}" class="thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
-                        <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchIconByType('characters_alt',${ti},${ci},this.value,${ai})" class="flex-1" />
-                        <input type="file" id="${altTargetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
-                      </div>
+                    <div class="row alt-row">
+                      <img src="${a.img || placeholder('')}" class="thumb" data-img-target="${altTargetId}" onclick="App.triggerUpload('${altTargetId}')" alt="" />
+                      <input type="text" value="${esc(a.name)}" oninput="App.setAltName(${ti},${ci},${ai},this.value)" onblur="App.matchIconByType('characters_alt',${ti},${ci},this.value,${ai})" class="flex-1" />
+                      <button type="button" class="btn-icon" title="上移" onclick="App.moveAlt(${ti},${ci},${ai},-1)" ${ai === 0 ? 'disabled' : ''}>${ICONS.up}</button>
+                      <button type="button" class="btn-icon" title="下移" onclick="App.moveAlt(${ti},${ci},${ai},1)" ${ai === c.alts.length - 1 ? 'disabled' : ''}>${ICONS.down}</button>
+                      <button type="button" class="btn-icon btn-danger" title="删除" onclick="App.removeAlt(${ti},${ci},${ai})">${ICONS.trash}</button>
+                      <input type="file" id="${altTargetId}" accept="image/*" class="hidden" onchange="App.uploadImageHandler(this, v => { State.data.teamData[${ti}].chars[${ci}].alts[${ai}].img = v; State.data.teamData[${ti}].chars[${ci}].alts[${ai}].imgManual = true; App.renderTeamEditor(); App.mountPreview(); App.debouncedSave(); })" />
                     </div>`;
                   }).join('')}
                   ${!c.alts.length ? `<input type="text" value="${esc(c.emptyAltText || '暂无备选')}" oninput="App.setEmptyAltText(${ti},${ci},this.value)" placeholder="无备选时显示的文字" />` : ''}
