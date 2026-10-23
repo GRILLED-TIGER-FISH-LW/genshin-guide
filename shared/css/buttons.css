@@ -72,7 +72,16 @@
 
 /* ============================================================
  * 2. 图标尺寸
+ * ------------------------------------------------------------
+ * 文字按钮：图标固定 --icon-sm（14px），与按钮高度无关
+ * 图标按钮：图标 = 按钮内宽的 60%，随按钮大小自动缩放
+ *           · 32px 按钮 → 30 × 0.6 = 18px（与改动前完全一致）
+ *           · 40px 按钮 → 38 × 0.6 = 22.8px
+ *           · 上限锁在 --icon-lg（24px），不会失控
+ *           不支持容器查询的浏览器忽略 cqw，回退到 --icon
  * ============================================================ */
+
+/* --- 文字按钮：固定 14px，不随按钮尺寸变化 --- */
 .btn svg,
 .btn .icon-slot,
 .btn .collapse-icon {
@@ -81,15 +90,25 @@
   flex-shrink: 0;
 }
 
+/* --- 图标按钮：声明为尺寸容器，子图标的 cqw 以它的内宽为基准 --- */
+.btn-icon,
+.float-btn {
+  container-type: inline-size;
+}
+
+/* --- 图标按钮：图标跟随按钮内宽 --- */
 .btn-icon svg,
 .btn-icon .icon-slot,
 .float-btn svg,
 .float-btn .icon-slot {
-  width: var(--icon);
-  height: var(--icon);
+  width: var(--icon);                                    /* 回退 */
+  width: clamp(var(--icon), 60cqw, var(--icon-lg));
+  height: var(--icon);                                   /* 回退 */
+  height: clamp(var(--icon), 60cqw, var(--icon-lg));
   flex-shrink: 0;
 }
 
+/* --- 图标槽：居中 --- */
 .btn .icon-slot,
 .btn .collapse-icon,
 .btn-icon .icon-slot,
@@ -97,6 +116,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* --- 槽内 svg 填满槽（特异性 0,2,1 高于上一条，故不受 cqw 影响） --- */
+.btn .icon-slot > svg,
+.btn .collapse-icon > svg,
+.btn-icon .icon-slot > svg,
+.float-btn .icon-slot > svg {
+  width: 100%;
+  height: 100%;
 }
 
 .btn .icon-slot > svg,
