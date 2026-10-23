@@ -7,7 +7,7 @@
 <title>视频封面</title>
 
 <!-- ① 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
-<script src="../../../shared/css/theme-init.js?v=20261024"></script>
+<script src="../../../shared/css/theme-init.js"></script>
 
 <script>
 (() => {
@@ -82,72 +82,8 @@
 </div>
 
 <main class="form">
-  <section>
-    <div class="panel-header">字体（仅作用于导出图片）</div>
-    <div class="panel">
-      <div class="panel-row">
-        <div class="font-label" id="labelVideoFont">默认系统字体</div>
-        <div class="dropdown" id="fontDropdown">
-          <button type="button" class="dropdown-trigger" id="btnFontPicker">
-            <span class="icon-slot" data-icon="font"></span>
-            <span class="dropdown-label">选择字体</span>
-            <span class="dropdown-arrow">
-              <span class="arrow-down" data-icon="chevronDown"></span>
-              <span class="arrow-up" data-icon="chevronUp"></span>
-            </span>
-          </button>
-          <div class="dropdown-panel" id="fontDropdownPanel"></div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <section>
-    <div class="panel-header">游戏 Logo</div>
-    <div class="panel">
-      <div class="panel-row">
-        <img id="logoThumb" class="thumb" alt="">
-        <div class="dropdown" id="logoDropdown">
-          <button type="button" class="dropdown-trigger">
-            <span class="dropdown-label" id="logoDropdownLabel">原神</span>
-            <span class="dropdown-arrow">
-              <span class="arrow-down" data-icon="chevronDown"></span>
-              <span class="arrow-up" data-icon="chevronUp"></span>
-            </span>
-          </button>
-          <div class="dropdown-panel" id="logoDropdownPanel"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="panel-header">画布背景</div>
-    <div class="panel">
-      <div class="panel-row">
-        <img id="bgThumb" class="thumb" alt="" onclick="document.getElementById('bgFile').click()">
-        <div class="flex-1">
-          <div class="upload-text" id="bgFileName">点击上传背景图</div>
-        </div>
-        <input type="file" id="bgFile" accept="image/*" class="hidden">
-      </div>
-      <div class="slider-group row-pad">
-        <div class="slider-label"><span>背景亮度</span></div>
-        <div class="slider-row">
-          <input type="range" id="midBrightness" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)">
-          <div class="number-box"><input type="number" id="midBrightnessInput" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)"><span class="number-unit">%</span></div>
-        </div>
-      </div>
-      <div class="slider-group row-pad">
-        <div class="slider-label"><span>背景模糊</span></div>
-        <div class="slider-row">
-          <input type="range" id="midBlur" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)">
-          <div class="number-box"><input type="number" id="midBlurInput" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)"><span class="number-unit">%</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
+  <!-- ① 攻略模式 -->
   <section>
     <div class="panel-header">攻略模式</div>
     <div class="tab-bar">
@@ -177,23 +113,35 @@
     </div>
   </section>
 
-  <section id="capSection">
-    <div class="panel-header">胶囊标签</div>
+  <!-- ② 画布背景 -->
+  <section>
+    <div class="panel-header">画布背景</div>
     <div class="panel">
-      <label class="field row-pad">
-        <span class="field-label">标签文字</span>
-        <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
-      </label>
+      <div class="panel-row">
+        <img id="bgThumb" class="thumb" alt="" onclick="document.getElementById('bgFile').click()">
+        <div class="flex-1">
+          <div class="upload-text" id="bgFileName">点击上传背景图</div>
+        </div>
+        <input type="file" id="bgFile" accept="image/*" class="hidden">
+      </div>
       <div class="slider-group row-pad">
-        <div class="slider-label"><span>文字亮度</span></div>
+        <div class="slider-label"><span>背景亮度</span></div>
         <div class="slider-row">
-          <input type="range" id="capTextBrightness" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)">
-          <div class="number-box"><input type="number" id="capTextBrightnessInput" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)"><span class="number-unit">%</span></div>
+          <input type="range" id="midBrightness" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)">
+          <div class="number-box"><input type="number" id="midBrightnessInput" min="-100" max="100" value="-50" oninput="App.syncVal('midBrightness', this.value)"><span class="number-unit">%</span></div>
+        </div>
+      </div>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>背景模糊</span></div>
+        <div class="slider-row">
+          <input type="range" id="midBlur" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)">
+          <div class="number-box"><input type="number" id="midBlurInput" min="0" max="100" value="50" oninput="App.syncVal('midBlur', this.value)"><span class="number-unit">%</span></div>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- ③ 主标题 -->
   <section id="mainSection">
     <div class="panel-header">主标题</div>
     <div class="panel">
@@ -203,6 +151,7 @@
     </div>
   </section>
 
+  <!-- ④ 副标题 -->
   <section>
     <div class="panel-header">副标题</div>
     <div class="panel">
@@ -248,6 +197,66 @@
       </div>
     </div>
   </section>
+
+  <!-- ⑤ 胶囊标签 -->
+  <section id="capSection">
+    <div class="panel-header">胶囊标签</div>
+    <div class="panel">
+      <label class="field row-pad">
+        <span class="field-label">标签文字</span>
+        <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
+      </label>
+      <div class="slider-group row-pad">
+        <div class="slider-label"><span>文字亮度</span></div>
+        <div class="slider-row">
+          <input type="range" id="capTextBrightness" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)">
+          <div class="number-box"><input type="number" id="capTextBrightnessInput" min="0" max="200" value="100" oninput="App.syncVal('capTextBrightness', this.value)"><span class="number-unit">%</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ 字体（仅作用于导出图片） -->
+  <section>
+    <div class="panel-header">字体（仅作用于导出图片）</div>
+    <div class="panel">
+      <div class="panel-row">
+        <div class="font-label" id="labelVideoFont">默认系统字体</div>
+        <div class="dropdown" id="fontDropdown">
+          <button type="button" class="dropdown-trigger" id="btnFontPicker">
+            <span class="icon-slot" data-icon="font"></span>
+            <span class="dropdown-label">选择字体</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel" id="fontDropdownPanel"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ 游戏 Logo -->
+  <section>
+    <div class="panel-header">游戏 Logo</div>
+    <div class="panel">
+      <div class="panel-row">
+        <img id="logoThumb" class="thumb" alt="">
+        <div class="dropdown" id="logoDropdown">
+          <button type="button" class="dropdown-trigger">
+            <span class="dropdown-label" id="logoDropdownLabel">原神</span>
+            <span class="dropdown-arrow">
+              <span class="arrow-down" data-icon="chevronDown"></span>
+              <span class="arrow-up" data-icon="chevronUp"></span>
+            </span>
+          </button>
+          <div class="dropdown-panel" id="logoDropdownPanel"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <button type="button" class="export-btn" onclick="App.exportPNG()">导出图片</button>
