@@ -538,7 +538,7 @@ input[type="range"]::-moz-range-thumb {
 /* ============================================================
  * 9. 联想输入
  * ============================================================ */
-.combobox { position: relative; }
+.combobox { position: relative; width: 100%; }
 .combobox-input-wrap {
   position: relative;
   display: flex;
