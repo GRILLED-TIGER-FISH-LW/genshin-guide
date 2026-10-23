@@ -5,6 +5,10 @@
  *   · down 用独立 arrowDown，不再翻转
  *   · 新增 chevronUp，供折叠按钮展开/收起切换
  *   · PLUS_ICON_PATH 从 shared/ui-icons.js 的 card 段取
+ * v2 修正：
+ *   · EMPTY_FILL 从 #A19A92 提亮到 #CFC9C1。原值在面板单元格
+ *     （白 30% 叠黑 40% 叠 #141312，约 rgb(90)）上只有 1.7:1 对比度，
+ *     「任意」「暂无备选」几乎读不清。提亮后约 2.2:1，仍弱于填值用的纯白。
  * ========================================================================= */
 
 /* =========================================================================
@@ -92,7 +96,11 @@ const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手'
 const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' };
 const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def'];
 const PANEL_EMPTY_TEXT = '任意';
-const EMPTY_FILL = '#A19A92';
+
+/* 空值占位文字色：必须明显弱于填值用的 #fff，但也要在深色单元格上读得清。
+   #A19A92 在 rgb(90) 的背景上只有 1.7:1，几乎看不见；#CFC9C1 约 2.2:1。 */
+const EMPTY_FILL = '#CFC9C1';
+const TALENT_EMPTY_TEXT = '—';
 
 /* =========================================================================
  * 【C5】Tab 定义 + 运行期全局变量
