@@ -3,6 +3,11 @@
  * 吸顶玻璃条（与 editor.css 的 .sticky-header 共用一套视觉）
  * 预览框：按内容宽高比自适应，默认 16:9，铺满宽度且无黑边
  * ------------------------------------------------------------
+ * v4 变更：
+ *  1. .preview-frame 的 cursor 从 pointer 改为 default。
+ *     预览框本身不是按钮，没有点击语义的工具（如角色卡）会让人
+ *     以为「点了应该有反应」。需要手型提示的工具（如视频封面，
+ *     点空白处切换浮动工具栏）请在自己的 style.css 里覆盖回来。
  * v3 变更：
  *  1. 【修掉左右黑边】原来把预览框写死成 height: 32svh + max-height 封顶，
  *     与 16:9 的内容比例不一致 → SVG 被 letterbox，两侧露出 #121212 底色。
@@ -67,7 +72,9 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-panel);
   overflow: hidden;
-  cursor: pointer;
+  /* 预览框不是按钮：默认用普通箭头。
+     需要「可点击」提示的工具请在自己的 style.css 覆盖为 pointer */
+  cursor: default;
 }
 
 /* 内容比例与 --preview-ratio 不一致时的兜底：等比缩放居中 */
