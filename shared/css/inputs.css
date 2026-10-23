@@ -7,34 +7,28 @@
  *        因此本文件不出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
+ * v7 修正（相对 v6）：
+ *  · .dropdown-panel 有圆角 + overflow-y:auto，默认滚动条是方角，
+ *    会从面板圆角处「露出来」。现在统一给滚动条：
+ *      - 宽度 6px、thumb 圆角、track 上下留白 var(--gap-sm)
+ *      - 同时写了标准的 scrollbar-width / scrollbar-color
+ *    这样所有用 .dropdown 的页面（游逸旅闻 / 尘歌壶 / 视频封面 …）一次修好。
+ * ------------------------------------------------------------
  * v6 修正（相对 v5）：
- *  · --input-w-uid 80px → 104px
- *    80px 扣掉左右 padding 只剩 64px，塞 10 位数字会挤；
- *    104px 留出每边约 10px 余量。游逸旅闻与尘歌壶共用这个变量。
+ *  · --input-w-uid 80px → 104px（10 位数字 + 左右各约 10px 余量）
  *  · .uid-input 增加 font-variant-numeric: tabular-nums
- *    数字等宽后，光标移动时宽度不再跳动。
  * ------------------------------------------------------------
  * v5 修正（相对 v4）：
- *  · textarea 的 resize: vertical 会在右下角画出浏览器原生拖拽手柄，
- *    深色背景下渲染成「黑块 + 白块」两个点（高 DPI 下尤其明显）。
- *    改为 resize: none，并补 ::-webkit-resizer 双保险。
- *  · textarea 增加 field-sizing: content + max-height：
- *    支持的浏览器随内容自动增高（手机上没有拖拽手柄，原来只能内部滚动）；
- *    不支持的浏览器自动忽略，退回 rows 固定高度，无副作用。
+ *  · textarea 去掉 resize 手柄（深色背景下会渲染成黑白两个点）
+ *  · textarea 增加 field-sizing: content + max-height 渐进增强
  * ------------------------------------------------------------
  * v4 修正（相对 v3）：
- *  · 修复文本框水平内边距被清零的问题（文字贴着左边框）
- *    原因：:where(...) 特异性为 (0,0,0)，与 theme.css 的
- *          * { padding: 0 } 相同，且后者在 @import 之后 → 后者胜出
- *    修法：改为 input:where(...) → (0,0,1)，既高于 * 又低于组件类
- *  · 同步修正 :focus 规则的同样问题
+ *  · 修复文本框水平内边距被清零（input:where(...) 特异性 0,0,1）
  * ============================================================ */
 
 :root {
-  /* 组件尺寸（派生自全局令牌） */
   --input-shadow-focus: 0 0 0 2px var(--accent-soft);
 
-  /* 组件私有尺寸（无法从刻度推导，保留） */
   --input-w-num: 80px;
   --input-w-uid: 104px;      /* 10 位数字 + 左右各约 10px 余量 */
   --input-avatar: 48px;
@@ -78,12 +72,10 @@ textarea {
   padding: var(--pad-ctl);
   border-radius: var(--r-ctl);
   line-height: 1.5;
-  resize: none;             /* 去掉浏览器原生拖拽手柄（黑/白小方块） */
-  field-sizing: content;    /* 支持则随内容自动增高，不支持则退回 rows */
+  resize: none;
+  field-sizing: content;
   overflow-y: auto;
 }
-
-/* 双保险：部分浏览器/内核在 resize:none 后仍会描出 resizer 角标 */
 textarea::-webkit-resizer { display: none; }
 
 input:where([type="text"], [type="number"], [type="search"]):focus,
@@ -92,7 +84,6 @@ textarea:focus {
   box-shadow: var(--input-shadow-focus);
 }
 
-/* 数字框去掉原生上下箭头 */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -369,7 +360,6 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: var(--input-shadow-focus);
 }
 
-/* 触发器左侧图标槽（HTML 用的是 .icon-slot，勿改名） */
 .dropdown-trigger .icon-slot,
 .dropdown-icon,
 .dropdown-arrow {
@@ -387,7 +377,6 @@ input[type="range"]::-moz-range-thumb {
   height: 100%;
 }
 
-/* 箭头：双 span 切换（.arrow-down / .arrow-up） */
 .dropdown-arrow {
   color: var(--text-secondary);
 }
@@ -423,6 +412,9 @@ input[type="range"]::-moz-range-thumb {
   max-height: var(--input-panel-max-h);
   padding: var(--gap-sm);
   overflow-y: auto;
+  /* 面板有圆角，默认方角滚动条会从圆角处露出来 —— 统一改成细滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-ctl);
@@ -442,6 +434,20 @@ input[type="range"]::-moz-range-thumb {
   top: auto;
   left: auto;
   right: auto;
+}
+
+/* WebKit：thumb 圆角 + track 上下留白，滑块不会贴到面板圆角上 */
+.dropdown-panel::-webkit-scrollbar { width: 6px; }
+.dropdown-panel::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: var(--gap-sm);      /* UA 伪元素，必需 */
+}
+.dropdown-panel::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--r-pill);
+}
+.dropdown-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
 }
 
 .dropdown-item {
@@ -566,7 +572,6 @@ input[type="range"]::-moz-range-thumb {
   padding-left: calc(var(--input-avatar-sm) + var(--gap) + var(--pad-ctl));
 }
 
-/* 显隐交由 app.js 控制（建议统一改为 .is-open） */
 .combobox-popup {
   position: absolute;
   top: calc(100% + var(--gap-sm));
@@ -619,7 +624,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--r-ctl);
   color: var(--text-primary);
   font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;   /* 数字等宽，光标移动时宽度不跳 */
+  font-variant-numeric: tabular-nums;
   text-align: center;
   outline: none;
   transition: border-color var(--dur) var(--ease);
