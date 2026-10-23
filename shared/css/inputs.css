@@ -7,6 +7,13 @@
  *        因此本文件不出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
+ * v6 修正（相对 v5）：
+ *  · --input-w-uid 80px → 104px
+ *    80px 扣掉左右 padding 只剩 64px，塞 10 位数字会挤；
+ *    104px 留出每边约 10px 余量。游逸旅闻与尘歌壶共用这个变量。
+ *  · .uid-input 增加 font-variant-numeric: tabular-nums
+ *    数字等宽后，光标移动时宽度不再跳动。
+ * ------------------------------------------------------------
  * v5 修正（相对 v4）：
  *  · textarea 的 resize: vertical 会在右下角画出浏览器原生拖拽手柄，
  *    深色背景下渲染成「黑块 + 白块」两个点（高 DPI 下尤其明显）。
@@ -21,7 +28,6 @@
  *          * { padding: 0 } 相同，且后者在 @import 之后 → 后者胜出
  *    修法：改为 input:where(...) → (0,0,1)，既高于 * 又低于组件类
  *  · 同步修正 :focus 规则的同样问题
- *  · 其余内容与 v3 完全一致
  * ============================================================ */
 
 :root {
@@ -30,7 +36,7 @@
 
   /* 组件私有尺寸（无法从刻度推导，保留） */
   --input-w-num: 80px;
-  --input-w-uid: 80px;
+  --input-w-uid: 104px;      /* 10 位数字 + 左右各约 10px 余量 */
   --input-avatar: 48px;
   --input-avatar-sm: 24px;
   --input-arrow: 16px;
@@ -613,6 +619,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--r-ctl);
   color: var(--text-primary);
   font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;   /* 数字等宽，光标移动时宽度不跳 */
   text-align: center;
   outline: none;
   transition: border-color var(--dur) var(--ease);
