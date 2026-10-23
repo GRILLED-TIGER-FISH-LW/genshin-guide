@@ -7,29 +7,21 @@
 <title>合集封面</title>
 
 <!-- ① 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
-<script src="../../../shared/css/theme-init.js?v=20261025"></script>
+<script src="../../../shared/css/theme-init.js"></script>
 
 <script>
 (() => {
   const ts = Date.now();
-  const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
-
-  const loadStyle = (href) => new Promise((resolve, reject) => {
-    const l = document.createElement('link');
-    l.rel = 'stylesheet';
-    l.href = withTs(href);
-    l.onload = resolve;
-    l.onerror = () => reject(new Error('加载失败：' + href));
-    document.head.appendChild(l);
+  const withTs = (url) => url + (url.includes('?') ? '&' : '?') + `t=${ts}`;
+  const loadNode = (tag, attrs) => new Promise((resolve, reject) => {
+    const el = document.createElement(tag);
+    Object.assign(el, attrs);
+    el.onload = resolve;
+    el.onerror = () => reject(new Error(`加载失败：${attrs.href || attrs.src}`));
+    document.head.appendChild(el);
   });
-
-  const loadScript = (src) => new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = withTs(src);
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('加载失败：' + src));
-    document.head.appendChild(s);
-  });
+  const loadScript = (src) => loadNode('script', { src: withTs(src) });
+  const loadStyle = (href) => loadNode('link', { rel: 'stylesheet', href: withTs(href) });
 
   window.__bootPromise = (async () => {
     await Promise.all([
@@ -85,7 +77,7 @@
 
 <main class="form">
 
-  <!-- 画布 -->
+  <!-- ① 画布背景 -->
   <section>
     <div class="panel-header">画布</div>
     <div class="panel">
@@ -100,7 +92,22 @@
     </div>
   </section>
 
-  <!-- 字体 -->
+  <!-- ② 文字内容 -->
+  <section>
+    <div class="panel-header">文字内容</div>
+    <div class="panel">
+      <label class="field row-pad">
+        <span class="field-label">主标题</span>
+        <textarea rows="2" id="collectionTitle" placeholder="输入合集主标题" oninput="App.setCollection('title', this.value)"></textarea>
+      </label>
+      <label class="field row-pad">
+        <span class="field-label">副标题</span>
+        <textarea rows="2" id="collectionSubtitle" placeholder="输入合集副标题" oninput="App.setCollection('subtitle', this.value)"></textarea>
+      </label>
+    </div>
+  </section>
+
+  <!-- ③ 字体（仅作用于导出图片） -->
   <section>
     <div class="panel-header">字体（仅作用于导出图片）</div>
     <div class="panel">
@@ -118,21 +125,6 @@
           <div class="dropdown-panel" id="fontDropdownPanel"></div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- 文字内容 -->
-  <section>
-    <div class="panel-header">文字内容</div>
-    <div class="panel">
-      <label class="field row-pad">
-        <span class="field-label">主标题</span>
-        <textarea rows="2" id="collectionTitle" placeholder="输入合集主标题" oninput="App.setCollection('title', this.value)"></textarea>
-      </label>
-      <label class="field row-pad">
-        <span class="field-label">副标题</span>
-        <textarea rows="2" id="collectionSubtitle" placeholder="输入合集副标题" oninput="App.setCollection('subtitle', this.value)"></textarea>
-      </label>
     </div>
   </section>
 
