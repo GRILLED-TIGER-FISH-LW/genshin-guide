@@ -37,7 +37,6 @@
     await loadScript('app.js');
   })();
 
-  /* ② 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
   window.__bootPromise.catch(e => {
     console.error('[Boot]', e);
     const bootEl = document.querySelector('.boot-loading');
@@ -202,7 +201,7 @@
   <section id="capSection">
     <div class="panel-header">胶囊标签</div>
     <div class="panel">
-      <label class="field row-pad">
+      <label class="field row-pad" id="capTextRow">
         <span class="field-label">标签文字</span>
         <input type="text" id="capTextInput" placeholder="如：攻略 / 速刷" oninput="App.set('capText', this.value)">
       </label>
