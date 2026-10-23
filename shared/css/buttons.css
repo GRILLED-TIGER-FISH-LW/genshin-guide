@@ -187,3 +187,24 @@
 }
 .export-btn:hover:not(:disabled) { background: var(--accent-hover); }
 .export-btn:active:not(:disabled) { background: var(--accent-press); }
+
+/* ============================================================
+ * 7. 窄屏：文字按钮收成纯图标
+ * ------------------------------------------------------------
+ * 用法：HTML 加 class="btn btn-collapse" 即可，本地不用再写规则。
+ * 收成图标后按 .btn-icon 档渲染（--icon 18px），避免 14px 图标
+ * 塞进 32px 方块显得空。宽屏不生效，文字照常显示。
+ * ============================================================ */
+@media (max-width: 640px) {
+  .btn.btn-collapse {
+    width: var(--h-ctl);
+    padding: 0;
+  }
+  .btn.btn-collapse .btn-text {
+    display: none;
+  }
+  .btn.btn-collapse .icon-slot {
+    width: var(--icon);
+    height: var(--icon);
+  }
+}
