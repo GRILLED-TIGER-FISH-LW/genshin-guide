@@ -7,12 +7,22 @@
  *        因此本文件不出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
+ * v8 修正（相对 v7）：
+ *  · 【重要】v7 在 .dropdown-panel 上同时写了
+ *      scrollbar-width: thin;
+ *      scrollbar-color: …;
+ *    和 ::-webkit-scrollbar 一整套自定义。Chrome 121+ 的规则是：
+ *    只要标准属性 scrollbar-width 生效，::-webkit-scrollbar 整组伪元素
+ *    会被完全忽略 —— 于是圆角 thumb 和 track 留白全部失效，
+ *    滚动条退回方角，在面板圆角处露出来。
+ *    修法：删掉那两个标准属性，只保留 ::-webkit-scrollbar。
+ *  · 滚动条宽度 6px → 5px、track 留白 4px → 8px、thumb 80% 半透明，
+ *    减轻「面板滚动条 + 容器滚动条挨在一起」的视觉干扰。
+ * ------------------------------------------------------------
  * v7 修正（相对 v6）：
- *  · .dropdown-panel 有圆角 + overflow-y:auto，默认滚动条是方角，
- *    会从面板圆角处「露出来」。现在统一给滚动条：
- *      - 宽度 6px、thumb 圆角、track 上下留白 var(--gap-sm)
- *      - 同时写了标准的 scrollbar-width / scrollbar-color
- *    这样所有用 .dropdown 的页面（游逸旅闻 / 尘歌壶 / 视频封面 …）一次修好。
+ *  · .dropdown-panel 有圆角 + overflow-y:auto，默认方角滚动条会从
+ *    圆角处露出来。给滚动条定制宽度 / thumb 圆角 / track 上下留白。
+ *    本版引入了 scrollbar-width 导致自定义失效，见 v8。
  * ------------------------------------------------------------
  * v6 修正（相对 v5）：
  *  · --input-w-uid 80px → 104px（10 位数字 + 左右各约 10px 余量）
@@ -412,9 +422,9 @@ input[type="range"]::-moz-range-thumb {
   max-height: var(--input-panel-max-h);
   padding: var(--gap-sm);
   overflow-y: auto;
-  /* 面板有圆角，默认方角滚动条会从圆角处露出来 —— 统一改成细滚动条 */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-default) transparent;
+  /* 注意：这里绝对不能写 scrollbar-width / scrollbar-color。
+     Chrome 121+ 一旦看到标准属性生效，就会忽略下面整组
+     ::-webkit-scrollbar 伪元素，滚动条退回方角并在圆角处露出来。 */
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-ctl);
@@ -436,14 +446,15 @@ input[type="range"]::-moz-range-thumb {
   right: auto;
 }
 
-/* WebKit：thumb 圆角 + track 上下留白，滑块不会贴到面板圆角上 */
-.dropdown-panel::-webkit-scrollbar { width: 6px; }
+/* WebKit 滚动条：细 + 圆角 thumb + track 上下留白，滑块不贴面板圆角。
+   thumb 做成 80% 半透明，减轻「面板滚动条 + 容器滚动条并排」的视觉干扰。 */
+.dropdown-panel::-webkit-scrollbar { width: 5px; }
 .dropdown-panel::-webkit-scrollbar-track {
   background: transparent;
-  margin-block: var(--gap-sm);      /* UA 伪元素，必需 */
+  margin-block: var(--gap);      /* UA 伪元素，必需 */
 }
 .dropdown-panel::-webkit-scrollbar-thumb {
-  background: var(--border-default);
+  background: color-mix(in srgb, var(--border-default) 80%, transparent);
   border-radius: var(--r-pill);
 }
 .dropdown-panel::-webkit-scrollbar-thumb:hover {
