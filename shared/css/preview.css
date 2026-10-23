@@ -3,17 +3,21 @@
  * 吸顶玻璃条（与 editor.css 的 .sticky-header 共用一套视觉）
  * 预览框：按内容宽高比自适应，默认 16:9，铺满宽度且无黑边
  * ------------------------------------------------------------
+ * v5 变更：
+ *  · 【四周黑边】.preview-frame 原来用 border: 1px 画描边。
+ *    aspect-ratio 按 border-box 算（16:9），但 SVG 是在 content-box 里
+ *    用 max-width/max-height 等比缩放的，content-box 因为少了 2px 变成
+ *    1.785 而不是 1.778 → SVG 被高度卡住，左右各露约 1px 的 #121212 底色。
+ *    修法：border → box-shadow: inset，描边不占布局空间，
+ *    content-box 恢复精确 16:9，SVG 正好铺满。
  * v4 变更：
- *  1. .preview-frame 的 cursor 从 pointer 改为 default。
- *     预览框本身不是按钮，没有点击语义的工具（如角色卡）会让人
- *     以为「点了应该有反应」。需要手型提示的工具（如视频封面，
- *     点空白处切换浮动工具栏）请在自己的 style.css 里覆盖回来。
+ *  · .preview-frame 的 cursor 从 pointer 改为 default。
  * v3 变更：
- *  1. 【修掉左右黑边】原来把预览框写死成 height: 32svh + max-height 封顶，
- *     与 16:9 的内容比例不一致 → SVG 被 letterbox，两侧露出 #121212 底色。
- *     现在改为由 aspect-ratio 推导高度，宽度永远占满，内容正好铺满。
- *  2. --preview-frame-h / --preview-frame-max-h(-mobile) 保留定义但已不再使用，
- *     仅为兼容可能引用它们的工具本地样式。
+ *  · 【修掉左右黑边】原来把预览框写死成 height: 32svh + max-height 封顶，
+ *    与 16:9 的内容比例不一致 → SVG 被 letterbox，两侧露出 #121212 底色。
+ * v4 变更：
+ *  · 需要手型提示的工具（如视频封面，点空白处切换浮动工具栏）
+ *    请在自己的 style.css 里覆盖为 pointer。
  * ============================================================ */
 
 :root {
@@ -69,7 +73,9 @@
   height: auto;
   aspect-ratio: var(--preview-ratio);
   background: var(--preview-frame-bg);
-  border: 1px solid var(--border-subtle);
+  /* 描边用 inset 阴影，不占布局空间 —— 换成 border 会让 content-box
+     不再精确等于 16:9，SVG 就会缩一圈露出底色 */
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
   border-radius: var(--r-panel);
   overflow: hidden;
   /* 预览框不是按钮：默认用普通箭头。
