@@ -1,36 +1,32 @@
 /* =========================================================================
  * 视频封面 · app.js
  * =========================================================================
+ * v4 变更：
+ *  1. 胶囊标签区块在角色 / Boss 模式下不再整块隐藏。
+ *     —— 标签文字在非自定义模式下是自动的（固定「攻略」），隐藏输入框即可；
+ *        但「文字亮度」滑块在任何模式下都需要能调。
+ *     实现：capSection 始终显示，只对新的 #capTextRow 做 hidden 切换。
+ * =========================================================================
  * v3 变更：
- *  1. 【交互】setGuideType 切换攻略模式前弹确认框
- *     —— 切换会重置主标题 / 副标题 / 胶囊标签，并清空背景图、立绘、Boss 头像，
- *        原来点一下就没了。现在先确认，取消则完全不动 state 和 DOM。
- *  2. 【健壮】showConfirm 支持「覆盖上一个未决确认框」
- *     —— 原来连点两次会让第一个 Promise 永远挂起（onclick 被覆盖，没人 resolve）。
- *        现在新确认框弹出前，先把旧的按「取消」结束。
- *  3. 【健壮】setGuideType 主体包 try/catch，失败不会产生 unhandled rejection
- *     （它由 HTML 的 onclick 直接调用，返回值没人接）。
+ *  1. setGuideType 切换攻略模式前弹确认框
+ *  2. showConfirm 支持覆盖上一个未决确认框
+ *  3. setGuideType 主体包 try/catch
+ * =========================================================================
  * v2 变更：
- *  1. 【功能修复】「文字亮度」滑块真正生效
- *     —— 原来 capTextBrightness 从未参与渲染，拖动完全没反应。
- *        现在：图片填充时给 pattern 里的 image 套 feComponentTransfer；
- *              纯色填充时按倍率算灰度。
- *  2. 【性能】背景模糊改为半分辨率渲染 + JPEG 编码
- *     —— 原来每次都在 3840×2160 上做 100px 高斯模糊并转成 PNG base64，
- *        体积大、耗时长；现在像素量降到 1/4，体积小一个数量级。
- *  3. 【性能】拖动模糊/亮度滑块时对预览做 80ms 防抖，不再每个 input 都全量重绘
- *  4. 【健壮】init() 补齐错误兜底，任何一步失败都不再白屏
- *  5. 【健壮】importConfig 加了字段归一化，残缺/旧版本 JSON 不会打乱 state
- *  6. 【体积】exportConfig 剥离 fontData（字体数据可达数 MB），导入时按文件名重挂
- *  7. 【健壮】exportPNG 增加防连点，并补上成功提示
- *  8. 【清理】删除 init 末尾重复的 injectIcons()；SVG 样式里去掉 font-synthesis:none
+ *  1. 「文字亮度」滑块真正生效（feComponentTransfer / greyHex）
+ *  2. 背景模糊改为半分辨率渲染 + JPEG 编码
+ *  3. 拖动模糊/亮度滑块对预览做 80ms 防抖
+ *  4. init() 补齐错误兜底
+ *  5. importConfig 加了字段归一化
+ *  6. exportConfig 剥离 fontData
+ *  7. exportPNG 增加防连点
  * ========================================================================= */
 'use strict';
 
 const SVG_W = 3840;
 const SVG_H = 2160;
 const BLUR_MAX_PX = 100;
-const BLUR_RENDER_SCALE = 0.5;   /* 模糊层按半分辨率渲染：像素量降到 1/4 */
+const BLUR_RENDER_SCALE = 0.5;
 
 const BOSS_BASE_URL = '../../../shared/assets/video-cover/boss-base.png';
 const LOGO_BASE_URL = '../../../shared/assets/video-cover/';
@@ -328,7 +324,7 @@ function generateBlurredBgSync() {
   const H = Math.round(SVG_H * SS);
   const img = cachedBgImage;
   const blurNorm = Math.min(100, Math.max(0, Number(state.midBlur) || 0)) / 100;
-  const blurPx = blurNorm * BLUR_MAX_PX * SS;      /* 半径随分辨率等比缩放，视觉等价 */
+  const blurPx = blurNorm * BLUR_MAX_PX * SS;
   const slope = 1 + Number(state.midBrightness || 0) / 100;
 
   const c = document.createElement('canvas');
@@ -379,7 +375,6 @@ function generateBlurredBgSync() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  /* 模糊后的背景不需要透明通道，JPEG 比 PNG 小一个数量级 */
   const dataURL = c.toDataURL('image/jpeg', 0.92);
   cachedBlurredBg = dataURL;
   cachedBlurredBgKey = key;
@@ -606,7 +601,6 @@ function mountPreview() {
   previewSvgEl = host.querySelector('svg');
 }
 
-/* 模糊/亮度这类重活：80ms 防抖后再重绘，拖动滑块不再卡顿 */
 function scheduleHeavyPreview() {
   if (heavyPreviewTimer) clearTimeout(heavyPreviewTimer);
   heavyPreviewTimer = setTimeout(() => {
@@ -654,9 +648,14 @@ function applyModeUI() {
   if (sub2SizeRow) sub2SizeRow.classList.toggle('hidden', type !== 'custom');
 
   const mainSection = $('mainSection');
-  const capSection = $('capSection');
   if (mainSection) mainSection.classList.toggle('hidden', type !== 'custom');
-  if (capSection) capSection.classList.toggle('hidden', type !== 'custom');
+
+  /* 胶囊标签区块始终显示：角色 / Boss 模式下标签文字是自动的（隐藏输入框），
+     但「文字亮度」滑块在任何模式下都要能调 */
+  const capSection = $('capSection');
+  if (capSection) capSection.classList.remove('hidden');
+  const capTextRow = $('capTextRow');
+  if (capTextRow) capTextRow.classList.toggle('hidden', type !== 'custom');
 
   const labels = MODE_SUB_LABELS[type] ?? MODE_SUB_LABELS.custom;
   const sub1Label = $('sub1Label');
@@ -672,10 +671,8 @@ function applyModeUI() {
 }
 
 async function setGuideType(type) {
-  /* 点当前模式不弹框、不做任何事 */
   if (type === state.guideType) return;
 
-  /* 切换会重置内容，先确认；取消则 state 与 DOM 全部原样不动 */
   const lost = [];
   if (state.bg) lost.push('背景图');
   if (state.characterArt) lost.push('角色立绘');
@@ -1147,7 +1144,6 @@ async function selectFont(index) {
   }
 }
 
-/* 按 fontFileName 重新挂载字体（导入配置时用：导出的 JSON 不含 fontData） */
 async function reloadFontByName() {
   if (!state.fontFileName) return;
   if (!FONT_LIST.length) { try { await loadFontList(); } catch (e) {} }
@@ -1255,7 +1251,7 @@ async function bakeAndExport() {
 
 let exporting = false;
 async function exportPNG() {
-  if (exporting) return;          /* 防连点：导出过程可能持续数秒 */
+  if (exporting) return;
   exporting = true;
   try {
     if (document.fonts) await document.fonts.ready;
@@ -1269,8 +1265,6 @@ async function exportPNG() {
 }
 
 function exportConfig() {
-  /* fontData 通常是最大的单项（字体二进制 base64，可达数 MB），
-   * 导出时剥离，导入时按 fontFileName 重新挂载 */
   const out = { ...state, fontData: '' };
 
   downloadBlob(
@@ -1287,7 +1281,6 @@ function strOr(v, fb = '') {
   return typeof v === 'string' ? v : fb;
 }
 
-/* 导入归一化：残缺 / 旧版本 / 手改过的 JSON 都不会打乱 state */
 function normalizeImported(raw) {
   const r = (raw && typeof raw === 'object') ? raw : {};
 
@@ -1547,7 +1540,6 @@ const App = {
     if (key === 'characterX') {
       updateCharImgX();
     } else if (key === 'midBlur' || key === 'midBrightness') {
-      /* 这两个会触发 4K 级别的背景重算，防抖后再画 */
       scheduleHeavyPreview();
     } else {
       mountPreview();
@@ -1652,7 +1644,7 @@ window.App = App;
     syncInputsFromState();
     renderFontDropdown();
     applyModeUI();
-    renderFloatList();          /* 内部会调用 injectIcons() 处理动态生成的按钮 */
+    renderFloatList();
     bindEvents();
     mountPreview();
 
