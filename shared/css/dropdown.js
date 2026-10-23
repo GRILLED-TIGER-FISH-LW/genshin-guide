@@ -1,10 +1,16 @@
 /* ============================================================
  * dropdown.js —— 下拉面板交互引擎
  * ------------------------------------------------------------
- * v6 变更：
- *  · 水平定位不再取整（原 Math.round 会让面板与按钮错开最多 1px）
- *    三栏等分等小数宽度场景下，取整会造成「宽度一致但边缘对不齐」
- *  · 垂直方向仍保留取整（避免文字渲染模糊）
+ * v7 变更：
+ *  · 面板定位改为「闭环校正」：设完样式后读取实测渲染值，
+ *    与目标值比对并补偿，最多两轮收敛。
+ *    彻底摆脱对「包含块 / transform / will-change / 特异性」的依赖，
+ *    任何 CSS 干扰都会被实测值纠正。
+ *  · 删除 fixedOrigin()（靠 transform 特征反推包含块，漏检 will-change，
+ *    且与闭环校正重复）
+ *  · 定位前用内联样式锁死 position / right / margin / box-sizing /
+ *    max-width，防止 CSS 规则把宽度和位置挤压回去
+ *  · 宽度 = 触发器宽度，先收敛宽度再测高度（避免换行导致高度算错）
  * ============================================================ */
 (() => {
   'use strict';
@@ -16,6 +22,19 @@
   const MIN_W = 0;
   const FLIP_SPACE = 160;
 
+  const LOCK = {
+    position: 'fixed',
+    right: 'auto',
+    margin: '0',
+    boxSizing: 'border-box',
+    maxWidth: 'none'
+  };
+
+  const CLEAR = [
+    'position', 'top', 'left', 'right',
+    'width', 'maxHeight', 'maxWidth', 'margin', 'boxSizing'
+  ];
+
   let active = null;
 
   const triggerOf = (d) => d.querySelector('.dropdown-trigger');
@@ -26,23 +45,28 @@
     return Number.isFinite(v) ? v : fallback;
   }
 
-  function fixedOrigin(el) {
-    let node = el.parentElement;
-    while (node && node !== document.documentElement) {
-      const cs = getComputedStyle(node);
-      if (
-        (cs.transform || 'none') !== 'none' ||
-        (cs.filter || 'none') !== 'none' ||
-        (cs.backdropFilter || 'none') !== 'none' ||
-        (cs.perspective || 'none') !== 'none' ||
-        (cs.contain || '').includes('paint')
-      ) {
-        const r = node.getBoundingClientRect();
-        return { x: r.left + node.clientLeft, y: r.top + node.clientTop };
-      }
-      node = node.parentElement;
+  const styleNum = (el, prop) => {
+    const v = parseFloat(el.style[prop]);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  /* —— 闭环校正：以实测渲染值为准，把误差补回去 —— */
+  function converge(panel, axis, target) {
+    const prop = axis === 'x' ? 'left' : 'top';
+    for (let i = 0; i < 2; i++) {
+      const r = panel.getBoundingClientRect();
+      const delta = target - (axis === 'x' ? r.left : r.top);
+      if (Math.abs(delta) < 0.5) return;
+      panel.style[prop] = `${styleNum(panel, prop) + delta}px`;
     }
-    return { x: 0, y: 0 };
+  }
+
+  function convergeWidth(panel, target) {
+    for (let i = 0; i < 2; i++) {
+      const delta = target - panel.getBoundingClientRect().width;
+      if (Math.abs(delta) < 0.5) return;
+      panel.style.width = `${styleNum(panel, 'width') + delta}px`;
+    }
   }
 
   function positionPanel(dropdown) {
@@ -58,14 +82,19 @@
     const vh = window.innerHeight;
     const rect = trigger.getBoundingClientRect();
 
-    /* —— 水平：全部使用精确值，不取整 —— */
+    /* —— 内联锁死，CSS 抢不走 —— */
+    panel.classList.add(FIXED);
+    for (const k in LOCK) panel.style[k] = LOCK[k];
+
+    /* —— 宽度 = 触发器宽度（先收敛，再量高度）—— */
     const width = Math.min(Math.max(rect.width, minW), vw - margin * 2);
+    panel.style.width = `${width}px`;
+    convergeWidth(panel, width);
+
+    /* —— 水平：左边缘对准触发器，越界再钳 —— */
     let left = rect.left;
     if (left + width > vw - margin) left = vw - margin - width;
     if (left < margin) left = margin;
-
-    panel.classList.add(FIXED);
-    panel.style.width = `${width}px`;
     panel.style.left = `${left}px`;
 
     /* —— 垂直：先定方向 —— */
@@ -87,24 +116,19 @@
 
     let top = openUp ? rect.top - gap - height : rect.bottom + gap;
     top = Math.min(Math.max(top, margin), Math.max(margin, vh - margin - height));
-    panel.style.top = `${Math.round(top)}px`;
+    top = Math.round(top);
+    panel.style.top = `${top}px`;
 
-    /* —— 抵消祖先 transform 的偏移（同样不取整）—— */
-    const origin = fixedOrigin(panel);
-    if (origin.x || origin.y) {
-      panel.style.left = `${left - origin.x}px`;
-      panel.style.top = `${Math.round(top - origin.y)}px`;
-    }
+    /* —— 实测校正（横竖都补）—— */
+    converge(panel, 'x', left);
+    converge(panel, 'y', top);
   }
 
   function resetPanel(dropdown) {
     const panel = panelOf(dropdown);
     if (!panel) return;
     panel.classList.remove(FIXED);
-    panel.style.top = '';
-    panel.style.left = '';
-    panel.style.width = '';
-    panel.style.maxHeight = '';
+    for (const k of CLEAR) panel.style[k] = '';
   }
 
   function setExpanded(dropdown, on) {
