@@ -159,7 +159,7 @@ genshin-guide/
 
 - **中文名查询**：[Project Amber](https://gi.yatta.moe)
 - **本地数据**：所有编辑数据存在浏览器本地（IndexedDB / `localStorage`），字体也缓存一份
-- **UI 图标**：[Fluent UI System Icons](https://yesicon.app/zh-Hans/fluent))
+- **UI 图标**：[Fluent UI System Icons](https://yesicon.app/zh-Hans/fluent)
 - **元素 / 圣遗物图标**：[iconfont · 原神图标库](https://www.iconfont.cn/collections/detail?cid=34264)（作者：SwordMasterJS）
 - **favicon**：AI 生成（豆包），工具箱 + 游戏手柄图标
 
