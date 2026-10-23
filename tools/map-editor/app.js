@@ -1,6 +1,12 @@
 /* =========================================================================
  * 图标字典编辑器 · app.js
  * =========================================================================
+ * v4 变更（相对 v3）：
+ *  · 导出按钮新增「未导出」提醒：任何 saveLocal() 都会把 dirty 置 true，
+ *    按钮变红边框红字；exportJS() 成功后置回 false。
+ *  · dirty 状态写进 localStorage —— 关掉页面再打开，未导出的提醒还在。
+ *  · 新增 updateExportBtn() / writeLocal() / setDirty() 三个小函数，
+ *    saveLocal() 收敛为 setDirty(true) 的别名。
  * v3 变更（相对 v2）：
  *  · darkenHex 改为 HSL 实现，与 shared/gi-icons/icon-loader.js 的
  *    darken(hex, 0.5) 完全等价 —— 缩略图渐变边缘色从此与 loader 烘焙
@@ -55,6 +61,7 @@
   let editorData = { characters: [], artifacts: [], weapons: [], monsters: [] };
   let currentTab = "characters";
   let searchQuery = "";
+  let dirty = false;                  /* 有改动尚未导出为 icon-dict.js */
 
   const amberCache   = { characters: null, weapons: null, artifacts: null, monsters: null };
   const amberLoading = {};
@@ -267,10 +274,34 @@
   /* =========================================================================
    * 【模块 6】本地存储与解析
    * ========================================================================= */
-  function saveLocal() {
+
+  /* 导出按钮的「未导出」提醒 */
+  function updateExportBtn() {
+    const btn = document.getElementById("btnExport");
+    if (!btn) return;
+    btn.classList.toggle("is-dirty", dirty);
+    btn.title = dirty ? "有改动尚未导出为 icon-dict.js" : "导出 icon-dict.js";
+    const label = btn.querySelector(".btn-text");
+    if (label) label.textContent = dirty ? "未导出" : "导出";
+  }
+
+  function writeLocal() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: editorData, config }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: editorData, config, dirty }));
     } catch (e) {}
+  }
+
+  function setDirty(value) {
+    if (dirty === value) return;
+    dirty = value;
+    updateExportBtn();
+    writeLocal();
+  }
+
+  function saveLocal() {
+    dirty = true;
+    updateExportBtn();
+    writeLocal();
   }
 
   function loadLocal() {
@@ -279,6 +310,9 @@
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return;
+
+      /* 老数据没有 dirty 字段 → 视为「未导出」，提醒用户先导一次 */
+      dirty = parsed.dirty !== false;
 
       if (parsed.config && typeof parsed.config === "object") {
         ALL_TYPES.forEach(t => {
@@ -767,6 +801,7 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
     setStatus("已导出", "ok");
+    setDirty(false);
   }
 
   /* =========================================================================
@@ -854,6 +889,7 @@
 
       bindEvents();
       render();
+      updateExportBtn();
 
       document.body.classList.add("ready");
     } catch (err) {
