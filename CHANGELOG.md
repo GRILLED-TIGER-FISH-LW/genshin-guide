@@ -7,7 +7,27 @@
 > 不记流水账。细节看代码本身。
 
 ---
+## 2026-10-24
 
+### 新增共享类 `.btn-collapse`
+
+手机端（≤640px）把文字按钮收成 32px 纯图标方块，图标自动升到 `--icon`(18px)。
+
+**用法**：HTML 加 `class="btn btn-collapse"`，本地不用再写任何规则。
+
+```css
+@media (max-width: 640px) {
+  .btn.btn-collapse { width: var(--h-ctl); padding: 0; }
+  .btn.btn-collapse .btn-text { display: none; }
+  .btn.btn-collapse .icon-slot { width: var(--icon); height: var(--icon); }
+}
+```
+
+**起因**：旅闻 / 尘歌壶在窄屏隐藏 `.btn-text` 后，图标仍停在 `--icon-sm`(14px)，
+实测 14/32 = 44%，正确比例应为 18/32 = 56%。此前每个页面各写一遍规则，
+漏写就出问题；收敛成单一定义后，新页面只加一个类。
+
+**位置**：`shared/css/buttons.css` 第 7 节。
 ## 2026-10-23 · 设计系统重构收尾
 
 **里程碑**：
