@@ -1,0 +1,334 @@
+{
+  "charName": "芙宁娜",
+  "version": "7.2",
+  "date": "2026.11",
+  "author": "烤吃虎鱼LW",
+  "imgX": -50,
+  "theme": "#498FCC",
+  "charImg": "",
+  "charImgMeta": null,
+  "charImgDeleted": false,
+  "charImgManual": false,
+  "bgImg": "",
+  "bgImgDeleted": false,
+  "bgImgManual": false,
+  "nameBgImg": "",
+  "nameBgImgMeta": null,
+  "nameBgImgDeleted": false,
+  "nameBgImgManual": false,
+  "fontData": "",
+  "fontName": "原神补全",
+  "fontFileName": "原神补全.ttf",
+  "weaponData": {
+    "graduate": [
+      {
+        "name": "静水流涌之辉",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "圣显之钥",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "有乐御簾切",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "磐岩结绿",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "optional": [
+      {
+        "name": "西风剑",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "腐殖之剑",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "船坞长剑",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "灰河渡手",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "newbie": [
+      {
+        "name": "飞天御剑",
+        "img": "",
+        "imgManual": false
+      }
+    ]
+  },
+  "artifactData": [
+    {
+      "type": "single",
+      "name": "黄金剧团",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "千岩牢固",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "double",
+      "name1": "黄金剧团",
+      "name2": "千岩牢固",
+      "displayText": "2剧团+2生命",
+      "img1": "",
+      "img1Manual": false,
+      "img2": "",
+      "img2Manual": false,
+      "img": ""
+    }
+  ],
+  "constellationData": [
+    {
+      "active": true,
+      "desc": "施放元素爆发获得气氛值，并提升上限"
+    },
+    {
+      "active": true,
+      "desc": "元素爆发期间气氛值获取提升，溢出部分提升生命值上限"
+    },
+    {
+      "active": false,
+      "desc": "元素爆发等级+3"
+    },
+    {
+      "active": false,
+      "desc": "元素战技命中或治疗时，为自身恢复元素能量"
+    },
+    {
+      "active": false,
+      "desc": "元素战技等级+3"
+    },
+    {
+      "active": true,
+      "desc": "施放元素战技后普攻重击转水伤，依荒芒附带治疗或增伤"
+    }
+  ],
+  "sandMain": "生命值%/元素充能效率",
+  "gobMain": "生命值%/水元素伤害加成",
+  "cirMain": "暴击率/暴击伤害",
+  "subStats": "暴击率/暴击伤害＞生命值%＞元素充能效率＞元素精通（增幅）",
+  "talentA": "1",
+  "talentE": "6+",
+  "talentQ": "9+",
+  "panel": {
+    "primaryKey": "hp",
+    "primaryValue": "35000",
+    "cr": "60%",
+    "cd": "180%",
+    "em": "",
+    "er": "150%"
+  },
+  "teamCoreImg": "",
+  "teamCoreImgManual": false,
+  "teamData": [
+    {
+      "name": "冻结队",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "丝柯克",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "洛恩",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "莱欧斯利",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "神里绫华",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "爱可菲",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "沃雅妮莎",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "莫娜",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "夜兰",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "申鹤",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "塔利雅",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "那维莱特队",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "那维莱特",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "希诺宁",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "枫原万叶",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "砂糖",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "伊涅芙",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "爱可菲",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "茜特菈莉",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "白术",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "夏洛蒂",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "下落队",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "瓦雷莎",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "魈",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "嘉明",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "闲云",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "尼可",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "班尼特",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
