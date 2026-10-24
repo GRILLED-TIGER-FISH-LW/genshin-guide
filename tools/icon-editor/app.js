@@ -1,17 +1,16 @@
 /* =========================================================================
  * 图标字典编辑器 · app.js
  * =========================================================================
- * v4 变更（相对 v3）：
- *  · 导出按钮新增「未导出」提醒：任何 saveLocal() 都会把 dirty 置 true，
- *    按钮变红边框红字；exportJS() 成功后置回 false。
- *  · dirty 状态写进 localStorage —— 关掉页面再打开，未导出的提醒还在。
- *  · 新增 updateExportBtn() / writeLocal() / setDirty() 三个小函数，
- *    saveLocal() 收敛为 setDirty(true) 的别名。
- * v3 变更（相对 v2）：
- *  · darkenHex 改为 HSL 实现，与 shared/gi-icons/icon-loader.js 的
- *    darken(hex, 0.5) 完全等价 —— 缩略图渐变边缘色从此与 loader 烘焙
- *    出来的图片一模一样（原来用的是 RGB 各减 50，颜色偏亮偏橙）
- *  · 其余逻辑与 v2 一致
+ * v5 变更（相对 v4）：
+ *  · 【同步合并改用 key 判定】自定义条目（local / url）同时按 key 与 name
+ *    双重保护：任一对上就跳过 API 条目。
+ *    - 修掉「手打错名字的普通条目反过来覆盖 API 正确名字」的问题
+ *    - 保留「API 的 key 与本地 key 不同」时不重复插入（如旅行者本地图）
+ *  · 【空名字条目不再消失】第 3 步改为按 key 判重，不再依赖 row.name
+ * v4 变更：
+ *  · 导出按钮新增「未导出」提醒；dirty 状态写进 localStorage
+ * v3 变更：
+ *  · darkenHex 改为 HSL 实现，与 icon-loader.js 完全等价
  * ========================================================================= */
 (function () {
   "use strict";
@@ -649,15 +648,33 @@
     return result;
   }
 
+  /* -------------------------------------------------------------------------
+   * 同步合并规则（v5）
+   * ---------------------------------------------------------
+   * 自定义条目 = 带 local 或 url 的条目，两者都按 key 与 name 双重登记。
+   *
+   * 1. 自定义条目先落位，name / star / order / local / url 全部保留
+   * 2. API 条目：key 命中自定义 → 跳过
+   *              name 命中自定义 → 跳过（应对「本地 key 与 API 不同」，
+   *                                例如自制的旅行者头像 UI_AvatarIcon_Traveler.webp）
+   *              都没命中 → 以 API 数据为准（手打错的名字在这里被修正）
+   * 3. 剩余旧条目按 key 判重后原样保留：
+   *              key 已在上两步出现 → 说明数据来自 API 或自定义，跳过
+   *              key 未出现        → API 已下架或手工新增，保留
+   * ------------------------------------------------------------------------- */
   async function syncFromAmber() {
     setStatus("正在从 Amber 同步…");
     config = structuredCloneSafe(DEFAULT_CONFIG);
 
+    const customByKey  = {};
     const customByName = {};
     ALL_TYPES.forEach(type => {
+      customByKey[type] = {};
       customByName[type] = {};
       (editorData[type] || []).forEach(row => {
-        if ((row.local || row.url) && row.name) customByName[type][row.name] = row;
+        if (!row.local && !row.url) return;
+        if (row.key) customByKey[type][row.key] = row;
+        if (row.name) customByName[type][row.name] = row;
       });
     });
 
@@ -677,33 +694,43 @@
 
     ALL_TYPES.forEach(type => {
       const merged = {};
-      const customMap = customByName[type] || {};
-      const customNames = new Set(Object.keys(customMap));
+      const byKey  = customByKey[type]  || {};
+      const byName = customByName[type] || {};
 
-      Object.keys(customMap).forEach(name => {
-        const row = customMap[name];
-        merged[row.key] = { name: row.name, star: row.star, order: row.order, local: row.local, url: row.url };
+      /* 1. 自定义条目先落位 */
+      Object.keys(byKey).forEach(key => {
+        const row = byKey[key];
+        merged[key] = {
+          name: row.name,
+          star: row.star,
+          order: row.order,
+          local: row.local,
+          url: row.url
+        };
       });
 
-      const amberNames = new Set();
+      /* 2. API 条目 */
       Object.keys(amberResult[type] || {}).forEach(key => {
         const item = amberResult[type][key];
-        if (customNames.has(item.name)) return;
-        amberNames.add(item.name);
+        if (byKey[key] || (item.name && byName[item.name])) return;
         merged[key] = item;
       });
 
-      const existingByName = {};
-      (editorData[type] || []).forEach(row => { if (row.name) existingByName[row.name] = row; });
-      Object.keys(existingByName).forEach(name => {
-        if (amberNames.has(name) || customNames.has(name)) return;
-        const row = existingByName[name];
-        merged[row.key] = { name: row.name, star: row.star, order: row.order, local: row.local, url: row.url };
+      /* 3. 剩余旧条目（按 key 判重） */
+      (editorData[type] || []).forEach(row => {
+        if (!row.key || merged[row.key]) return;
+        merged[row.key] = {
+          name: row.name,
+          star: row.star,
+          order: row.order,
+          local: row.local,
+          url: row.url
+        };
       });
 
       editorData[type] = Object.keys(merged).map(k => {
         const r = merged[k];
-        const out = { key: k, name: r.name, order: r.order };
+        const out = { key: k, name: r.name || "", order: r.order || 0 };
         if (r.star != null) out.star = r.star;
         if (r.local) out.local = true;
         if (r.url) out.url = r.url;
@@ -897,8 +924,8 @@
       const bootEl = document.querySelector(".boot-loading");
       if (bootEl) {
         bootEl.style.whiteSpace = "pre-wrap";
-        bootEl.textContent = "初始化失败：" + (err && err.message ? err.message : String(err)) +
-          "\n请刷新重试；若持续失败，请把这条信息反馈给维护者。";
+        bootEl.textContent = '初始化失败：' + (err && err.message ? err.message : String(err)) +
+          '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
       }
     }
   })();
