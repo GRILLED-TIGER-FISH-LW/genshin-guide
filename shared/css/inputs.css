@@ -7,6 +7,17 @@
  *        因此本文件不出现任何 !important。
  * 【尺寸】全部派生自 theme.css 令牌，改刻度请改 theme.css。
  * ------------------------------------------------------------
+ * v9 修正（相对 v8）：
+ *  · 【去掉全部颜色过渡】嵌在外壳 iframe 里的页面切主题时，外壳只直接改
+ *    documentElement 的 data-theme，没有加 html.theme-switching 类，
+ *    所以 theme.css 的「切换期禁过渡」对 iframe 内容不生效 ——
+ *    凡是带 background-color / border-color / color 过渡的元素都会播
+ *    0.3s 渐变，看起来像「变色有延迟」。
+ *    本版把这些颜色类过渡全部移除，只保留：
+ *      · box-shadow（聚焦光晕）
+ *      · opacity / visibility（下拉面板显隐）
+ *    代价：hover / focus 的颜色变化变为瞬时。
+ * ------------------------------------------------------------
  * v8 修正（相对 v7）：
  *  · 【重要】v7 在 .dropdown-panel 上同时写了
  *      scrollbar-width: thin;
@@ -67,7 +78,7 @@ textarea {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   outline: none;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  transition: box-shadow var(--dur) var(--ease);
 }
 
 input:where([type="text"], [type="number"], [type="search"]) {
@@ -115,7 +126,6 @@ input[type="radio"] {
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 input[type="radio"] { border-radius: 50%; }
 
@@ -179,7 +189,6 @@ input[type="range"]::-webkit-slider-thumb {
   border: 0;
   border-radius: 50%;
   background: var(--accent);
-  transition: background-color var(--dur) var(--ease);
 }
 input[type="range"]:active::-webkit-slider-thumb { background: var(--accent-press); }
 
@@ -235,7 +244,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--r-ctl);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  transition: box-shadow var(--dur) var(--ease);
 }
 .number-box:focus-within {
   border-color: var(--accent);
@@ -363,7 +372,7 @@ input[type="range"]::-moz-range-thumb {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  transition: box-shadow var(--dur) var(--ease);
 }
 .dropdown.is-open .dropdown-trigger {
   border-color: var(--accent);
@@ -477,7 +486,6 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .dropdown-item:hover { background: var(--bg-hover); }
 .dropdown-item.is-active {
@@ -516,7 +524,6 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-primary);
   font-size: var(--fs-sm);
   outline: none;
-  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .search-input:focus {
   background: var(--bg-surface);
@@ -537,7 +544,6 @@ input[type="range"]::-moz-range-thumb {
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .search-clear.is-visible { display: inline-flex; }
 .search-clear svg { width: var(--input-arrow); height: var(--input-arrow); }
@@ -607,7 +613,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: var(--fs-sm);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background-color var(--dur) var(--ease);
 }
 .combobox-option:hover,
 .combobox-option.is-highlight { background: var(--bg-hover); }
@@ -638,7 +643,6 @@ input[type="range"]::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
   text-align: center;
   outline: none;
-  transition: border-color var(--dur) var(--ease);
 }
 .uid-input:focus { border-color: var(--accent); }
 
@@ -695,7 +699,6 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .tab-btn:hover:not(.is-active) { background: var(--bg-hover); }
 .tab-btn.is-active {
@@ -728,7 +731,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: var(--fs-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .seg-btn.is-active {
   background: var(--bg-surface);
