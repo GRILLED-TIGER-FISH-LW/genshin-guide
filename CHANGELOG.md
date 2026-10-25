@@ -7,45 +7,27 @@
 > 不记流水账。细节看代码本身。
 
 ---
-## 2026-10-24
+## 2026-10-24 · 按钮图标档位统一 + 图标字典改名
 
-### 新增共享类 `.btn-collapse`
+- **新增共享类 `.btn-collapse`**：窄屏把文字按钮收成 32px 纯图标方块，图标自动升到 18px。此前四个页面各写一遍、漏写升档就坏（14/32 = 44%，应为 56%）。
+- **目录与路由改名**：`tools/map-editor/` → `tools/icon-editor/`，`#map-editor` → `#icon-editor`，图标键名 `nav.mapEditor` → `nav.iconEditor`（首页 `key` / `src` / `icon` / `iconBold` 同步）。
+- **`icon-editor/app.js` v5**：同步合并改用 key 判定，修掉「手打错的名字反过来覆盖 API 正确值」和「空名字条目同步后消失」；自制图标（如旅行者本地图）仍不重复插入。
+- **角色卡 `EMPTY_FILL`**：`#CFC9C1` → `#E6E6E6`，对比度 4.3:1 → 5.6:1，与正文 `#fff` 保留约 10% 亮度差，字重不变。
 
-手机端（≤640px）把文字按钮收成 32px 纯图标方块，图标自动升到 `--icon`(18px)。
+---
 
-**用法**：HTML 加 `class="btn btn-collapse"`，本地不用再写任何规则。
-
-```css
-@media (max-width: 640px) {
-  .btn.btn-collapse { width: var(--h-ctl); padding: 0; }
-  .btn.btn-collapse .btn-text { display: none; }
-  .btn.btn-collapse .icon-slot { width: var(--icon); height: var(--icon); }
-}
-```
-
-**起因**：旅闻 / 尘歌壶在窄屏隐藏 `.btn-text` 后，图标仍停在 `--icon-sm`(14px)，
-实测 14/32 = 44%，正确比例应为 18/32 = 56%。此前每个页面各写一遍规则，
-漏写就出问题；收敛成单一定义后，新页面只加一个类。
-
-**位置**：`shared/css/buttons.css` 第 7 节。
 ## 2026-10-23 · 设计系统重构收尾
 
-**里程碑**：
-- **共享 CSS 全量重写**：1 个令牌入口（`theme.css`）+ 7 个组件层。确立刻度令牌（`--h-ctl` / `--pad-ctl` / `--r-ctl` / `--gap-*` / `--fs-*` / `--icon-*` / `--dur` / `--ease` / `--z-*` / `--dock-space`），全站禁用 `margin` 改走 `gap`/`padding`，状态类名统一 `.is-*`。
-- **新增 `shared/css/dropdown.js`**：下拉引擎。fixed 定位绕过祖先裁剪，上下自动翻转，可派发 `dropdown:select`。经三轮迭代后定为「**实测闭环校正**」——设完 `left/top/width` 立刻读 `getBoundingClientRect()` 与目标值比对并补偿，不依赖任何对祖先 transform / 包含块的推断。
-- **新增 `shared/css/theme-init.js`**：主题持久化（`localStorage['gi-theme']`）+ 首帧防闪白 + 切换期间禁过渡 + `booting` 首屏保护。
-- **`ui-icons.js`**：升级为 Fluent UI 七段结构，末尾加兼容块（`ICONS.app.close` 别名 / `window.icons` 别名 / 统一补无障碍属性）。
-- **四个工具完成迁移 + 动线重排**：
-  - `character`：配队区「备选角色」改紧凑行（头像+名字+↑↓✕），嵌套从 4 层降到 3 层；预览区改回默认光标。
-  - `video-cover/video`：section 顺序改为「攻略模式 → 画布背景 → 主标题 → 副标题 → 胶囊标签 → 字体 → 游戏 Logo」；切换模式加确认框。
-  - `video-cover/collection`：section 顺序改为「画布背景 → 文字内容 → 字体」。
-  - `map-editor`（图标字典编辑器）：导出按钮加「未导出」红线提醒，dirty 状态持久化到 localStorage。
-- **父页面重构**：主题统一交给 `Theme` 模块，iframe 通过 `storage` 事件 + `postMessage` 双路同步；侧边栏加首屏保护不再闪。
+- **共享 CSS 全量重写**：1 个令牌入口（`theme.css`）+ 7 个组件层。确立全套刻度令牌（`--h-ctl` / `--gap-*` / `--fs-*` / `--icon-*` / `--z-*` 等），全站禁 `margin` 改走 `gap` / `padding`，状态类名统一 `.is-*`。
+- **新增 `shared/css/dropdown.js`**：下拉引擎。fixed 定位绕过祖先裁剪、上下自动翻转、派发 `dropdown:select`；定位采用「实测闭环校正」——设完立刻读 `getBoundingClientRect()` 比对补偿，不依赖对祖先 transform 的推断。
+- **新增 `shared/css/theme-init.js`**：主题持久化 + 首帧防闪白 + 切换期间禁过渡 + 首屏保护。
+- **`ui-icons.js` 升级**：Fluent UI 七段结构 + 兼容块（`ICONS.app.close` / `window.icons` 别名 / 统一补无障碍属性）。
+- **四个工具完成迁移 + 动线重排**：`character`（配队区改紧凑行，嵌套 4→3 层）、`video-cover/video`（section 顺序重排、切模式加确认框）、`video-cover/collection`（section 顺序重排）、`icon-editor`（导出按钮加「未导出」提醒）。
+- **父页面重构**：主题统一交给 `Theme` 模块，iframe 走 `storage` + `postMessage` 双路同步；侧边栏加首屏保护。
 
 **备忘**：
-- 本轮修掉的都是「**看着能用、实际是坏的**」的问题，具体坑位见底部「关键坑位备忘」。
-- 静态资源引用约定：外链 CSS/JS 走 `?t=Date.now()`；`theme-init.js` 因必须最早同步执行，用**无参数**引用，改了需要手动清缓存。
-- `tools/map-editor/` 目录里放的是**图标字典编辑器**，目录名与 `#map-editor` 路由都是历史遗留。当前实况如此，是否改名待定。
+- 本轮修的都是「看着能用、实际是坏的」问题，具体坑位见底部「关键坑位备忘」。
+- 外链 CSS/JS 走 `?t=Date.now()`；`theme-init.js` 必须最早同步执行，用**无参数**引用，改了需手动清缓存。
 
 ---
 
@@ -167,6 +149,10 @@
 - **`.field` 是 `align-items: flex-start`**，子元素不会被拉伸。`<input>` 自带 `width: 100%` 所以看不出问题，但 `.combobox`、自定义 `<label>` 这类 div/label 必须自己写 `width: 100%`，否则和上下字段对不齐。
 - **`.icon-slot` 的宽高只在 `.dropdown-trigger` 上下文里有定义**。`.btn` / `.float-btn` 里的由 buttons.css 单独给；**自己写的按钮类必须手动补 `width/height` + `svg { 100% }`**，否则 icon 按默认尺寸撑开。
 
+**图标与按钮**
+- 带文字的按钮 → `--icon-sm`(14px)；纯图标按钮 → `--icon`(18px)。纯图标按钮**禁止手写 `var(--icon-sm)`**。
+- 窄屏把文字按钮收成纯图标，一律用共享 `.btn-collapse`，不要本地手写 `width/height` 配 `.btn-text { display: none }`。
+
 **组件状态**
 - 共享 CSS 用 **`.is-visible`**，不是 `.show`。两者混用会导致 Toast / Modal **完全不显示**。
 - 列表选中态用 `.is-active`，不是 `.active`。分段控件 `.seg-btn` 同理。
@@ -193,11 +179,13 @@
 - 「顶栏固定 + 内容滚动」的页面：`body { height: 100dvh; overflow: hidden }`（**`min-height` 不够，必须是 `height`**），只让内容区 `flex: 1; min-height: 0; overflow-y: auto`。
 - 预览框本身不是按钮，`cursor: default`；只有真的绑了点击行为（如切换浮动工具栏）才用 `pointer`。
 - 页面没有底部 Dock 时，`padding-bottom` 不要再套 `--dock-space`（88px），那是给固定导出胶囊留位的。
+- 固定底栏放 `body` 末尾 + `flex-shrink: 0`，不要塞进滚动容器内部靠 `padding` 顶到底。
 
 **数据与路径**
 - 工具按**角色名**查字典，编号只是展示序号。插入角色会让后续编号整体位移，以编号为 key 的存档需手动同步。
 - `character-art.txt` 里的 `../../shared/...` 是按工具页层级写的，**不要再做 `../` 改写**。
 - 立绘看不见先查 `state.characterX` 是否被拖偏（存在 IndexedDB），别急着怀疑数据。
+- `characters.txt` 是**角色白名单**，不在里面的角色同步时会被直接丢弃。新增角色忘了加行，同步会静默少一条。
 
 ---
 
@@ -206,4 +194,3 @@
 - `tools/image-tools.html` 拆分三件套 + 接入设计系统。
 - `tools/chart.html` 拆分三件套 + 接入设计系统。
 - `tools/tier.html` 是否拆分待定（也可保持单文件，但要接入设计系统）。
-- `tools/map-editor/` 目录名与 `#map-editor` 路由是否改为「图标字典编辑器」语义，待定。
