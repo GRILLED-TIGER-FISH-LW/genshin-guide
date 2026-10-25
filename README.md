@@ -26,7 +26,7 @@
 | 工具 | 入口 | 说明 | 状态 |
 |---|---|---|---|
 | **角色一图流** | [`#character`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#character) | 武器 / 圣遗物 / 天赋 / 命座 / 配队总览 | ✅ 已重构 |
-| **图标字典编辑器** | [`#map-editor`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#map-editor) | 维护 `icon-dict.js`，查缺补漏 | ✅ 已重构 |
+| **图标字典编辑器** | [`#icon-editor`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#icon-editor) | 维护 `icon-dict.js`，查缺补漏 | ✅ 已重构 |
 | **封面制作** | [`#video-cover`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#video-cover) | 视频封面 / 合集封面排版生成 | ✅ 已重构 |
 | **图片处理** | — | 背景修改 / 双图羽化 / 图层拼接等 | 🟡 可用，待拆分重构 |
 | **图表** | — | 雷达图 / 柱状图 | 🟡 可用，待拆分重构 |
@@ -48,7 +48,7 @@ genshin-guide/
 │
 ├── tools/                    所有工具页
 │   ├── character/            角色一图流（consts / svg / app 三层）
-│   ├── map-editor/           图标字典编辑器
+│   ├── icon-editor/          图标字典编辑器
 │   ├── video-cover/          封面制作
 │   │   ├── video/            视频封面
 │   │   └── collection/       合集封面
