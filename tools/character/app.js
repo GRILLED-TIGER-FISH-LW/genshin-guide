@@ -3,6 +3,20 @@
  * =========================================================================
  * 交互层：数据持久化 / 编辑器渲染 / 图片匹配 / 导出导入
  * ------------------------------------------------------------
+ * v4 修正：
+ *  1. 【字体首次下载后预览不生效】selectFont 的下载分支把字体注册成 f.name
+ *     （如「思源黑体」），而 SVG 里 font-family 引用的是 CardCustomFont → 名字
+ *     对不上，浏览器回退到系统字体。换成别的字体再换回来之所以有效，是因为
+ *     第二次走的是缓存分支，installPreviewFont 注册名正确。
+ *     → 统一注册为 CardCustomFont；并在 mountPreview 前 await document.fonts.ready
+ *       （Canvas 测宽同样依赖字体就绪，否则 fitSize 会按回退字体算宽度）。
+ *  2. 【头像错位】matchIconByType / matchArtifactDoubleIcon 在 await 之后，用
+ *     发起请求时的下标去查 DOM（data-img-target="t_ti_ci_img" 等）。若这期间
+ *     用户点了上移/下移，编辑器已重建，旧下标指向另一个人 → A 的头像落进 B 的格子。
+ *     → 取消手动改 src，改为重绘对应编辑器，让渲染从 State 重新出图。
+ *       覆盖武器 / 圣遗物 / 散搭圣遗物 / 配队角色 / 备选角色全部分支。
+ *  3. resolveCharName 失败分支补 mountPreview()，避免「名字已改、头像还是旧的」。
+ * ------------------------------------------------------------
  * v3 变更：
  *  1. 配队区「备选角色」改为紧凑行（头像 + 名字 + ↑ ↓ ✕），
  *     删掉「备选 #N」标题行与整块 .card.sub-card，
@@ -190,6 +204,12 @@ async function clearFontCache() {
   } catch (e) {}
 }
 
+/* 等待字体真正可用于绘制（SVG 文本与 Canvas 测宽都依赖它） */
+async function waitFontsReady() {
+  if (!document.fonts || !document.fonts.ready) return;
+  try { await document.fonts.ready; } catch (e) {}
+}
+
 async function installPreviewFont() {
   if (!State.data.fontData || !window.FontFace) return false;
   try {
@@ -210,6 +230,7 @@ async function installPreviewFont() {
     const ff = new FontFace('CardCustomFont', buffer);
     loadedFontFace = await ff.load();
     document.fonts.add(loadedFontFace);
+    await waitFontsReady();
     return true;
   } catch (e) {
     console.error('字体解析异常：', e);
@@ -263,6 +284,7 @@ async function selectFont(index) {
     State.data.fontFileName = f.file;
     State.data.fontName = f.name;
     await installPreviewFont();
+    await waitFontsReady();
     if (labelEl) labelEl.textContent = '当前：' + f.name;
     updateFontDropdownActive(index);
     mountPreview(); debouncedSave();
@@ -289,11 +311,14 @@ async function selectFont(index) {
 
     if (labelEl) labelEl.textContent = `[2/3] 正在注入字体渲染引擎...`;
     try {
-      const ff = new FontFace(f.name, buf);
+      /* 家族名必须与 FONT_FAMILY_CUSTOM 的首项一致，否则 SVG 里的
+         font-family: CardCustomFont 找不到字体，会回退到系统字体 */
+      const ff = new FontFace('CardCustomFont', buf);
       const loaded = await ff.load();
       if (loadedFontFace) { try { document.fonts.delete(loadedFontFace); } catch(e){} }
       document.fonts.add(loaded);
       loadedFontFace = loaded;
+      await waitFontsReady();
     } catch (fontErr) {
       throw new Error(`该格式无法识别或文件损坏 (${fontErr.message || 'Font Engine Refused'})`);
     }
@@ -322,6 +347,7 @@ async function selectFont(index) {
 
     if (labelEl) labelEl.textContent = '当前：' + f.name;
     updateFontDropdownActive(index);
+    await waitFontsReady();
     mountPreview(); debouncedSave();
 
   } catch (err) {
@@ -831,6 +857,16 @@ function updateImgXHint() {
 /* =========================================================================
  * 【模块 8】核心匹配逻辑
  * ========================================================================= */
+/* 按类型重绘对应的编辑器。
+ * 异步取图返回后不能再用「发起请求时的下标」去查 DOM：
+ * 中途若发生上移/下移，编辑器已重建，旧下标会指向另一条记录，
+ * 导致 A 的图标落进 B 的格子。统一改为从 State 重新出图。 */
+function redrawEditorByType(type) {
+  if (type === 'weapons') renderWeaponEditor();
+  else if (type === 'artifacts') renderArtifactEditor();
+  else renderTeamEditor();          /* characters / characters_alt */
+}
+
 async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
   if (!window.ICON_LIB || !name || !name.trim()) return;
   const trimmed = name.trim();
@@ -843,7 +879,6 @@ async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
       cell.img = r?.dataURL || '';
     } catch (e) { cell.img = ''; }
     cell.imgManual = false;
-    document.querySelector(`[data-img-target="w_img_${arg1}_${arg2}"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
   else if (type === 'artifacts') {
     const cell = State.data.artifactData[arg1];
@@ -853,33 +888,45 @@ async function matchIconByType(type, arg1, arg2, name, altIndex = null) {
       cell.img = r?.dataURL || '';
     } catch (e) { cell.img = ''; }
     cell.imgManual = false;
-    document.querySelector(`[data-img-target="a_img_${arg1}"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
   else if (type === 'characters') {
     const cell = State.data.teamData[arg1]?.chars?.[arg2];
     if (!cell) return;
     const matchedName = resolveCharName(trimmed);
-    if (!matchedName) { cell.img = ''; cell.imgManual = false; return; }
+    if (!matchedName) {
+      cell.img = '';
+      cell.imgManual = false;
+      redrawEditorByType(type);
+      mountPreview();
+      debouncedSave();
+      return;
+    }
     try {
       const r = await ICON_LIB.fromName('characters', matchedName);
       cell.img = r?.dataURL || '';
     } catch (e) { cell.img = ''; }
     cell.imgManual = false;
-    document.querySelector(`[data-img-target="t_${arg1}_${arg2}_img"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
   else if (type === 'characters_alt') {
     const cell = State.data.teamData[arg1]?.chars?.[arg2]?.alts?.[altIndex];
     if (!cell) return;
     const matchedName = resolveCharName(trimmed);
-    if (!matchedName) { cell.img = ''; cell.imgManual = false; return; }
+    if (!matchedName) {
+      cell.img = '';
+      cell.imgManual = false;
+      redrawEditorByType(type);
+      mountPreview();
+      debouncedSave();
+      return;
+    }
     try {
       const r = await ICON_LIB.fromName('characters', matchedName);
       cell.img = r?.dataURL || '';
     } catch (e) { cell.img = ''; }
     cell.imgManual = false;
-    document.querySelector(`[data-img-target="t_${arg1}_${arg2}_${altIndex}_img"]`)?.setAttribute('src', cell.img || placeholder(''));
   }
 
+  redrawEditorByType(type);
   mountPreview();
   debouncedSave();
 }
@@ -889,7 +936,6 @@ async function matchArtifactDoubleIcon(i, part, name) {
   const trimmed = name.trim();
   const imgKey = part === 1 ? 'img1' : 'img2';
   const manualKey = part === 1 ? 'img1Manual' : 'img2Manual';
-  const targetId = part === 1 ? `a_img1_${i}` : `a_img2_${i}`;
   const cell = State.data.artifactData[i];
   if (!cell) return;
 
@@ -898,8 +944,10 @@ async function matchArtifactDoubleIcon(i, part, name) {
     cell[imgKey] = r?.dataURL || '';
   } catch (e) { cell[imgKey] = ''; }
   cell[manualKey] = false;
-  document.querySelector(`[data-img-target="${targetId}"]`)?.setAttribute('src', cell[imgKey] || placeholder(''));
-  mountPreview(); debouncedSave();
+
+  renderArtifactEditor();
+  mountPreview();
+  debouncedSave();
 }
 
 async function matchCharAvatar(name) {
