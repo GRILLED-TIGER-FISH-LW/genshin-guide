@@ -1,0 +1,303 @@
+{
+  "charName": "米提亚",
+  "version": "7.2",
+  "date": "2026.11",
+  "author": "烤吃虎鱼LW",
+  "imgX": 80,
+  "theme": "#6957C2",
+  "charImg": "",
+  "charImgMeta": null,
+  "charImgDeleted": false,
+  "charImgManual": false,
+  "bgImg": "",
+  "bgImgDeleted": false,
+  "bgImgManual": false,
+  "nameBgImg": "",
+  "nameBgImgMeta": null,
+  "nameBgImgDeleted": false,
+  "nameBgImgManual": false,
+  "fontData": "",
+  "fontName": "原神补全",
+  "fontFileName": "原神补全.ttf",
+  "weaponData": {
+    "graduate": [
+      {
+        "name": "秘星典谕",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "寝正月初晴",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "祭星者之望",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "真语秘匣",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "optional": [
+      {
+        "name": "凝雪沉心",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "霜辰",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "群王局戏",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "盈满之实",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "newbie": [
+      {
+        "name": "魔导绪论",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "异世界行记",
+        "img": "",
+        "imgManual": false
+      }
+    ]
+  },
+  "artifactData": [
+    {
+      "type": "single",
+      "name": "影中沉凝的幻灭",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "饰金之梦",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "穹境示现之夜",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "double",
+      "name1": "饰金之梦",
+      "name2": "流浪大地的乐团",
+      "displayText": "2+2精通",
+      "img1": "",
+      "img1Manual": false,
+      "img2": "",
+      "img2Manual": false,
+      "img": ""
+    }
+  ],
+  "constellationData": [
+    {
+      "active": true,
+      "desc": "提升信标上限，元素战技额外产信标，炉心期间加前台暴伤并回能"
+    },
+    {
+      "active": true,
+      "desc": "炉心降周围敌人冰雷抗，稳态加全队精通，过载加前台精通"
+    },
+    {
+      "active": false,
+      "desc": "元素战技等级+3"
+    },
+    {
+      "active": false,
+      "desc": "炉心存在时，消耗信标造成星超导范围伤害"
+    },
+    {
+      "active": false,
+      "desc": "普通攻击等级+3"
+    },
+    {
+      "active": true,
+      "desc": "强化炉心，稳态增伤，过载概率产信标，全队星超导擢升"
+    }
+  ],
+  "sandMain": "元素精通/元素充能效率",
+  "gobMain": "元素精通",
+  "cirMain": "暴击率/暴击伤害/元素精通",
+  "subStats": "元素充能效率＞暴击率/暴击伤害＞元素精通",
+  "talentA": "9+",
+  "talentE": "6+",
+  "talentQ": "6+",
+  "panel": {
+    "primaryKey": "atk",
+    "primaryValue": "1200",
+    "cr": "60%",
+    "cd": "160%",
+    "em": "500",
+    "er": "150%"
+  },
+  "teamCoreImg": "",
+  "teamCoreImgManual": false,
+  "teamData": [
+    {
+      "name": "星超导（主C）",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "奥黛塔",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "旅行者·冰",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "迪奥娜",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "七七",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "八重神子",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "瓦列里",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "阿罗夏",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "砂糖",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "星超导（副C）",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "桑多涅",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "莱欧斯利",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "赛诺",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "奥黛塔",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "旅行者·冰",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "七七",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "迪奥娜",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "八重神子",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "阿罗夏",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "瓦列里",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "砂糖",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "布伦妮",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
