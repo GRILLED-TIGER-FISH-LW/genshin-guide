@@ -129,8 +129,8 @@ window.ICON_DICT = {
     "UI_AvatarIcon_Odette": { name: "奥黛塔", star: 5, order: 119 },
     "UI_AvatarIcon_Vesna": { name: "薇斯纳", star: 5, order: 120 },
     "UI_AvatarIcon_Vodyanitsa": { name: "沃雅妮莎", star: 5, order: 121 },
-    "UI_AvatarIcon_Valeriy": { name: "瓦列里", star: 4, order: 121 },
-    "UI_AvatarIcon_Mitya": { name: "米提亚", star: 5, order: 122 }
+    "UI_AvatarIcon_Valeriy": { name: "瓦列里", star: 4, order: 122 },
+    "UI_AvatarIcon_Mitya": { name: "米提亚", star: 5, order: 123 }
   },
 
   /* ============ 圣遗物 ============ */
@@ -502,6 +502,7 @@ window.ICON_DICT = {
     "UI_MonsterIcon_Moonbeast_Wind": { name: "驰岚·霜夜灵嗣", order: 20080601 },
     "UI_MonsterIcon_Moonbeast_Rock": { name: "金礞·霜夜灵嗣", order: 20080701 },
     "UI_MonsterIcon_HerraFrost": { name: "霜夜巡天灵主", order: 20081001 },
+    "UI_MonsterIcon_Crystalian_01": { name: "冰结镜映体", order: 20090101 },
     "UI_MonsterIcon_Hili_Fire_Range": { name: "冲锋丘丘人", order: 21010701 },
     "UI_MonsterIcon_Hili_Ice_Range": { name: "冰弹丘丘人", order: 21011301 },
     "UI_MonsterIcon_Hili_None_01": { name: "冰盾丘丘人", order: 21011401 },
@@ -637,6 +638,7 @@ window.ICON_DICT = {
     "UI_MonsterIcon_Volkodlak_Beaver": { name: "渠道联络人", order: 25132801 },
     "UI_MonsterIcon_Volkodlak_Mammoth": { name: "牙兽狂徒", order: 25133601 },
     "UI_MonsterIcon_Volkodlak_Greyhound": { name: "嗥狼追猎者", order: 25133701 },
+    "UI_MonsterIcon_Volkodlak_Whale": { name: "浪涛锚定者", order: 25134601 },
     "UI_MonsterIcon_Human_Female_Staff_Snegurochka": { name: "凝冰秘法师", order: 25135001 },
     "UI_MonsterIcon_Snegurochka_Male": { name: "凝冰戍卫", order: 25135101 },
     "UI_MonsterIcon_Snegurochka_Contessa_02": { name: "游雪的护刃", order: 25135202 },
@@ -780,6 +782,8 @@ window.ICON_DICT = {
     "UI_MonsterIcon_Chimera_ElephantBird": { name: "嵌合翼象兽", order: 26310301 },
     "UI_MonsterIcon_Chimera_BearDeer": { name: "嵌合角熊", order: 26310401 },
     "UI_MonsterIcon_Chimera_Manticore": { name: "嵌合翼骏狮", order: 26310501 },
+    "UI_MonsterIcon_Chimera_CrocodileBoar": { name: "嵌合鳄蹄兽", order: 26310701 },
+    "UI_MonsterIcon_Chimera_ScorpionChicken": { name: "嵌合蝎尾怪", order: 26310801 },
     "UI_AnimalIcon_Crab_01": { name: "黄金蟹", order: 28010101 },
     "UI_AnimalIcon_Crab_02": { name: "太阳蟹", order: 28010102 },
     "UI_AnimalIcon_Crab_03": { name: "海蓝蟹", order: 28010103 },
@@ -838,6 +842,7 @@ window.ICON_DICT = {
     "UI_AnimalIcon_Tortoise_01": { name: "玳龟", order: 28021001 },
     "UI_AnimalIcon_Tortoise_02": { name: "玉璜龟", order: 28021002 },
     "UI_AnimalIcon_Tortoise_03": { name: "琉背古彩龟", order: 28021003 },
+    "UI_AnimalIcon_Tortoise_04": { name: "页岩龟", order: 28021004 },
     "UI_AnimalIcon_FontainePoddle_Lady_01": { name: "淑女犬", order: 28021101 },
     "UI_AnimalIcon_FontainePoddle_Guard_01": { name: "卫兵犬", order: 28021102 },
     "UI_AnimalIcon_FontainePoddle_Gentleman_01": { name: "绅士犬", order: 28021103 },
@@ -848,6 +853,7 @@ window.ICON_DICT = {
     "UI_AnimalIcon_Reindeer_02": { name: "驼角鹿", order: 28021502 },
     "UI_AnimalIcon_Reindeer_03": { name: "雪驼鹿", order: 28021503 },
     "UI_AnimalIcon_Hedgehog_01": { name: "软猬兽", order: 28021601 },
+    "UI_AnimalIcon_Hedgehog_02": { name: "小小硬猬兽", order: 28021603 },
     "UI_AnimalIcon_Bear_01": { name: "极地熊", order: 28021701 },
     "UI_AnimalIcon_Macrauchenia_01": { name: "长颈角犀", order: 28022001 },
     "UI_AnimalIcon_Goat_01": { name: "柔柔羊", order: 28022101 },
