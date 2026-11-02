@@ -1,5 +1,5 @@
 123 米提亚 https://fastcdn.hoyoverse.com/content-v2/hk4e/167060/7634882dae5f51a9c8c20881eec25c30_5749592554917751632.png
-122 瓦列里 
+122 瓦列里 https://fastcdn.hoyoverse.com/content-v2/hk4e/167099/b993a4135c7e2937ef8b402bf46562a3_5836737317800029747.png
 121 沃雅妮莎 ../../shared/assets/portrait/121.沃雅妮莎.webp
 120 薇斯纳 https://fastcdn.hoyoverse.com/content-v2/hk4e/166101/2fcf06b3387743b28d83c81877fbd3f9_4035024996550386837.png
 119 奥黛塔 https://fastcdn.hoyoverse.com/content-v2/hk4e/165495/8099301bba7d1f37bb688c848618f7d8_6115297978588435734.png
