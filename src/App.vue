@@ -12,11 +12,14 @@ const drawerOpen = ref(false)
     <AppNav @open-menu="drawerOpen = true" />
     <AppDrawer v-model="drawerOpen" />
 
-    <!-- 内容区：RouterView 只出首页；工具页的 iframe 由 FrameLayer 常驻托管，
-         两者都绝对定位、同一格，互不挤压 -->
     <main class="relative min-h-0 overflow-hidden">
+      <!-- KeepAlive：搬进来的工具视图必须常驻。
+           它一被销毁，app.js 那个 IIFE 受模块缓存保护不会重跑，
+           监听和首屏渲染就都没了。顺手也保住了首页的滚动位置。 -->
       <RouterView v-slot="{ Component }">
-        <component :is="Component" />
+        <KeepAlive>
+          <component :is="Component" />
+        </KeepAlive>
       </RouterView>
 
       <FrameLayer />
