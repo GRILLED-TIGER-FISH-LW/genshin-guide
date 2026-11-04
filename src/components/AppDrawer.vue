@@ -162,7 +162,8 @@ function go(path) {
                 :class="expanded.has(t.key) && 'rotate-180'"
                 aria-hidden="true"
               >
-                <Icon name="ui.chevronDown" size="sm" />
+                <!-- 子工具展开箭头一律实心：基础名是空心三角，bold 才是实心 -->
+                <Icon name="ui.chevronDown" bold size="sm" />
               </span>
             </button>
 
