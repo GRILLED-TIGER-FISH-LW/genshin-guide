@@ -1,11 +1,13 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
+import SyncReport from '../components/SyncReport.vue'
 
 /* 图标字典编辑器 · 已搬进 SPA
  * -------------------------------------------------------------------------
  * · 模板与 tools/icon-editor/index.html 的 <body> 逐字对应，id / class 一个不改
  *   —— app.js 全靠 id 和这些类名找元素
- * · 引擎 app.js 原文不动，只改了 3 处相对路径（见该文件顶部）
+ * · 引擎 app.js 原文不动：里面 ../../shared/… 的相对路径由 vite.config.js
+ *   的 sharedPathFix 插件在构建期改写成站点绝对路径
  * · 唯一的结构改动：外面套了个 flex 纵列容器，顶替原来 body 的角色
  *   （老页面靠 body 做 flex 外壳；SPA 里 body 归外壳所有）
  * · 本视图由 App.vue 的 <KeepAlive> 常驻，不会因为切走而重挂
@@ -24,6 +26,7 @@ const TABS = [
 
 const ACTIONS = [
   { id: 'btnSync', icon: 'import', text: '从 Amber 同步' },
+  { id: 'btnSyncLog', icon: 'file', text: '日志' },
   { id: 'btnPaste', icon: 'plus', text: '粘贴 URL' },
   { id: 'btnLoad', icon: 'import', text: '载入' },
   { id: 'btnExport', icon: 'export', text: '导出' },
@@ -160,6 +163,9 @@ onMounted(async () => {
       </div>
 
       <div class="status-bar" id="status">就绪</div>
+
+      <!-- 同步报告 / 更新日志。挂在这里是为了让它比 app.js 先注册监听 -->
+      <SyncReport />
     </template>
 
     <p
