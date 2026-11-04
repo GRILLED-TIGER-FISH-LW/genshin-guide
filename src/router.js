@@ -1,0 +1,125 @@
+import { createRouter, createWebHashHistory } from 'vue-router'
+import Home from './views/Home.vue'
+
+/* =========================================================================
+ * 工具清单 —— 唯一真源。
+ * 首页卡片、侧栏菜单、顶栏标题、iframe 地址，全部从这里推出来。
+ *
+ *   key       路由片段（就是旧 hash 名，老书签因此原样可用）
+ *   label     工具名
+ *   icon      src/icons 里的键
+ *   frame     工具自己的页面（相对仓库根；构建后由 cp 原样进 dist）
+ *   subtools  子工具；带 frame 的各自一个页面，不带的共用父页面（靠 postMessage 切）
+ * ========================================================================= */
+export const TOOLS = [
+  {
+    key: 'character',
+    label: '角色一图流',
+    icon: 'nav.character',
+    frame: 'tools/character/index.html',
+  },
+  {
+    key: 'icon-editor',
+    label: '图标字典编辑器',
+    icon: 'nav.iconEditor',
+    frame: 'tools/icon-editor/index.html',
+  },
+  {
+    key: 'video-cover',
+    label: '封面制作',
+    icon: 'nav.videoCover',
+    subtools: [
+      { key: 'video', label: '视频封面', frame: 'tools/video-cover/video/index.html' },
+      {
+        key: 'collection',
+        label: '合集封面',
+        frame: 'tools/video-cover/collection/index.html',
+      },
+    ],
+  },
+  {
+    key: 'image-tools',
+    label: '图片处理',
+    icon: 'nav.imageTools',
+    frame: 'tools/image-tools.html',
+    subtools: [
+      { key: 'background', label: '背景修改' },
+      { key: 'blend', label: '双图羽化' },
+      { key: 'overlay', label: '对位裁切' },
+      { key: 'collage', label: '图层拼接' },
+      { key: 'weapon-icon', label: '武器图标' },
+      { key: 'weapon-card', label: '武器卡片' },
+      { key: 'achievement', label: '成就制作' },
+    ],
+  },
+  {
+    key: 'chart',
+    label: '图表',
+    icon: 'nav.chart',
+    frame: 'tools/chart.html',
+    subtools: [
+      { key: 'radar', label: '雷达图' },
+      { key: 'bar', label: '柱状图' },
+    ],
+  },
+  {
+    key: 'tier',
+    label: '角色梯队',
+    icon: 'nav.tier',
+    frame: 'tools/tier.html',
+  },
+]
+
+/* 工具页的 iframe 由 FrameLayer 常驻托管，路由只负责「当前是哪一个」。
+   所以这里渲染一个空组件，不产生任何 DOM。 */
+const ToolPage = { name: 'ToolPage', render: () => null }
+
+function toolRoutes() {
+  const out = []
+
+  for (const t of TOOLS) {
+    const subs = t.subtools || []
+
+    for (const s of subs) {
+      out.push({
+        path: `${t.key}/${s.key}`,
+        name: `${t.key}:${s.key}`,
+        component: ToolPage,
+        meta: {
+          tool: t.key,
+          sub: s.key,
+          subLabel: s.label,
+          label: t.label,
+          icon: t.icon,
+          /* 子工具自带页面就用自己的，否则共用父页面 */
+          frame: s.frame || t.frame,
+        },
+      })
+    }
+
+    if (t.frame) {
+      out.push({
+        path: t.key,
+        name: t.key,
+        component: ToolPage,
+        meta: { tool: t.key, sub: '', subLabel: '', label: t.label, icon: t.icon, frame: t.frame },
+      })
+    } else {
+      /* 只有子工具、自己没有页面 → 直接落到第一个子工具 */
+      out.push({ path: t.key, redirect: `${t.key}/${subs[0].key}` })
+    }
+  }
+
+  return out
+}
+
+const routes = [
+  { path: '/', name: 'home', component: Home, meta: { title: '原神攻略工具集' } },
+  ...toolRoutes(),
+  { path: '/:pathMatch(.*)*', redirect: '/' },
+]
+
+export const router = createRouter({
+  history: createWebHashHistory(),
+  routes,
+})

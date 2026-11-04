@@ -1,0 +1,90 @@
+/* =========================================================================
+ * tokens.css — 设计令牌唯一真源
+ * 色板 Claude · 几何 Notion
+ * 两仓库逐字节相同，改动需同步；同步日期 2026-11-03
+ * ========================================================================= */
+
+@theme {
+  /* ---------- 表面 ---------- */
+  --color-canvas: #f5f0e8;
+  --color-surface: #faf9f5;
+  --color-surface-2: #f7f3ec;
+  --color-sunken: #e8e0d2;
+  --color-hover: #efe9de;
+  /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+  --color-thumb: #e8e0d2;
+
+  /* ---------- 描边 ---------- */
+  --color-line: #ebe6df;
+  --color-line-2: #e6dfd8;
+  --color-line-3: #ded6c6;
+
+  /* ---------- 文字 ---------- */
+  --color-ink: #141413;
+  --color-body: #3d3d3a;
+  --color-muted: #6c6a64;
+  --color-faint: #8e8b82;
+
+  /* ---------- 强调 ---------- */
+  --color-accent: #cc785c;
+  --color-accent-strong: #a3543a;
+  --color-accent-solid: #a3543a;
+  --color-accent-hover: #8b432c;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.12);
+
+  /* ---------- 金色 · 仅用于元信息（地点/触发/前置） ---------- */
+  --color-gold: #8a6a1f;
+
+  /* ---------- 语义 ---------- */
+  --color-danger: #c64545;
+  --color-danger-soft: #f8e9e7;
+  --color-success: #5db872;
+  --color-mask: rgba(20, 20, 19, 0.32);
+
+  /* ---------- 几何 ---------- */
+  --radius-ctl: 8px;
+  --radius-panel: 12px;
+
+  /* ---------- 阴影 ---------- */
+  --shadow-panel: 0 4px 12px rgba(15, 15, 15, 0.08);
+  --shadow-float: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+
+  /* ---------- 缓动 ---------- */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] {
+  --color-canvas: #181715;
+  --color-surface: #1f1e1b;
+  --color-surface-2: #252320;
+  --color-sunken: #121110;
+  --color-hover: #2b2825;
+  --color-thumb: #322d27;
+
+  --color-line: #26231f;
+  --color-line-2: #302c27;
+  --color-line-3: #3c3730;
+
+  --color-ink: #faf9f5;
+  --color-body: #d6d2ca;
+  --color-muted: #a09d96;
+  --color-faint: #86817a;
+
+  --color-accent: #cc785c;
+  --color-accent-strong: #cc785c;
+  --color-accent-solid: #a3543a;
+  --color-accent-hover: #8b432c;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.18);
+
+  --color-gold: #d9b45c;
+
+  --color-danger: #e07070;
+  --color-danger-soft: rgba(224, 112, 112, 0.14);
+  --color-success: #5db872;
+  --color-mask: rgba(0, 0, 0, 0.55);
+
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 16px 48px -8px rgba(0, 0, 0, 0.6);
+}

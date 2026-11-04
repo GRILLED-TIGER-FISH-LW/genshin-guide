@@ -1,544 +1,189 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F4F1EA" />
-<title>原神攻略工具集</title>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="apple-touch-icon" href="favicon.ico">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f0e8" />
+    <title>原神攻略工具集</title>
+    <meta
+      name="description"
+      content="《原神》攻略图制作工具集 · 角色一图流 / 封面制作 / 图表 · 纯前端 · 本地处理 · 不收集数据"
+    />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" href="./favicon.ico" />
 
-<!-- ① 一次性迁移：旧主题键 gtt_theme → 新键 gi-theme（只在 gi-theme 缺失时写一次） -->
-<script>
-(() => {
-  try {
-    if (!localStorage.getItem('gi-theme')) {
-      const legacy = localStorage.getItem('gtt_theme');
-      if (legacy === 'dark' || legacy === 'light') localStorage.setItem('gi-theme', legacy);
-    }
-  } catch (e) {}
-})();
-</script>
-
-<!-- ② 主题初始化：必须同步加载（不加 defer / async），否则首帧会闪 -->
-<script src="shared/css/theme-init.js"></script>
-
-<script>
-(() => {
-  const ts = Date.now();
-  window.__pageLoadTs = ts;
-
-  const withTs = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
-
-  const loadStyle = (href) => new Promise((resolve, reject) => {
-    const l = document.createElement('link');
-    l.rel = 'stylesheet';
-    l.href = withTs(href);
-    l.onload = resolve;
-    l.onerror = () => reject(new Error('加载失败：' + href));
-    const firstStyle = document.head.querySelector('style');
-    if (firstStyle) document.head.insertBefore(l, firstStyle);
-    else document.head.appendChild(l);
-  });
-
-  const loadScript = (src) => new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = withTs(src);
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('加载失败：' + src));
-    document.head.appendChild(s);
-  });
-
-  window.__bootPromise = Promise.all([
-    loadStyle('shared/css/theme.css'),
-    loadScript('shared/ui-icons.js')
-  ]);
-
-  /* ③ 加载失败兜底：任一资源 404 时给出可见提示，而不是永久白屏 */
-  window.__bootPromise.catch((err) => {
-    console.error('[boot]', err);
-    const bootEl = document.querySelector('.boot-loading');
-    if (bootEl) {
-      bootEl.style.whiteSpace = 'pre-wrap';
-      bootEl.textContent = '载入失败：' + (err && err.message ? err.message : String(err)) +
-        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
-    }
-  });
-})();
-</script>
-
-<style>
-  body { visibility: hidden; height: 100dvh; overflow: hidden; }
-  body.ready { visibility: visible; }
-  .boot-loading {
-    position: fixed; inset: 0; z-index: 99999;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--bg-base, #F4F1EA);
-    color: var(--text-tertiary, #A69E95);
-    font-size: 12px;
-    font-family: var(--std-font, system-ui, sans-serif);
-    visibility: visible;
-    padding: 24px; text-align: center; line-height: 1.6;
-  }
-  body.ready .boot-loading { display: none; }
-
-  /* 首屏期间：侧边栏及其遮罩完全不参与渲染。
-     用 display:none 而不是 transition:none ——
-     display:none 的元素既不能播放过渡，也不会出现在文档流里，
-     从根源上排除「加载中途露出来」和「播放一次滑出动画」两种闪烁。 */
-  body:not(.ready) .sidebar-drawer,
-  body:not(.ready) .sidebar-backdrop {
-    display: none !important;
-  }
-</style>
-</head>
-<body>
-
-<div class="boot-loading">正在载入工具集…</div>
-
-<header class="app-navbar">
-  <button type="button" class="nav-btn" id="btnMenu" aria-label="打开菜单"></button>
-  <div class="nav-title">
-    <span class="nav-title-icon" id="navIcon"></span>
-    <span class="nav-title-text" id="navText">原神攻略工具集</span>
-  </div>
-  <button type="button" class="nav-btn" id="btnTheme" aria-label="切换主题">
-    <span class="theme-icon" data-theme-icon="sun"></span>
-    <span class="theme-icon" data-theme-icon="moon"></span>
-  </button>
-</header>
-
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-<aside class="sidebar-drawer" id="sidebarDrawer">
-  <div class="sidebar-header">
-    <h3>工具导航</h3>
-  </div>
-  <nav class="sidebar-menu" id="sidebarMenu"></nav>
-</aside>
-
-<main class="home-view" id="homeView"></main>
-
-<div class="frame-container" id="frameContainer">
-  <div class="loading-mask" id="loadingMask">
-    <div class="spinner"></div>
-    <span>正在载入工具…</span>
-  </div>
-</div>
-
-<script>
-'use strict';
-
-const TOOLS = [
-  {
-    key: 'character',
-    label: '角色一图流',
-    icon: 'character',
-    iconBold: 'characterBold',
-    src: 'tools/character/index.html'
-  },
-  {
-    key: 'icon-editor',
-    label: '图标字典编辑器',
-    icon: 'iconEditor',
-    iconBold: 'iconEditorBold',
-    src: 'tools/icon-editor/index.html'
-  },
-  {
-    key: 'video-cover',
-    label: '封面制作',
-    icon: 'videoCover',
-    iconBold: 'videoCoverBold',
-    subtools: [
-      { key: 'video',      label: '视频封面', src: 'tools/video-cover/video/index.html' },
-      { key: 'collection', label: '合集封面', src: 'tools/video-cover/collection/index.html' }
-    ]
-  },
-  {
-    key: 'image-tools',
-    label: '图片处理',
-    icon: 'imageTools',
-    iconBold: 'imageToolsBold',
-    src: 'tools/image-tools.html',
-    subtools: [
-      { key: 'background',  label: '背景修改' },
-      { key: 'blend',       label: '双图羽化' },
-      { key: 'overlay',     label: '对位裁切' },
-      { key: 'collage',     label: '图层拼接' },
-      { key: 'weapon-icon', label: '武器图标' },
-      { key: 'weapon-card', label: '武器卡片' },
-      { key: 'achievement', label: '成就制作' }
-    ]
-  },
-  {
-    key: 'chart',
-    label: '图表',
-    icon: 'chart',
-    iconBold: 'chartBold',
-    src: 'tools/chart.html',
-    subtools: [
-      { key: 'radar', label: '雷达图' },
-      { key: 'bar',   label: '柱状图' }
-    ]
-  },
-  {
-    key: 'tier',
-    label: '角色梯队',
-    icon: 'tier',
-    iconBold: 'tierBold',
-    src: 'tools/tier.html'
-  }
-];
-
-const homeView        = document.getElementById('homeView');
-const frameContainer  = document.getElementById('frameContainer');
-const sidebarDrawer   = document.getElementById('sidebarDrawer');
-const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-const sidebarMenu     = document.getElementById('sidebarMenu');
-const loadingMask     = document.getElementById('loadingMask');
-const navIcon         = document.getElementById('navIcon');
-const navText         = document.getElementById('navText');
-const btnMenu         = document.getElementById('btnMenu');
-const btnTheme        = document.getElementById('btnTheme');
-
-const frameCache = new Map();
-const expandedTools = new Set();
-
-let isHome        = true;
-let activeTool    = '';
-let activeSubtool = '';
-
-const cacheKeyOf = (tool, sub) => (sub && sub.src) ? (tool.key + '::' + sub.key) : tool.key;
-const srcOf = (tool, sub) => (sub && sub.src) ? sub.src : tool.src;
-
-/* =========================================================================
- * 主题：唯一来源是 theme-init.js 暴露的 Theme 模块
- * ========================================================================= */
-function syncThemeToFrames() {
-  const theme = Theme.get();
-  frameCache.forEach(record => {
-    if (!record.loaded) return;
-    /* 已迁移的工具页自己能处理主题；这里直写一份作为未迁移页面的兜底 */
-    try {
-      const doc = record.iframe.contentDocument;
-      if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
-    } catch (e) {}
-    try {
-      record.iframe.contentWindow?.postMessage({ type: 'theme', theme }, '*');
-    } catch (e) {}
-  });
-}
-
-document.addEventListener('theme:change', syncThemeToFrames);
-
-/* =========================================================================
- * 侧边栏
- * ========================================================================= */
-function openSidebar() {
-  sidebarDrawer.classList.add('is-open');
-  sidebarBackdrop.classList.add('is-active');
-}
-function closeSidebar() {
-  sidebarDrawer.classList.remove('is-open');
-  sidebarBackdrop.classList.remove('is-active');
-}
-
-function renderMenu() {
-  sidebarMenu.innerHTML = '';
-
-  const homeBtn = document.createElement('button');
-  homeBtn.type = 'button';
-  homeBtn.className = 'menu-main' + (isHome ? ' is-active' : '');
-  const homeIcon = isHome ? ICONS.nav.homeBold : ICONS.nav.home;
-  homeBtn.innerHTML =
-    '<span class="menu-main-icon">' + homeIcon + '</span>' +
-    '<span class="menu-main-label">首页</span>';
-  homeBtn.addEventListener('click', goHome);
-  sidebarMenu.appendChild(homeBtn);
-
-  TOOLS.forEach(tool => {
-    const subs = tool.subtools || [];
-    const isActive = !isHome && tool.key === activeTool;
-    const isExpanded = expandedTools.has(tool.key);
-
-    const mainBtn = document.createElement('button');
-    mainBtn.type = 'button';
-    mainBtn.className = 'menu-main' + (isActive ? ' is-active' : '') + (isExpanded && subs.length ? ' is-expanded' : '');
-
-    const iconKey = isActive ? tool.iconBold : tool.icon;
-    const iconSvg = (ICONS.nav && ICONS.nav[iconKey]) || '';
-
-    mainBtn.innerHTML =
-      '<span class="menu-main-icon">' + iconSvg + '</span>' +
-      '<span class="menu-main-label">' + tool.label + '</span>' +
-      (subs.length ? '<span class="menu-main-arrow">' + ICONS.ui.chevronDown + '</span>' : '');
-
-    mainBtn.addEventListener('click', () => {
-      if (subs.length) {
-        const subWrap = sidebarMenu.querySelector('.menu-sub[data-tool="' + tool.key + '"]');
-        if (subWrap) {
-          const willOpen = !subWrap.classList.contains('is-open');
-          subWrap.classList.toggle('is-open', willOpen);
-          mainBtn.classList.toggle('is-expanded', willOpen);
-          if (willOpen) expandedTools.add(tool.key);
-          else expandedTools.delete(tool.key);
-        }
-      } else {
-        selectTool(tool.key);
+    <!-- 内联：CSS 到位之前先用令牌色铺底，避免白闪 -->
+    <style>
+      html {
+        background: #f5f0e8;
       }
-    });
+      html[data-theme="dark"] {
+        background: #181715;
+      }
+      .boot {
+        position: fixed;
+        inset: 0;
+        z-index: 99998;
+        display: grid;
+        place-items: center;
+        font: 12px/1.6 system-ui, -apple-system, "PingFang SC", sans-serif;
+        color: #8e8b82;
+      }
+    </style>
 
-    sidebarMenu.appendChild(mainBtn);
+    <!-- ① 旧主题键一次性迁移：gtt_theme → gi-theme（只在后者缺失时写一次） -->
+    <script>
+      (function () {
+        window.__THEME_KEY = "gi-theme";
+        try {
+          if (!localStorage.getItem(window.__THEME_KEY)) {
+            var legacy = localStorage.getItem("gtt_theme");
+            if (legacy === "dark" || legacy === "light") {
+              localStorage.setItem(window.__THEME_KEY, legacy);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
 
-    if (subs.length) {
-      const subWrap = document.createElement('div');
-      subWrap.className = 'menu-sub' + (isExpanded ? ' is-open' : '');
-      subWrap.dataset.tool = tool.key;
-      const inner = document.createElement('div');
-      inner.className = 'menu-sub-inner';
+    <!-- ② 主题预置 + 本次加载时间戳：同步、必须在样式之前，否则首帧闪白 -->
+    <script>
+      (function () {
+        window.__pageLoadTs = Date.now();
 
-      subs.forEach(sub => {
-        const subBtn = document.createElement('button');
-        subBtn.type = 'button';
-        subBtn.className = 'menu-sub-item' + (isActive && sub.key === activeSubtool ? ' is-active' : '');
-        subBtn.innerHTML = '<span class="dot"></span><span>' + sub.label + '</span>';
-        subBtn.addEventListener('click', () => selectSubtool(tool.key, sub.key));
-        inner.appendChild(subBtn);
-      });
+        var root = document.documentElement;
+        var saved = null;
+        try {
+          saved = localStorage.getItem(window.__THEME_KEY);
+        } catch (e) {}
+        var dark =
+          saved === "dark" ||
+          (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-      subWrap.appendChild(inner);
-      sidebarMenu.appendChild(subWrap);
-    }
-  });
-}
+        root.dataset.theme = dark ? "dark" : "light";
 
-/* =========================================================================
- * 首页 Bento
- * ========================================================================= */
-function renderHome() {
-  homeView.innerHTML = '';
-  TOOLS.forEach(tool => {
-    const card = document.createElement('div');
-    card.className = 'dash-card';
-    card.innerHTML =
-      `<div class="dash-card-icon">${ICONS.nav[tool.icon] || ''}</div>
-       <div>
-         <div class="dash-card-title">${tool.label}</div>
-         ${tool.subtools ? `<div class="dash-card-sub">${tool.subtools.length} 个子工具</div>` : ''}
-       </div>`;
-    card.addEventListener('click', () => selectTool(tool.key));
-    homeView.appendChild(card);
-  });
-}
+        /* 首次样式生效期间禁掉一切过渡；load 之后解除（兜底 3s） */
+        root.classList.add("theme-switching");
+        var done = false;
+        function unmute() {
+          if (done) return;
+          done = true;
+          root.classList.remove("theme-switching");
+        }
+        window.addEventListener("load", unmute, { once: true });
+        setTimeout(unmute, 3000);
 
-/* =========================================================================
- * iframe 管理
- * ========================================================================= */
-function ensureFrame(tool, sub) {
-  const key = cacheKeyOf(tool, sub);
-  if (frameCache.has(key)) return frameCache.get(key);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", dark ? "#181715" : "#f5f0e8");
+      })();
+    </script>
 
-  const baseSrc = srcOf(tool, sub);
-  const ts = window.__pageLoadTs || Date.now();
-  const src = baseSrc + (baseSrc.indexOf('?') >= 0 ? '&' : '?') + 't=' + ts;
+    <!-- ③ 旧 hash 归一：#character → #/character。老书签、老二维码因此直接可用 -->
+    <script>
+      (function () {
+        var h = location.hash;
+        if (!h || h === "#" || h.slice(0, 2) === "#/") return;
+        try {
+          history.replaceState(null, "", location.pathname + location.search + "#/" + h.slice(1));
+        } catch (e) {}
+      })();
+    </script>
 
-  const view = document.createElement('div');
-  view.className = 'frame-view';
-  view.dataset.cacheKey = key;
+    <!-- ④ 加载守卫：脚本没起来时自动带时间戳重载一次，并把实际路径打出来 -->
+    <script>
+      (function () {
+        var FLAG = "gg-recover-at";
+        var failed = [];
 
-  const iframe = document.createElement('iframe');
-  iframe.title = sub ? (tool.label + ' · ' + sub.label) : tool.label;
-  iframe.setAttribute('loading', 'lazy');
-  iframe.src = src;
+        function host() {
+          return document.getElementById("app");
+        }
+        function ok() {
+          var el = host();
+          return !!el && (el.dataset.mounted === "1" || el.dataset.fatal === "1");
+        }
+        function lastTry() {
+          try {
+            return Number(sessionStorage.getItem(FLAG)) || 0;
+          } catch (e) {
+            return 0;
+          }
+        }
 
-  const record = { view, iframe, loaded: false, src };
+        function note() {
+          var el = host();
+          if (!el || el.dataset.fatal === "1") return;
+          el.dataset.fatal = "1";
 
-  iframe.addEventListener('load', () => {
-    record.loaded = true;
-    if (view.classList.contains('is-active')) loadingMask.classList.remove('is-visible');
-    const theme = Theme.get();
-    try {
-      const doc = iframe.contentDocument;
-      if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
-    } catch (e) {}
-    try {
-      iframe.contentWindow?.postMessage({ type: 'theme', theme }, '*');
-    } catch (e) {}
-  });
+          var scripts = [];
+          for (var i = 0; i < document.scripts.length; i++) {
+            scripts.push("  " + (document.scripts[i].src || "(内联)"));
+          }
 
-  view.appendChild(iframe);
-  frameContainer.appendChild(view);
-  frameCache.set(key, record);
-  return record;
-}
+          var lines = [
+            "页面未能加载。",
+            "",
+            "当前地址：",
+            "  " + location.href,
+            "",
+            "这个 HTML 引用的脚本：",
+          ]
+            .concat(scripts)
+            .concat([
+              "",
+              "加载失败的脚本：",
+              failed.length ? "  " + failed.join("\n  ") : "  （没有捕获到失败事件）",
+              "",
+              "如果你的脚本路径里没有 /genshin-guide/，说明打包的 base 配错了。",
+              "如果路径正确但仍然失败，说明文件没有真正部署上去。",
+              "",
+              "请截图本页反馈。",
+            ]);
 
-/* =========================================================================
- * 导航
- * ========================================================================= */
-function goHome() {
-  isHome = true;
-  activeTool = '';
-  activeSubtool = '';
+          var pre = document.createElement("pre");
+          pre.style.cssText =
+            "position:fixed;inset:0;z-index:99999;margin:0;padding:16px;overflow:auto;" +
+            "background:#181715;color:#f5f0e8;font:12px/1.7 ui-monospace,monospace;" +
+            "white-space:pre-wrap;word-break:break-word";
+          pre.textContent = lines.join("\n");
+          el.appendChild(pre);
+        }
 
-  frameContainer.classList.remove('is-active');
-  homeView.classList.remove('hidden');
-  loadingMask.classList.remove('is-visible');
+        function recover() {
+          if (ok()) return;
 
-  navIcon.innerHTML = '';
-  navText.textContent = '原神攻略工具集';
+          if (Date.now() - lastTry() < 30000) {
+            note();
+            return;
+          }
 
-  renderMenu();
-  closeSidebar();
-  try { history.replaceState(null, '', '#home'); } catch (e) {}
-}
+          try {
+            sessionStorage.setItem(FLAG, String(Date.now()));
+          } catch (e) {}
 
-function selectTool(toolKey, opts) {
-  const silent = opts && opts.silent;
-  const tool = TOOLS.find(t => t.key === toolKey) || TOOLS[0];
-  const subs = tool.subtools || [];
+          var base = location.href.split("#")[0].split("?")[0];
+          location.replace(base + "?t=" + Date.now() + location.hash);
+        }
 
-  if (subs.length) {
-    const subKey = (activeSubtool && subs.some(s => s.key === activeSubtool)) ? activeSubtool : subs[0].key;
-    return selectSubtool(tool.key, subKey, opts);
-  }
+        window.addEventListener(
+          "error",
+          function (e) {
+            if (e.target && e.target.tagName === "SCRIPT") {
+              failed.push(e.target.src || "(内联)");
+              recover();
+            }
+          },
+          true,
+        );
 
-  isHome = false;
-  activeTool = tool.key;
-  activeSubtool = '';
-
-  homeView.classList.add('hidden');
-  frameContainer.classList.add('is-active');
-
-  updateNavTitle();
-  renderMenu();
-
-  const record = ensureFrame(tool);
-  frameCache.forEach(r => r.view.classList.toggle('is-active', r === record));
-  loadingMask.classList.toggle('is-visible', !record.loaded);
-
-  if (!silent) try { history.replaceState(null, '', '#' + tool.key); } catch (e) {}
-  closeSidebar();
-}
-
-function selectSubtool(toolKey, subKey, opts) {
-  const silent = opts && opts.silent;
-  const tool = TOOLS.find(t => t.key === toolKey);
-  if (!tool) return;
-  const subs = tool.subtools || [];
-  const sub = subs.find(s => s.key === subKey);
-  if (!sub) return;
-
-  isHome = false;
-  activeTool = toolKey;
-  activeSubtool = subKey;
-  expandedTools.add(toolKey);
-
-  homeView.classList.add('hidden');
-  frameContainer.classList.add('is-active');
-
-  updateNavTitle();
-  renderMenu();
-
-  const record = ensureFrame(tool, sub);
-  frameCache.forEach(r => r.view.classList.toggle('is-active', r === record));
-  loadingMask.classList.toggle('is-visible', !record.loaded);
-
-  if (!sub.src && record.loaded && record.iframe.contentWindow) {
-    try { record.iframe.contentWindow.postMessage({ type: 'navigate', subtool: subKey }, '*'); } catch (e) {}
-  }
-
-  if (!silent) try { history.replaceState(null, '', '#' + toolKey); } catch (e) {}
-  closeSidebar();
-}
-
-function updateNavTitle() {
-  const tool = TOOLS.find(t => t.key === activeTool);
-  if (!tool) return;
-
-  navIcon.innerHTML = (ICONS.nav && ICONS.nav[tool.iconBold]) || '';
-  const subs = tool.subtools || [];
-  const sub = subs.find(s => s.key === activeSubtool);
-  if (sub) {
-    navText.innerHTML = tool.label + '<span class="nav-title-sep">·</span>' + sub.label;
-  } else {
-    navText.textContent = tool.label;
-  }
-}
-
-/* =========================================================================
- * 事件绑定
- * ========================================================================= */
-window.addEventListener('message', (e) => {
-  const data = e.data;
-  if (!data || typeof data !== 'object') return;
-
-  if (data.type === 'active-subtool' && data.toolKey && data.subtoolKey) {
-    if (data.toolKey === activeTool && data.subtoolKey !== activeSubtool) {
-      activeSubtool = data.subtoolKey;
-      renderMenu();
-      updateNavTitle();
-    }
-  }
-});
-
-btnMenu.addEventListener('click', openSidebar);
-sidebarBackdrop.addEventListener('click', closeSidebar);
-btnTheme.addEventListener('click', () => Theme.toggle());
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeSidebar();
-});
-
-window.addEventListener('hashchange', () => {
-  const key = (location.hash || '').replace(/^#/, '');
-  if (!key || key === 'home') {
-    if (!isHome) goHome();
-  } else if (TOOLS.some(t => t.key === key) && key !== activeTool) {
-    selectTool(key, { silent: true });
-  }
-});
-
-/* =========================================================================
- * 启动
- * ========================================================================= */
-(async function init() {
-  try {
-    try {
-      await window.__bootPromise;
-    } catch (e) {
-      console.warn('[boot]', e);
-    }
-
-    if (typeof Theme === 'undefined' || typeof ICONS === 'undefined') {
-      throw new Error('核心脚本未加载（theme-init.js / ui-icons.js），请刷新重试');
-    }
-
-    btnMenu.innerHTML = ICONS.app.hamburger || '';
-
-    const sunEl  = btnTheme.querySelector('[data-theme-icon="sun"]');
-    const moonEl = btnTheme.querySelector('[data-theme-icon="moon"]');
-    if (sunEl)  sunEl.innerHTML  = ICONS.app.sunBold  || '';
-    if (moonEl) moonEl.innerHTML = ICONS.app.moonBold || '';
-
-    renderHome();
-
-    const hashKey = (location.hash || '').replace(/^#/, '');
-    if (hashKey && TOOLS.some(t => t.key === hashKey)) {
-      selectTool(hashKey, { silent: true });
-    } else {
-      goHome();
-    }
-
-    document.body.classList.add('ready');
-  } catch (err) {
-    console.error('[init]', err);
-    const bootEl = document.querySelector('.boot-loading');
-    if (bootEl) {
-      bootEl.style.whiteSpace = 'pre-wrap';
-      bootEl.textContent = '初始化失败：' + (err && err.message ? err.message : String(err)) +
-        '\n请刷新重试；若持续失败，请把这条信息反馈给维护者。';
-    }
-  }
-})();
-</script>
-</body>
+        setTimeout(recover, 4000);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <div class="boot">正在载入工具集…</div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
