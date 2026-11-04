@@ -1,6 +1,12 @@
 <script setup>
 import { computed } from 'vue'
-import { ICONS } from '../icons/index.js'
+import { ICONS } from 'virtual:gg-icons'
+
+/* 图标数据来自 shared/ui-icons.js —— 本仓库自己的图标真源，
+   由 vite.config.js 的 iconsFromShared 插件在构建期读进来、
+   剥掉外层 <svg> 并拍平成一维 map（键名 `组.名字`，如 ui.close）。
+
+   运行时不再有任何图标脚本，也没有 window.ICONS 全局。 */
 
 const props = defineProps({
   name: { type: String, required: true },
