@@ -1,0 +1,56 @@
+/* =========================================================================
+ * base.css — 全局基线：字体、焦点、动效、滚动条
+ * ========================================================================= */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-canvas text-body text-sm antialiased;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  min-height: 100dvh;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* 主题切换瞬间掐断全部过渡，避免颜色渐变 */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* 焦点环：只在键盘操作时出现，不污染触摸 */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-accent;
+}
+
+/* 降低动效偏好：全局降为近零，功能不丢 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 滚动条：细、暖色 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-line-3 rounded-sm;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted;
+}
