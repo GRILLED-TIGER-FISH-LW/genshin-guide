@@ -74,6 +74,8 @@ export const TOOLS = [
    所以这里渲染一个空组件，不产生任何 DOM。 */
 const ToolPage = { name: 'ToolPage', render: () => null }
 
+/* 注意：vue-router 强制要求每条 path / redirect 都以 '/' 开头，
+   写成 'character' 会在 createRouter() 阶段直接抛错，整个应用起不来。 */
 function toolRoutes() {
   const out = []
 
@@ -82,7 +84,7 @@ function toolRoutes() {
 
     for (const s of subs) {
       out.push({
-        path: `${t.key}/${s.key}`,
+        path: `/${t.key}/${s.key}`,
         name: `${t.key}:${s.key}`,
         component: ToolPage,
         meta: {
@@ -99,14 +101,14 @@ function toolRoutes() {
 
     if (t.frame) {
       out.push({
-        path: t.key,
+        path: `/${t.key}`,
         name: t.key,
         component: ToolPage,
         meta: { tool: t.key, sub: '', subLabel: '', label: t.label, icon: t.icon, frame: t.frame },
       })
     } else {
       /* 只有子工具、自己没有页面 → 直接落到第一个子工具 */
-      out.push({ path: t.key, redirect: `${t.key}/${subs[0].key}` })
+      out.push({ path: `/${t.key}`, redirect: `/${t.key}/${subs[0].key}` })
     }
   }
 
