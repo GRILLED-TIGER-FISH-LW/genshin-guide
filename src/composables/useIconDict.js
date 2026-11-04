@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { STAR_COLORS } from 'virtual:gg-icon-lib'
 import { useToast } from './useToast.js'
 import { loadGlobalScript } from './useData.js'
 
@@ -12,8 +13,8 @@ import { loadGlobalScript } from './useData.js'
  *   · STORAGE_KEY 与存储结构（换了键 = 用户草稿全丢）
  *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
  *   · 行结构 { key, name, order, star?, local?, url? }
- *   · 颜色算法：必须与 shared/gi-icons/icon-loader.js 的 applyBackground 一致，
- *     否则缩略图底色和已烘焙的图片对不上
+ *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
+ *     applyBackground 一致，否则缩略图底色和已烘焙的图片对不上
  *
  * 【相对旧版的两处有意修改】
  *   1. 「载入」之后 dirty = false（数据刚从仓库来、本来就是干净的）
@@ -44,7 +45,14 @@ const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
 const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
 
 /* =========================================================================
- * 颜色：与 shared/gi-icons/icon-loader.js 的 applyBackground 完全等价
+ * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
+ * -------------------------------------------------------------------------
+ * 为什么是「抄一份」而不是 import：loader 只把 applyBackground 挂出来了，
+ * darken / hexToHsl / hslToHex 都在闭包里。但这段必须是同一个算法 ——
+ * 缩略图的边缘色和已烘焙的图片对不上，一眼就能看出来。
+ *   底色表来自 virtual:gg-icon-lib（构建期读 loader，单一真源）
+ *   渐变的几何两边也等价：canvas 是 r = size × 0.707、两档颜色；
+ *   CSS 的 radial-gradient(circle, …) 默认 farthest-corner，正方形下正好 √2/2 × 边长。
  * ========================================================================= */
 
 function hexToHsl(hex) {
@@ -128,7 +136,9 @@ function serializeDict(config, data) {
   TYPES.forEach((type, ti) => {
     const cfg = config[type] || DEFAULT_CONFIG[type]
     const tail = ti < TYPES.length - 1 ? ',' : ''
-    lines.push(`    ${type}: { prefix: "${escJs(cfg.prefix)}", ext: "${escJs(cfg.ext || '')}" }${tail}`)
+    lines.push(
+      `    ${type}: { prefix: "${escJs(cfg.prefix)}", ext: "${escJs(cfg.ext || '')}" }${tail}`,
+    )
   })
   lines.push('  },')
 
@@ -211,7 +221,6 @@ export function useIconDict() {
     }
   }
 
-  /* 有改动：置 dirty 并落盘 */
   function markDirty() {
     dirty.value = true
     writeLocal()
@@ -326,9 +335,7 @@ export function useIconDict() {
   /* ---------------- 派生 ---------------- */
 
   const sorted = computed(() =>
-    data[tab.value]
-      .slice()
-      .sort((a, b) => (a.order || 99999999) - (b.order || 99999999)),
+    data[tab.value].slice().sort((a, b) => (a.order || 99999999) - (b.order || 99999999)),
   )
 
   const keyword = computed(() => search.value.trim().toLowerCase())
@@ -359,9 +366,12 @@ export function useIconDict() {
     return cfg.prefix ? cfg.prefix + row.key + (cfg.ext || '') : ''
   }
 
-  /* 缩略图底：星级径向渐变，边缘用 darkenHex(底色, 0.5) */
+  /* 缩略图底：星级径向渐变。
+     底色表来自 loader（单一真源），边缘色用同一套 darken 算法。
+     无星级（怪物）返回空对象 —— 与 applyBackground 的 star == null 分支一致：不加底色。 */
   function starStyle(row) {
-    const base = window.ICON_LIB?.starColors?.[row.star] || '#939393'
+    if (row.star == null) return {}
+    const base = STAR_COLORS[row.star] || '#939393'
     return { '--star-color': base, '--star-edge': darkenHex(base, 0.5) }
   }
 
@@ -460,9 +470,10 @@ export function useIconDict() {
         if (order < 10000 || order >= 100000) return
       } else if (type === 'artifacts') {
         order = item.id || 0
-        star = Array.isArray(item.levelList) && item.levelList.length
-          ? Math.max.apply(null, item.levelList)
-          : 5
+        star =
+          Array.isArray(item.levelList) && item.levelList.length
+            ? Math.max.apply(null, item.levelList)
+            : 5
       } else {
         order = item.id || 0
       }
@@ -480,7 +491,9 @@ export function useIconDict() {
     Object.keys(items).forEach((k) => {
       const item = items[k]
       if (!item || !item.name) return
-      const id = String(item.icon || '').replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
+      const id = String(item.icon || '')
+        .replace(/^UI_[A-Za-z]+_/i, '')
+        .toLowerCase()
       if (id) table[id] = item.name
       if (item.id != null) table[String(item.id)] = item.name
     })
