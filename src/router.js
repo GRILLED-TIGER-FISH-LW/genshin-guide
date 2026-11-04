@@ -5,11 +5,12 @@ import Home from './views/Home.vue'
  * 工具清单 —— 唯一真源。
  * 首页卡片、侧栏菜单、顶栏标题、iframe 地址，全部从这里推出来。
  *
- *   key       路由片段（就是旧 hash 名，老书签因此原样可用）
- *   label     工具名
- *   icon      src/icons 里的键
- *   frame     工具自己的页面（相对仓库根；构建后由 cp 原样进 dist）
- *   subtools  子工具；带 frame 的各自一个页面，不带的共用父页面（靠 postMessage 切）
+ *   key        路由片段（就是旧 hash 名，老书签因此原样可用）
+ *   label      工具名
+ *   icon       src/icons 里的键
+ *   frame      工具自己的页面（相对仓库根；构建后由 cp 原样进 dist）
+ *   component  已搬进 SPA 的工具：直接用真组件，不再走 iframe
+ *   subtools   子工具；带 frame 的各自一个页面，不带的共用父页面（靠 postMessage 切）
  * ========================================================================= */
 export const TOOLS = [
   {
@@ -22,7 +23,9 @@ export const TOOLS = [
     key: 'icon-editor',
     label: '图标字典编辑器',
     icon: 'nav.iconEditor',
-    frame: 'tools/icon-editor/index.html',
+    /* 已搬进 SPA：用真组件，不再走 iframe。
+       故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
+    component: () => import('./views/IconEditor.vue'),
   },
   {
     key: 'video-cover',
@@ -105,6 +108,14 @@ function toolRoutes() {
         name: t.key,
         component: ToolPage,
         meta: { tool: t.key, sub: '', subLabel: '', label: t.label, icon: t.icon, frame: t.frame },
+      })
+    } else if (t.component) {
+      /* 已搬进 SPA 的工具：自己的组件自己管 DOM，meta 里不带 frame */
+      out.push({
+        path: `/${t.key}`,
+        name: t.key,
+        component: t.component,
+        meta: { tool: t.key, sub: '', subLabel: '', label: t.label, icon: t.icon },
       })
     } else {
       /* 只有子工具、自己没有页面 → 直接落到第一个子工具 */
