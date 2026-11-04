@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import AppNav from './components/AppNav.vue'
 import AppDrawer from './components/AppDrawer.vue'
 import FrameLayer from './components/FrameLayer.vue'
+import ToastHost from './components/ToastHost.vue'
 
 const drawerOpen = ref(false)
 </script>
@@ -14,7 +15,7 @@ const drawerOpen = ref(false)
 
     <main class="relative min-h-0 overflow-hidden">
       <!-- KeepAlive：搬进来的工具视图必须常驻。
-           它一被销毁，app.js 那个 IIFE 受模块缓存保护不会重跑，
+           它一被销毁，工具的引擎脚本受模块缓存保护不会重跑，
            监听和首屏渲染就都没了。顺手也保住了首页的滚动位置。 -->
       <RouterView v-slot="{ Component }">
         <KeepAlive>
@@ -24,5 +25,7 @@ const drawerOpen = ref(false)
 
       <FrameLayer />
     </main>
+
+    <ToastHost />
   </div>
 </template>
