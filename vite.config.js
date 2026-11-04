@@ -17,7 +17,7 @@ const BASE = '/genshin-guide/'
  * 两种布局下都成立。
  *
  * shortcut: 只认「字符串 / url() 一开头就是 ../ 的 shared/」，把 ../ 写在
- *           中途的不管；等工具文件挪进 src/lib/ 之后，插件的匹配条件收紧。
+ *           中途的不管；等工具文件挪进 src/lib/ 之后，收紧匹配条件。
  * ---------------------------------------------------------------------- */
 function sharedPathFix() {
   const RE = /(["'`(])(?:\.\.\/)+shared\//g
@@ -36,53 +36,88 @@ function sharedPathFix() {
 }
 
 /* -------------------------------------------------------------------------
- * 插件 2：把本仓库自己的 shared/ui-icons.js 变成构建期图标模块
+ * 插件 2：把本仓库自己的两个共享脚本变成构建期虚拟模块
  * -------------------------------------------------------------------------
- * 目的：SPA 侧不要再运行时加载 51KB 的 ui-icons.js，也不要有 window.ICONS
- * 这种全局。图标应该在打包结果里就是一份普通 JS 对象。
+ *   shared/ui-icons.js            → virtual:gg-icons      （图标路径）
+ *   shared/gi-icons/icon-loader.js → virtual:gg-icon-lib   （星级底色表）
  *
- * 数据源仍然是本仓库自己的文件（不是跨仓库），只是读取时机挪到构建期。
- * 读取手法和 app.js 读 icon-dict.js 完全一样：把文件当脚本跑一次，取 window 上的结果。
- *   · 只收「值是 <svg 开头的字符串」的条目 —— element / artifact 组存的是路径数据
- *     和数组，不是 UI 图标，故意跳过
- *   · 顺手剥掉外层 <svg>…</svg>：Icon.vue 自己提供 viewBox 和无障碍属性
- *   · addWatchFile 让改 ui-icons.js 能触发 HMR / 重新构建
+ * 目的：SPA 侧不再运行时加载这两个脚本、也不依赖 window 全局。
+ * 数据源仍是本仓库自己的文件（不是跨仓库），只是读取时机挪到构建期。
+ * 读取手法与 app.js 读 icon-dict.js 完全一样：把脚本跑一遍，取 window 上的结果。
+ *
+ * 两个必须知道的细节：
+ *   · icon-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
+ *   · ui-icons.js 的 element / artifact 组存的是路径数据、不是 UI 图标，
+ *     这里只收「值是 <svg 开头的字符串」的条目，并顺手剥掉外层 <svg>
  * ---------------------------------------------------------------------- */
 const ICONS_ID = 'virtual:gg-icons'
 const ICONS_RESOLVED = '\0' + ICONS_ID
+const LIB_ID = 'virtual:gg-icon-lib'
+const LIB_RESOLVED = '\0' + LIB_ID
 
-function iconsFromShared() {
+/* 够 icon-loader.js 在加载期跑完的最小 document 垫片 */
+const DOC_STUB = {
+  getElementsByTagName: () => [{ src: 'https://local/shared/gi-icons/icon-loader.js' }],
+  createElement: () => ({ getContext: () => null, style: {}, setAttribute() {} }),
+  head: { appendChild() {} },
+  body: { appendChild() {} },
+  addEventListener() {},
+  removeEventListener() {},
+}
+
+/* 把「挂全局」的共享脚本跑一遍，返回它写到 window 上的东西 */
+function runSharedScript(file) {
+  const win = {}
+  new Function('window', 'document', readFileSync(file, 'utf8'))(win, DOC_STUB)
+  return win
+}
+
+function sharedModules() {
+  const path = (rel) => fileURLToPath(new URL(rel, import.meta.url))
+
   return {
-    name: 'gg-icons-from-shared',
+    name: 'gg-shared-modules',
+
     resolveId(id) {
-      return id === ICONS_ID ? ICONS_RESOLVED : null
+      if (id === ICONS_ID) return ICONS_RESOLVED
+      if (id === LIB_ID) return LIB_RESOLVED
+      return null
     },
+
     load(id) {
-      if (id !== ICONS_RESOLVED) return null
+      if (id === ICONS_RESOLVED) {
+        const file = path('shared/ui-icons.js')
+        this.addWatchFile(file)
 
-      const file = fileURLToPath(new URL('shared/ui-icons.js', import.meta.url))
-      this.addWatchFile(file)
-
-      const sandbox = {}
-      new Function('window', readFileSync(file, 'utf8'))(sandbox)
-
-      const out = {}
-      for (const [group, bag] of Object.entries(sandbox.window?.ICONS || {})) {
-        if (!bag || typeof bag !== 'object') continue
-        for (const [key, value] of Object.entries(bag)) {
-          if (typeof value !== 'string' || !value.startsWith('<svg')) continue
-          out[`${group}.${key}`] = value.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+        const win = runSharedScript(file)
+        const out = {}
+        for (const [group, bag] of Object.entries(win.ICONS || {})) {
+          if (!bag || typeof bag !== 'object') continue
+          for (const [key, value] of Object.entries(bag)) {
+            if (typeof value !== 'string' || !value.startsWith('<svg')) continue
+            out[`${group}.${key}`] = value.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+          }
         }
+        return `export const ICONS = ${JSON.stringify(out)}`
       }
 
-      return `export const ICONS = ${JSON.stringify(out)}`
+      if (id === LIB_RESOLVED) {
+        const file = path('shared/gi-icons/icon-loader.js')
+        this.addWatchFile(file)
+
+        const win = runSharedScript(file)
+        const starColors = win.ICON_LIB?.starColors || {}
+        return `export const STAR_COLORS = ${JSON.stringify(starColors)}`
+      }
+
+      return null
     },
   }
 }
 
 export default defineConfig({
   base: BASE,
-  plugins: [sharedPathFix(), iconsFromShared(), vue(), tailwindcss()],
+  plugins: [sharedPathFix(), sharedModules(), vue(), tailwindcss()],
   build: {
     outDir: 'dist',
     target: 'es2020',
