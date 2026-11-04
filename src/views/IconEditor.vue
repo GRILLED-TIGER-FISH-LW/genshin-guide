@@ -177,3 +177,28 @@ onMounted(async () => {
     </p>
   </div>
 </template>
+
+<style scoped>
+/* =========================================================================
+ * 老共享 CSS 里剩几处「方言」和新系统不一致，就地抹平。
+ *
+ * 为什么用 :deep()：这些元素要么由 app.js 用 innerHTML 生成，要么由共享 CSS
+ * 定义，拿不到 scoped 属性。:deep(...) 编译后是 [data-v-x] .xxx（特异性 0,2,x），
+ * 稳定压过共享 CSS 的 0,1,x，而且与加载顺序无关 —— 共享的 theme.css 是运行期
+ * 才注入的，靠顺序压它不可靠。
+ * ========================================================================= */
+
+/* 弹窗按钮：老样式是胶囊（--r-pill），而新系统里胶囊只留给页签和徽章 */
+:deep(.modal-actions button) {
+  border-radius: var(--r-ctl);
+}
+
+/* 焦点环：老 CSS 用 :focus，鼠标点一下也会亮；新方言只在键盘操作时亮 */
+:deep(:focus:not(:focus-visible)) {
+  outline: none;
+}
+:deep(:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+</style>
