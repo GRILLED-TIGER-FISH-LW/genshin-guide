@@ -17,6 +17,12 @@ import { useIconDict } from '../composables/useIconDict.js'
  *   · 操作按钮从「一行左右拖动」改成 flex-wrap 自动换行
  *   · 分类页签用 Seg（等宽分段控件），不再横向滚动
  *   · 信息行 + 「清空」独立成底部一行 —— 破坏性操作不跟常用操作挤在一起
+ *
+ * 两个坑写在注释里，免得以后重犯：
+ *   · 缩略图底色由 .thumb 这条 scoped 规则承载；starStyle() 只提供两个 CSS 变量，
+ *     光设变量不写 background 是不会有任何效果的
+ *   · Dropdown 的根节点自带 w-full，从外面塞宽度会跟它打架（同权重，看 Tailwind 排序）。
+ *     要定宽就套一层容器，让 w-full 去填满容器
  * ------------------------------------------------------------------------- */
 
 const {
@@ -72,9 +78,7 @@ watch(tab, () => {
 
 const hasData = computed(() => sorted.value.length > 0)
 const emptyIcon = computed(() => (hasData.value ? 'ui.search' : 'ui.inbox'))
-const emptyTitle = computed(() =>
-  hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目',
-)
+const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
 const emptyHint = computed(() => (hasData.value ? '试试其他关键词' : '点上方按钮开始'))
 
 async function onSync() {
@@ -115,19 +119,27 @@ onMounted(init)
     <!-- ---------------- 头部：搜索 / 分类 / 操作 ---------------- -->
     <header class="grid shrink-0 gap-2 border-b border-line bg-canvas p-3">
       <div class="relative flex items-center">
+        <span
+          class="pointer-events-none absolute left-3 top-1/2 grid size-4 -translate-y-1/2 place-items-center text-muted"
+          aria-hidden="true"
+        >
+          <Icon name="ui.search" size="sm" />
+        </span>
+
         <input
           v-model="search"
           type="search"
-          :class="[FIELD, 'w-full px-3 pr-9']"
-          placeholder="搜索名字或 key…"
-          aria-label="搜索名字或 key"
+          :class="[FIELD, 'w-full pl-9 pr-9']"
+          placeholder="搜索名字或key…"
+          aria-label="搜索名字或key"
           autocomplete="off"
           spellcheck="false"
         />
+
         <button
           v-if="search"
           type="button"
-          class="absolute right-1 grid size-7 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+          class="absolute right-1 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
           aria-label="清除搜索"
           @click="search = ''"
         >
@@ -169,10 +181,7 @@ onMounted(init)
     <main class="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain p-3">
       <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
 
-      <div
-        v-else-if="!filtered.length"
-        class="grid place-items-center gap-3 py-12 text-center"
-      >
+      <div v-else-if="!filtered.length" class="grid place-items-center gap-3 py-12 text-center">
         <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
           <Icon :name="emptyIcon" size="lg" />
         </span>
@@ -191,17 +200,17 @@ onMounted(init)
           <!-- 序号 -->
           <input
             type="number"
-            :class="[FIELD, 'w-11 shrink-0 px-1 text-center font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none']"
+            :class="[
+              FIELD,
+              'w-11 shrink-0 px-1 text-center font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+            ]"
             :value="row.order || ''"
             aria-label="序号"
             @change="setOrder(row, $event.target.value)"
           />
 
-          <!-- 缩略图：星级径向渐变底；无星级（怪物）不加底色 -->
-          <span
-            class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl"
-            :style="starStyle(row)"
-          >
+          <!-- 缩略图：星级径向渐变底，由 .thumb 那条规则承载 -->
+          <span class="thumb grid size-9 shrink-0 place-items-center" :style="starStyle(row)">
             <img
               v-if="resolveUrl(tab, row)"
               :src="resolveUrl(tab, row)"
@@ -222,15 +231,15 @@ onMounted(init)
             @blur="setName(row, row.name)"
           />
 
-          <!-- 星级（怪物没有） -->
-          <Dropdown
-            v-if="tab !== 'monsters'"
-            class="w-[72px] shrink-0"
-            :options="STAR_OPTIONS"
-            :model-value="String(row.star ?? 5)"
-            :label="`星级：${row.star ?? 5} 星`"
-            @update:model-value="setStar(row, $event)"
-          />
+          <!-- 星级：外面套定宽容器，别跟 Dropdown 自带的 w-full 抢 -->
+          <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
+            <Dropdown
+              :options="STAR_OPTIONS"
+              :model-value="String(row.star ?? 5)"
+              :label="`星级：${row.star ?? 5} 星`"
+              @update:model-value="setStar(row, $event)"
+            />
+          </span>
 
           <!-- 删除 -->
           <Btn size="sm" variant="danger" square aria-label="删除" @click="removeRow(row)">
@@ -280,3 +289,21 @@ onMounted(init)
     <SyncReport v-model="reportOpen" :log="log" />
   </div>
 </template>
+
+<style scoped>
+/* 星级径向渐变底。
+   starStyle() 只负责把 --star-color / --star-edge 塞进 style，
+   真正画出渐变的是这条规则 —— 少了它，变量设了也白设。
+   几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+   的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
+   正方形下正好也是 √2/2 × 边长。
+   无星级（怪物）时两个变量都不存在，回落到 transparent = 不加底色。 */
+.thumb {
+  background: radial-gradient(
+    circle,
+    var(--star-color, transparent),
+    var(--star-edge, transparent)
+  );
+  overflow: hidden;
+}
+</style>
