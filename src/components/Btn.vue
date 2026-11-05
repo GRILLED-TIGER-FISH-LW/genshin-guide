@@ -5,11 +5,13 @@ const props = defineProps({
   /* primary  实心强调（accent-solid + 白字）
      secondary 描边（默认）
      ghost     无底无边，工具栏用
-     danger    危险操作 */
+     danger    危险操作
+     on-dark   固定白底黑字：给底色恒为 #121212 的预览框用，
+               不跟主题走 —— 深色模式下 danger-soft 那种半透明在亮背景上会看不见 */
   variant: {
     type: String,
     default: 'secondary',
-    validator: (v) => ['primary', 'secondary', 'ghost', 'danger'].includes(v),
+    validator: (v) => ['primary', 'secondary', 'ghost', 'danger', 'on-dark'].includes(v),
   },
   /* sm 紧凑（工具栏、列表行、卡片角）/ md 标准（表单、弹窗）/ lg 主操作（底部悬浮 CTA） */
   size: {
@@ -40,6 +42,7 @@ const VARIANTS = {
   secondary: 'bg-surface text-ink border border-line-2 hover:bg-hover',
   ghost: 'bg-transparent text-body hover:bg-hover',
   danger: 'bg-danger-soft text-danger hover:bg-danger-soft/70',
+  'on-dark': 'bg-white text-black hover:bg-white/85',
 }
 
 const isDisabled = computed(() => props.disabled || props.loading)
