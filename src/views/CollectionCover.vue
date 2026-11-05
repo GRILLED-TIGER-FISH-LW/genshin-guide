@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import Btn from '../components/Btn.vue'
+import DockCta from '../components/DockCta.vue'
 import Dropdown from '../components/Dropdown.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
@@ -243,12 +244,12 @@ onActivated(render)
           >
             <Btn
               variant="danger"
-              size="sm"
-              icon
+              size="md"
+              square
               aria-label="清空合集封面"
               @click.stop="askClear = true"
             >
-              <Icon name="ui.trash" size="sm" />
+              <template #icon><Icon name="ui.trash" /></template>
             </Btn>
           </div>
 
@@ -331,14 +332,8 @@ onActivated(render)
       </section>
     </main>
 
-    <!-- 悬浮导出：旧版是 fixed 底部居中，这里是同一位置的等价实现 -->
-    <div
-      class="pointer-events-none absolute inset-x-0 bottom-0 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
-    >
-      <Btn variant="primary" class="pointer-events-auto" :disabled="exporting" @click="exportPng">
-        导出图片
-      </Btn>
-    </div>
+    <!-- 悬浮导出：位置/尺寸全在 DockCta 里，这里只给文案和动作 -->
+    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
 
     <Modal
       v-model="askClear"
