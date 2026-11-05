@@ -32,12 +32,16 @@ export const TOOLS = [
     key: 'video-cover',
     label: '封面制作',
     icon: 'nav.videoCover',
+    /* 两个子工具都搬进 SPA 了，自己不再有页面 */
     subtools: [
-      { key: 'video', label: '视频封面', frame: 'tools/video-cover/video/index.html' },
+      {
+        key: 'video',
+        label: '视频封面',
+        component: () => import('./views/VideoCover.vue'),
+      },
       {
         key: 'collection',
         label: '合集封面',
-        /* 已搬进 SPA：拿掉 frame，FrameLayer 那边就只剩视频封面一个 iframe */
         component: () => import('./views/CollectionCover.vue'),
       },
     ],
