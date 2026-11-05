@@ -6,6 +6,7 @@ import Dropdown from '../components/Dropdown.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+import PreviewFrame from '../components/PreviewFrame.vue'
 import { useToast } from '../composables/useToast.js'
 import * as cover from '../lib/collectionCover.js'
 
@@ -23,9 +24,6 @@ const fontFile = ref('')
 const loaded = ref('')
 const fontData = ref('')
 const fontStatus = ref('') /* '' | 'loading' | 'error' */
-
-/* 点预览空白处淡出右上角工具栏（旧版行为） */
-const toolbarOn = ref(true)
 
 const askClear = ref(false)
 const exporting = ref(false)
@@ -226,41 +224,29 @@ onActivated(render)
   <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
     <!-- 预览固定在顶部，只有表单区滚动 -->
     <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
-      <!-- 描边留在外框：不占内容盒，16:9 才是精确的 16:9 -->
-      <div
-        class="mx-auto w-full max-w-[720px] overflow-hidden rounded-panel border border-line bg-[#121212]"
-      >
-        <div class="relative grid aspect-video cursor-pointer" @click="toolbarOn = !toolbarOn">
-          <canvas ref="cv" class="block size-full" />
+      <PreviewFrame>
+        <canvas ref="cv" class="block size-full" />
 
-          <!-- 点预览淡出；用 Tab 聚焦到按钮时自动显形，键盘用户不会把它弄丢 -->
-          <div
-            class="absolute right-2 top-2 transition-opacity duration-200"
-            :class="
-              toolbarOn
-                ? 'opacity-100'
-                : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100'
-            "
-          >
-            <Btn
-              variant="danger"
-              size="md"
-              square
-              aria-label="清空合集封面"
-              @click.stop="askClear = true"
-            >
-              <template #icon><Icon name="ui.trash" /></template>
-            </Btn>
-          </div>
+        <p
+          v-if="!bg"
+          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+        >
+          还没上传背景图，先在下面选一张
+        </p>
 
-          <p
-            v-if="!bg"
-            class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+        <template #toolbar>
+          <Btn
+            variant="danger"
+            size="md"
+            square
+            aria-label="清空合集封面"
+            title="清空"
+            @click.stop="askClear = true"
           >
-            还没上传背景图，先在下面选一张
-          </p>
-        </div>
-      </div>
+            <template #icon><Icon name="ui.trash" /></template>
+          </Btn>
+        </template>
+      </PreviewFrame>
     </div>
 
     <!-- pb-24 给悬浮导出按钮让位，否则最后一段会被压在下面 -->
