@@ -137,8 +137,6 @@ window.ICON_DICT = {
 
   /* ============ 圣遗物 ============ */
   artifacts: {
-    "UI_RelicIcon_15049_4": { name: "肇史之遗", star: 5, order: 0 },
-    "UI_RelicIcon_15050_4": { name: "遥天奉翠华引", star: 5, order: 0 },
     "UI_RelicIcon_10001_4": { name: "行者之心", star: 4, order: 10001 },
     "UI_RelicIcon_10002_4": { name: "勇士之心", star: 4, order: 10002 },
     "UI_RelicIcon_10003_4": { name: "守护之心", star: 4, order: 10003 },
@@ -201,7 +199,9 @@ window.ICON_DICT = {
     "UI_RelicIcon_15045_4": { name: "天之美赐", star: 5, order: 15045 },
     "UI_RelicIcon_15046_4": { name: "影中沉凝的幻灭", star: 5, order: 15046 },
     "UI_RelicIcon_15047_4": { name: "血红之证", star: 5, order: 15047 },
-    "UI_RelicIcon_15048_4": { name: "炉火融炼之心", star: 5, order: 15048 }
+    "UI_RelicIcon_15048_4": { name: "炉火融炼之心", star: 5, order: 15048 },
+    "UI_RelicIcon_15049_4": { name: "肇史之遗", star: 5, order: 15049 },
+    "UI_RelicIcon_15050_4": { name: "遥天奉翠华引", star: 5, order: 15050 }
   },
 
   /* ============ 武器 ============ */
@@ -299,6 +299,7 @@ window.ICON_DICT = {
     "UI_EquipIcon_Claymore_Ilmarinen": { name: "万能钥匙", star: 4, order: 12433 },
     "UI_EquipIcon_Claymore_EscapeWheel": { name: "金律铸影", star: 4, order: 12435 },
     "UI_EquipIcon_Claymore_GlintstoneClaymore": { name: "救赎之斩", star: 4, order: 12436 },
+    "UI_EquipIcon_Claymore_NatlanEventVennessa": { name: "炎烈狮牙", star: 4, order: 12438 },
     "UI_EquipIcon_Claymore_Dvalin": { name: "天空之傲", star: 5, order: 12501 },
     "UI_EquipIcon_Claymore_Wolfmound": { name: "狼的末路", star: 5, order: 12502 },
     "UI_EquipIcon_Claymore_Widsith": { name: "松籁响起之时", star: 5, order: 12503 },
@@ -310,6 +311,7 @@ window.ICON_DICT = {
     "UI_EquipIcon_Claymore_RadianceSword": { name: "焚曜千阳", star: 5, order: 12514 },
     "UI_EquipIcon_Claymore_EnsisAquilonis": { name: "狼的武功歌", star: 5, order: 12515 },
     "UI_EquipIcon_Claymore_CrystallineSword": { name: "超越之匙", star: 5, order: 12516 },
+    "UI_EquipIcon_Claymore_Anchor": { name: "春潮", star: 5, order: 12517 },
     "UI_EquipIcon_Pole_Gewalt": { name: "新手长枪", star: 1, order: 13101 },
     "UI_EquipIcon_Pole_Rod": { name: "铁尖枪", star: 2, order: 13201 },
     "UI_EquipIcon_Pole_Ruby": { name: "白缨枪", star: 3, order: 13301 },
@@ -458,7 +460,8 @@ window.ICON_DICT = {
     "UI_EquipIcon_Bow_Arcdange": { name: "白雨心弦", star: 5, order: 15513 },
     "UI_EquipIcon_Bow_Qoyllorsnova": { name: "星鹫赤羽", star: 5, order: 15514 },
     "UI_EquipIcon_Bow_Arianna": { name: "黎明破晓之史", star: 5, order: 15515 },
-    "UI_EquipIcon_Bow_Alkonost": { name: "霜结的誓金枝", star: 5, order: 15516 }
+    "UI_EquipIcon_Bow_Alkonost": { name: "霜结的誓金枝", star: 5, order: 15516 },
+    "UI_EquipIcon_Bow_Ullr": { name: "银昼", star: 5, order: 15517 }
   },
 
   /* ============ 怪物 ============ */
