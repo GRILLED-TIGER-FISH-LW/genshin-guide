@@ -11,6 +11,13 @@ const router = useRouter()
  * 把 TOOLS 摊平成「一个页面一条记录」。
  * video-cover 的两个子工具各有一页 → 两个 iframe；
  * image-tools / chart 的子工具共用父页面 → 一个 iframe，靠 postMessage 切页。
+ *
+ * 【pointer-events 是这里的关键】
+ * 本组件的根节点是一块常驻的全屏空容器，它盖在 RouterView 上面。
+ * 如果它自己也接收事件，就会把首页卡片、以及搬进 SPA 的工具视图
+ * （IconEditor 等）的点击全部吃掉 —— 表现为「点什么都没反应」。
+ * 所以：根节点 pointer-events: none，只有真正在显示的那一帧和加载遮罩
+ * 才 pointer-events: auto。
  * ------------------------------------------------------------------------- */
 const FRAMES = (() => {
   const seen = new Set()
@@ -124,13 +131,14 @@ onBeforeUnmount(() => window.removeEventListener('message', onMessage))
 </script>
 
 <template>
-  <div class="absolute inset-0">
+  <!-- 根节点只负责占位，绝不接收事件 -->
+  <div class="pointer-events-none absolute inset-0">
     <!-- 所有 iframe 常驻：v-show 只隐藏，绝不销毁，所以切走再切回不重新加载 -->
     <div
       v-for="f in FRAMES"
       v-show="current?.frame === f.frame"
       :key="f.frame"
-      class="absolute inset-0"
+      class="pointer-events-auto absolute inset-0"
     >
       <iframe
         v-if="visited.has(f.frame)"
@@ -143,8 +151,12 @@ onBeforeUnmount(() => window.removeEventListener('message', onMessage))
       />
     </div>
 
+    <!-- 加载遮罩：要挡住下面，所以自己也接收事件 -->
     <Transition name="ld">
-      <div v-if="showMask" class="absolute inset-0 grid place-items-center gap-3 bg-canvas">
+      <div
+        v-if="showMask"
+        class="pointer-events-auto absolute inset-0 grid place-items-center gap-3 bg-canvas"
+      >
         <span
           class="size-5 animate-spin rounded-full border-2 border-line-3 border-t-accent"
           aria-hidden="true"
