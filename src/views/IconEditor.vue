@@ -18,11 +18,17 @@ import { useIconDict } from '../composables/useIconDict.js'
  *   · 分类页签用 Seg（等宽分段控件），不再横向滚动
  *   · 信息行 + 「清空」独立成底部一行 —— 破坏性操作不跟常用操作挤在一起
  *
- * 两个坑写在注释里，免得以后重犯：
- *   · 缩略图底色由 .thumb 这条 scoped 规则承载；starStyle() 只提供两个 CSS 变量，
- *     光设变量不写 background 是不会有任何效果的
- *   · Dropdown 的根节点自带 w-full，从外面塞宽度会跟它打架（同权重，看 Tailwind 排序）。
- *     要定宽就套一层容器，让 w-full 去填满容器
+ * 【为什么 root / header / main 都要写 grid-cols-1】
+ *   它们都是 grid，但没声明列。隐式的 auto 轨道会被内容的 max-content 撑开，
+ *   而「flex-wrap 的按钮行」的 max-content 是「全部按钮排成一行的总宽」（约 560px）
+ *   —— 于是整条轨道被撑到 560px，整页横向溢出，必须左右拖动才看得全。
+ *   Tailwind 的 grid-cols-1 生成的是 repeat(1, minmax(0, 1fr))，
+ *   那个 minmax(0, …) 正好把轨道锁在容器宽度内。少一层写，就会被撑破一层。
+ *
+ * 【缩略图的两个部分别拆开】
+ *   starStyle() 只往 style 塞 --star-color / --star-edge 两个变量；
+ *   真正画出渐变的是 <style scoped> 里的 .thumb；圆角则是模板上的 rounded-ctl。
+ *   三者少任何一个，缩略图要么没底色、要么是方块。
  * ------------------------------------------------------------------------- */
 
 const {
@@ -115,9 +121,9 @@ onMounted(init)
 </script>
 
 <template>
-  <div class="grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
+  <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
     <!-- ---------------- 头部：搜索 / 分类 / 操作 ---------------- -->
-    <header class="grid shrink-0 gap-2 border-b border-line bg-canvas p-3">
+    <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
       <div class="relative flex items-center">
         <span
           class="pointer-events-none absolute left-3 top-1/2 grid size-4 -translate-y-1/2 place-items-center text-muted"
@@ -151,7 +157,7 @@ onMounted(init)
 
       <div class="flex flex-wrap gap-2">
         <Btn size="sm" variant="primary" :loading="syncing" @click="onSync">
-          <template #icon><Icon name="ui.import" size="sm" /></template>
+          <template #icon><Icon name="ui.reload" size="sm" /></template>
           从 Amber 同步
         </Btn>
 
@@ -178,7 +184,7 @@ onMounted(init)
     </header>
 
     <!-- ---------------- 列表（唯一滚动区） ---------------- -->
-    <main class="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain p-3">
+    <main class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto overscroll-contain p-3">
       <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
 
       <div v-else-if="!filtered.length" class="grid place-items-center gap-3 py-12 text-center">
@@ -209,8 +215,11 @@ onMounted(init)
             @change="setOrder(row, $event.target.value)"
           />
 
-          <!-- 缩略图：星级径向渐变底，由 .thumb 那条规则承载 -->
-          <span class="thumb grid size-9 shrink-0 place-items-center" :style="starStyle(row)">
+          <!-- 缩略图：圆角在 class 上，渐变在 .thumb 上，变量由 starStyle() 给 -->
+          <span
+            class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
+            :style="starStyle(row)"
+          >
             <img
               v-if="resolveUrl(tab, row)"
               :src="resolveUrl(tab, row)"
@@ -297,7 +306,8 @@ onMounted(init)
    几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
    的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
    正方形下正好也是 √2/2 × 边长。
-   无星级（怪物）时两个变量都不存在，回落到 transparent = 不加底色。 */
+   无星级（怪物）时两个变量都不存在，回落到 transparent = 不加底色。
+   圆角不在这里写，在模板的 rounded-ctl 上 —— 那才是全站声明圆角的地方。 */
 .thumb {
   background: radial-gradient(
     circle,
