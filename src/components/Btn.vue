@@ -11,11 +11,11 @@ const props = defineProps({
     default: 'secondary',
     validator: (v) => ['primary', 'secondary', 'ghost', 'danger'].includes(v),
   },
-  /* md 标准按钮 / sm 紧凑按钮（工具栏、列表行、卡片角） */
+  /* sm 紧凑（工具栏、列表行、卡片角）/ md 标准（表单、弹窗）/ lg 主操作（底部悬浮 CTA） */
   size: {
     type: String,
     default: 'md',
-    validator: (v) => ['md', 'sm'].includes(v),
+    validator: (v) => ['sm', 'md', 'lg'].includes(v),
   },
   /* 纯图标：去掉左右 padding，锁定正方形。必须自己传 aria-label */
   square: { type: Boolean, default: false },
@@ -23,11 +23,17 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
 })
 
-/* md 窄屏 40px（配表单/弹窗），宽屏 36px；sm 恒定 36px（配工具栏的输入框/下拉） */
+/* md 窄屏 40px（配表单/弹窗），宽屏 36px；sm 恒定 36px（配工具栏的输入框/下拉）
+   lg 恒定 48px：只给底部悬浮主操作，普通按钮不要用 */
 const MD = 'h-10 px-4 text-sm gap-2 sm:h-9'
 const SM = 'h-9 px-3 text-xs gap-1.5'
+const LG = 'h-12 px-6 text-base gap-2'
 const MD_SQ = 'size-10 p-0 gap-0 sm:size-9'
 const SM_SQ = 'size-9 p-0 gap-0'
+const LG_SQ = 'size-12 p-0 gap-0'
+
+const SIZE = { sm: SM, md: MD, lg: LG }
+const SIZE_SQ = { sm: SM_SQ, md: MD_SQ, lg: LG_SQ }
 
 const VARIANTS = {
   primary: 'bg-accent-solid text-on-accent hover:bg-accent-hover',
@@ -45,11 +51,11 @@ const rootClass = computed(() => [
   'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
   'disabled:pointer-events-none disabled:opacity-50',
   VARIANTS[props.variant],
-  props.square ? (props.size === 'sm' ? SM_SQ : MD_SQ) : props.size === 'sm' ? SM : MD,
+  props.square ? SIZE_SQ[props.size] : SIZE[props.size],
 ])
 
-/* 图标槽尺寸：20px / 36px = 55%，40px 高时 50%，都不再是原来那 44% */
-const iconBox = computed(() => (props.size === 'sm' ? 'size-4' : 'size-5'))
+/* 图标槽尺寸：16 / 20 / 24 —— 随档位走，正好是按钮内宽的 44% ~ 50% */
+const iconBox = computed(() => ({ sm: 'size-4', md: 'size-5', lg: 'size-6' })[props.size])
 </script>
 
 <template>
