@@ -7,10 +7,11 @@ import Home from './views/Home.vue'
  *
  *   key        路由片段（就是旧 hash 名，老书签因此原样可用）
  *   label      工具名
- *   icon       src/icons 里的键
+ *   icon       本仓库 shared/ui-icons.js 里的键
  *   frame      工具自己的页面（相对仓库根；构建后由 cp 原样进 dist）
  *   component  已搬进 SPA 的工具：直接用真组件，不再走 iframe
- *   subtools   子工具；带 frame 的各自一个页面，不带的共用父页面（靠 postMessage 切）
+ *   subtools   子工具；带 frame 的各自一个页面，不带的共用父页面（靠 postMessage 切）；
+ *              带 component 的已搬进 SPA
  * ========================================================================= */
 export const TOOLS = [
   {
@@ -36,7 +37,8 @@ export const TOOLS = [
       {
         key: 'collection',
         label: '合集封面',
-        frame: 'tools/video-cover/collection/index.html',
+        /* 已搬进 SPA：拿掉 frame，FrameLayer 那边就只剩视频封面一个 iframe */
+        component: () => import('./views/CollectionCover.vue'),
       },
     ],
   },
@@ -74,7 +76,7 @@ export const TOOLS = [
 ]
 
 /* 工具页的 iframe 由 FrameLayer 常驻托管，路由只负责「当前是哪一个」。
-   所以这里渲染一个空组件，不产生任何 DOM。 */
+   已搬进 SPA 的工具用自己的组件，这个空组件不产生任何 DOM。 */
 const ToolPage = { name: 'ToolPage', render: () => null }
 
 /* 注意：vue-router 强制要求每条 path / redirect 都以 '/' 开头，
@@ -89,15 +91,15 @@ function toolRoutes() {
       out.push({
         path: `/${t.key}/${s.key}`,
         name: `${t.key}:${s.key}`,
-        component: ToolPage,
+        component: s.component || ToolPage,
         meta: {
           tool: t.key,
           sub: s.key,
           subLabel: s.label,
           label: t.label,
           icon: t.icon,
-          /* 子工具自带页面就用自己的，否则共用父页面 */
-          frame: s.frame || t.frame,
+          /* 子工具自带页面就用自己的，否则共用父页面；搬进 SPA 的不带 frame */
+          frame: s.component ? '' : s.frame || t.frame,
         },
       })
     }
