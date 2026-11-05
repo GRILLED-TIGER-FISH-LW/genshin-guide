@@ -16,9 +16,22 @@ import { loadGlobalScript } from './useData.js'
  *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
  *     applyBackground 一致，否则缩略图底色和已烘焙的图片对不上
  *
- * 【相对旧版的两处有意修改】
+ * 【相对旧版的三处有意修改】
  *   1. 「载入」之后 dirty = false（数据刚从仓库来、本来就是干净的）
  *   2. 状态条拆开：条数/筛选是常驻信息行，操作结果走 toast
+ *   3. 同步的排除规则分两档（见下），并新增「强制本地条目」
+ *
+ * 【同步时三类规则，别混】
+ *   硬（transformAmber 里把 key 记进 skipped）：
+ *       武器 id 非五位数 · 怪物 28 开头 · 官方旅行者男女图
+ *       → 不仅不加，还会把本地同名条目一并清掉
+ *   软（只 return、不记 skipped）：角色白名单
+ *       → 只「不加」。白名单是人手维护的，漏一行不该删本地数据
+ *   强制（FORCED_LOCAL）：无论如何都要存在
+ *       → 本地没有就补上；本地已有就保持原样，不覆盖你的改动
+ *
+ *   还要记住合并规则第 3 条：API 没返回的旧条目一律保留（已下架 / 手工新增）。
+ *   硬排除是唯一的例外，因为它表达的是「这类东西我们不要」。
  * ========================================================================= */
 
 const STORAGE_KEY = 'icon_dict_editor_v4'
@@ -43,6 +56,16 @@ const AMBER_ENDPOINTS = {
 
 const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
 const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
+
+/* 官方把旅行者拆成男女两张官方图，我们要的是仓库里那张自制的。
+   key 是文件名（带扩展名），local: true 时 resolveUrl 会去 shared/gi-icons/ 取。
+   图片目录以后若搬家，只改 resolveUrl 里那一处前缀。 */
+const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
+
+/* 同步时必须存在的本地条目。本地已有同 key 的条目就保持原样，不覆盖你的改动 */
+const FORCED_LOCAL = {
+  characters: [{ key: 'UI_AvatarIcon_Traveler.webp', name: '旅行者', order: 1, local: true }],
+}
 
 /* =========================================================================
  * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
@@ -449,15 +472,21 @@ export function useIconDict() {
     }
   }
 
-  /* 每类的过滤条件。
-     「不记录某一批条目」在这个文件里只有一种写法：落到 out[...] 之前一句 return。
-       · 角色：characters.txt 是白名单，不在里面就丢
-       · 武器：id 必须是五位数（10000–99999）—— Amber 的 /weapon 接口还会返回
-               武器素材/突破材料，那些 id 是四位数或六位数，一律丢
-       · 圣遗物：无额外过滤
-       · 怪物：28 开头是野生生物（动物），不进字典 */
+  /* 返回 { kept, skipped }：
+     kept    = 要收进来的条目
+     skipped = 被「硬规则」明确排除的 key。同步时会连带把本地同名条目清掉，
+               因为硬规则表达的是「这类东西我们不要」，而不是「这次没拉到」。
+     只看这个函数的话，四条规则是：
+       · 角色：官方旅行者男女图 → 硬排除
+               characters.txt 白名单 → 软排除（只不加，不删本地）
+       · 武器：id 必须是五位数（10000–99999）→ 硬排除
+               /weapon 接口还会返回武器素材/突破材料，那些 id 是四/六位数
+       · 圣遗物：无额外规则
+       · 怪物：28 开头是野生生物（动物）→ 硬排除 */
   function transformAmber(type, items) {
-    const out = {}
+    const kept = {}
+    const skipped = new Set()
+
     Object.keys(items).forEach((id) => {
       const item = items[id]
       if (!item || !item.icon || !item.name) return
@@ -466,13 +495,22 @@ export function useIconDict() {
       let star = null
 
       if (type === 'characters') {
-        if (!nameToOrder[item.name]) return
+        /* 顺序要紧：先判官方旅行者，再判白名单 ——
+           否则它会被白名单提前 return 掉，就轮不到登记 skip 了 */
+        if (OFFICIAL_TRAVELER_RE.test(item.icon)) {
+          skipped.add(item.icon)
+          return
+        }
+        if (!nameToOrder[item.name]) return /* 软排除：只不加 */
         order = nameToOrder[item.name]
         star = item.rank || 5
       } else if (type === 'weapons') {
         order = item.id || 0
         star = item.rank || 5
-        if (order < 10000 || order >= 100000) return
+        if (order < 10000 || order >= 100000) {
+          skipped.add(item.icon)
+          return
+        }
       } else if (type === 'artifacts') {
         order = item.id || 0
         star =
@@ -480,13 +518,17 @@ export function useIconDict() {
             ? Math.max.apply(null, item.levelList)
             : 5
       } else {
-        if (String(item.id || '').startsWith('28')) return
+        if (String(item.id || '').startsWith('28')) {
+          skipped.add(item.icon)
+          return
+        }
         order = item.id || 0
       }
 
-      out[item.icon] = { name: item.name, star, order }
+      kept[item.icon] = { name: item.name, star, order }
     })
-    return out
+
+    return { kept, skipped }
   }
 
   /* id → 中文名（粘贴 URL 时补名字用） */
@@ -584,30 +626,42 @@ export function useIconDict() {
 
   /* 自定义条目 = 带 local 或 url 的行，按 key 与 name 双登记。
      1. 自定义先落位，name/star/order/local/url 全保留
+        · 另外把 FORCED_LOCAL 里、本地还没有的条目也按自定义补上
      2. API 条目：key 命中自定义 → 跳过；name 命中自定义 → 跳过；
         都没命中 → 以 API 为准（手打错的名字在这里被修正）
      3. 剩余旧条目按 key 判重保留：key 未出现 = API 下架或手工新增，保留
-     —— 注意第 3 条：过滤规则只作用于「新拉进来的 API 数据」，
-        本地已经存在的条目不会被摘掉。要清掉旧的得手动删或清空该分类。 */
+        · 例外：被硬规则排除的（excluded）不保留，直接丢掉 */
   async function syncFromAmber() {
     const before = JSON.parse(JSON.stringify(data))
+
     const customByKey = {}
     const customByName = {}
     TYPES.forEach((t) => {
       customByKey[t] = {}
       customByName[t] = {}
+
       ;(data[t] || []).forEach((row) => {
         if (!row.local && !row.url) return
+        if (row.key) customByKey[t][row.key] = row
+        if (row.name) customByName[t][row.name] = row
+      })
+
+      /* 强制条目：本地已有同 key 就保持你的版本，没有才补 */
+      ;(FORCED_LOCAL[t] || []).forEach((row) => {
+        if (row.key && customByKey[t][row.key]) return
         if (row.key) customByKey[t][row.key] = row
         if (row.name) customByName[t][row.name] = row
       })
     })
 
     const amber = {}
+    const excluded = {}
     for (const type of TYPES) {
       busy.value = '正在拉取' + LABELS[type] + '…'
       try {
-        amber[type] = transformAmber(type, await fetchAmber(type))
+        const picked = transformAmber(type, await fetchAmber(type))
+        amber[type] = picked.kept
+        excluded[type] = picked.skipped
       } catch (e) {
         busy.value = ''
         toast.error(`同步失败：${LABELS[type]} - ${e.message}`)
@@ -641,6 +695,7 @@ export function useIconDict() {
 
       ;(data[type] || []).forEach((row) => {
         if (!row.key || merged[row.key]) return
+        if (excluded[type].has(row.key)) return /* 硬排除：本地旧条目也一起清掉 */
         merged[row.key] = {
           name: row.name,
           star: row.star,
