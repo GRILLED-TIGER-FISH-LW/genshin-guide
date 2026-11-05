@@ -7,6 +7,7 @@ import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
+import Radios from '../components/Radios.vue'
 import Seg from '../components/Seg.vue'
 import Slider from '../components/Slider.vue'
 import { useToast } from '../composables/useToast.js'
@@ -309,9 +310,7 @@ const logoFile = computed({
   },
 })
 
-const logoOptions = computed(() =>
-  dicts.logos.map((l) => ({ value: l.file, label: l.name })),
-)
+const logoOptions = computed(() => dicts.logos.map((l) => ({ value: l.file, label: l.name })))
 
 /* ------------------------------------------------------------------ 导出 / 配置 */
 
@@ -709,8 +708,9 @@ onMounted(async () => {
         </svg>
 
         <template #toolbar>
+          <!-- 预览底色恒为深色：一律 on-dark（固定白底黑字），危险靠图标变红 -->
           <Btn
-            variant="secondary"
+            variant="on-dark"
             size="md"
             square
             :aria-pressed="s.showGuides"
@@ -722,7 +722,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="secondary"
+            variant="on-dark"
             size="md"
             square
             aria-label="导出配置"
@@ -733,7 +733,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="secondary"
+            variant="on-dark"
             size="md"
             square
             aria-label="导入配置"
@@ -744,14 +744,14 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="danger"
+            variant="on-dark"
             size="md"
             square
             aria-label="清空"
             title="清空"
             @click.stop="askClear = true"
           >
-            <template #icon><Icon name="ui.trash" /></template>
+            <template #icon><Icon name="ui.trash" class="text-danger" /></template>
           </Btn>
 
           <input
@@ -807,7 +807,7 @@ onMounted(async () => {
                 <span class="min-w-0 flex-1 truncate text-xs text-muted">{{ f.w }}×{{ f.h }}</span>
 
                 <Btn
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   square
                   aria-label="上移"
@@ -817,7 +817,7 @@ onMounted(async () => {
                   <template #icon><Icon name="ui.arrowUp" /></template>
                 </Btn>
                 <Btn
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   square
                   aria-label="下移"
@@ -827,13 +827,13 @@ onMounted(async () => {
                   <template #icon><Icon name="ui.arrowDown" /></template>
                 </Btn>
                 <Btn
-                  variant="danger"
+                  variant="secondary"
                   size="sm"
                   square
                   aria-label="删除"
                   @click="s.floatImg.splice(i, 1)"
                 >
-                  <template #icon><Icon name="ui.trash" /></template>
+                  <template #icon><Icon name="ui.trash" class="text-danger" /></template>
                 </Btn>
               </div>
 
@@ -925,19 +925,13 @@ onMounted(async () => {
             @blur="s.guideType === 'boss' && matchBoss()"
           />
 
-          <div v-if="s.guideType === 'custom'" class="grid grid-cols-1 gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="min-w-0 flex-1 text-xs text-muted">字号</span>
-              <div class="w-32 shrink-0">
-                <Dropdown
-                  :model-value="String(s.sub1Size)"
-                  :options="cover.SUB_SIZE_OPTIONS"
-                  label="第一行字号"
-                  @update:model-value="s.sub1Size = Number($event)"
-                />
-              </div>
-            </div>
-          </div>
+          <Radios
+            v-if="s.guideType === 'custom'"
+            :model-value="String(s.sub1Size)"
+            label="第一行字号"
+            :options="cover.SUB_SIZE_OPTIONS"
+            @update:model-value="s.sub1Size = Number($event)"
+          />
 
           <Field
             v-model="s.sub2"
@@ -946,17 +940,13 @@ onMounted(async () => {
             @blur="s.guideType === 'character' && matchCharacter()"
           />
 
-          <div v-if="s.guideType === 'custom'" class="flex items-center gap-2.5">
-            <span class="min-w-0 flex-1 text-xs text-muted">字号</span>
-            <div class="w-32 shrink-0">
-              <Dropdown
-                :model-value="String(s.sub2Size)"
-                :options="cover.SUB_SIZE_OPTIONS"
-                label="第二行字号"
-                @update:model-value="s.sub2Size = Number($event)"
-              />
-            </div>
-          </div>
+          <Radios
+            v-if="s.guideType === 'custom'"
+            :model-value="String(s.sub2Size)"
+            label="第二行字号"
+            :options="cover.SUB_SIZE_OPTIONS"
+            @update:model-value="s.sub2Size = Number($event)"
+          />
         </div>
       </section>
 
@@ -1008,7 +998,8 @@ onMounted(async () => {
             class="size-9 shrink-0 rounded-ctl border border-dashed border-line-2 bg-canvas"
             aria-hidden="true"
           ></span>
-          <div class="w-40 shrink-0">
+          <!-- ml-auto：推开到右边；宽度只到装得下一个名字 -->
+          <div class="ml-auto w-32 shrink-0">
             <Dropdown
               v-model="logoFile"
               :options="logoOptions"
