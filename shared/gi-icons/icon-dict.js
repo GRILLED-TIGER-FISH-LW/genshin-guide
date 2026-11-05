@@ -130,11 +130,15 @@ window.ICON_DICT = {
     "UI_AvatarIcon_Vesna": { name: "薇斯纳", star: 5, order: 120 },
     "UI_AvatarIcon_Vodyanitsa": { name: "沃雅妮莎", star: 5, order: 121 },
     "UI_AvatarIcon_Valeriy": { name: "瓦列里", star: 4, order: 122 },
-    "UI_AvatarIcon_Mitya": { name: "米提亚", star: 5, order: 123 }
+    "UI_AvatarIcon_Mitya": { name: "米提亚", star: 5, order: 123 },
+    "UI_AvatarIcon_Danica": { name: "达妮卡", star: 5, order: 124 },
+    "UI_AvatarIcon_Anastasya": { name: "安娜丝塔夏", star: 5, order: 125 }
   },
 
   /* ============ 圣遗物 ============ */
   artifacts: {
+    "UI_RelicIcon_15049_4": { name: "肇史之遗", star: 5, order: 0 },
+    "UI_RelicIcon_15050_4": { name: "遥天奉翠华引", star: 5, order: 0 },
     "UI_RelicIcon_10001_4": { name: "行者之心", star: 4, order: 10001 },
     "UI_RelicIcon_10002_4": { name: "勇士之心", star: 4, order: 10002 },
     "UI_RelicIcon_10003_4": { name: "守护之心", star: 4, order: 10003 },
