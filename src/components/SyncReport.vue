@@ -1,113 +1,33 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-/* 同步报告 + 更新日志
- * -------------------------------------------------------------------------
- * app.js 的 syncFromAmber() 只往状态条写一行汇总，看不到「新增了哪些」。
- * 这个组件从外面把这件事补上，一行 app.js 都不改：
- *
- *   1. 点 #btnSync 时先快照 localStorage 里的字典     → 这是「同步前」
- *   2. 盯 #status 的文字，出现「同步完成」说明 app.js 已经把字典写回去了
- *   3. 再读一次 localStorage                          → 这是「同步后」
- *   4. 按 key 比对出 新增 / 改名 / 消失，写进日志并弹出来
- *
- * 本次结果与历史记录共用同一个浮层：索引 0 那条默认展开。
- *
- * shortcut: 靠 #status 的文字当完成信号、靠 localStorage 当数据源，不碰
- *           app.js 内部。等 app.js 挪进 src/lib/ 之后，改成让 syncFromAmber
- *           直接 dispatchEvent 一份报告，上面三步全部删掉。
- * ------------------------------------------------------------------------- */
+/* 同步报告 / 更新日志 —— 纯展示组件，数据从 useIconDict 来。
+   syncFromAmber() 直接算出 diff，所以旧版那套「从外面猜」的探测全部删掉了。 */
 
-const STORAGE_KEY = 'icon_dict_editor_v4' /* 与 app.js 的 STORAGE_KEY 一致，勿改 */
-const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
-const MAX_LOG = 10
-const MAX_ROWS = 30 /* 单节最多列这么多行，多了只报数量 */
+const open = defineModel({ type: Boolean, default: false })
 
-const ORDER = ['characters', 'artifacts', 'weapons', 'monsters']
+defineProps({
+  /* [{ at, first, kinds }, …]，索引 0 是最近一次，默认展开 */
+  log: { type: Array, default: () => [] },
+})
+
+const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
 const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
 
-const open = ref(false)
-const log = ref([])
 const panel = ref(null)
 
-let armed = false
-let before = null
-let statusEl = null
-let observer = null
+watch(open, async (v) => {
+  if (!v) return
+  await nextTick()
+  panel.value?.focus()
+})
 
-/* ---------------- 读 / 写 ---------------- */
-function readDict() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw).data || null
-  } catch {
-    return null
-  }
-}
-
-function readLog() {
-  try {
-    const raw = localStorage.getItem(LOG_KEY)
-    const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr : []
-  } catch {
-    return []
-  }
-}
-
-function saveLog() {
-  try {
-    localStorage.setItem(LOG_KEY, JSON.stringify(log.value))
-  } catch {
-    /* 无痕模式写不进去，忽略：日志本来只是便利功能 */
-  }
-}
-
-/* ---------------- 比对 ---------------- */
-const cut = (arr, n) => (arr.length > n ? arr.slice(0, n) : arr)
-
-function diffTypes(beforeData, afterData) {
-  const out = {}
-  for (const t of ORDER) {
-    const beforeRows = beforeData?.[t] || []
-    const afterRows = afterData?.[t] || []
-
-    const seen = new Map(beforeRows.map((r) => [r.key, r]))
-    const added = []
-    const renamed = []
-
-    for (const row of afterRows) {
-      const old = seen.get(row.key)
-      if (!old) {
-        added.push({ key: row.key, name: row.name || '' })
-      } else if ((old.name || '') !== (row.name || '')) {
-        renamed.push({ key: row.key, from: old.name || '', to: row.name || '' })
-      }
-      seen.delete(row.key)
-    }
-
-    const gone = [...seen.values()].map((r) => ({ key: r.key, name: r.name || '' }))
-
-    out[t] = {
-      from: beforeRows.length,
-      to: afterRows.length,
-      added: cut(added, MAX_ROWS),
-      addedMore: Math.max(0, added.length - MAX_ROWS),
-      renamed: cut(renamed, MAX_ROWS),
-      renamedMore: Math.max(0, renamed.length - MAX_ROWS),
-      gone: cut(gone, MAX_ROWS),
-      goneMore: Math.max(0, gone.length - MAX_ROWS),
-    }
-  }
-  return out
-}
-
-const changedTypes = (entry) =>
-  ORDER.filter((t) => {
+function changedTypes(entry) {
+  return TYPES.filter((t) => {
     const k = entry.kinds?.[t]
     return k && (k.added.length || k.renamed.length || k.gone.length)
   })
+}
 
 function summaryOf(entry) {
   if (entry.first) return '首次载入'
@@ -128,63 +48,12 @@ function when(ts) {
   return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-/* ---------------- 触发 ---------------- */
-function onSyncClick() {
-  armed = true
-  before = readDict()
-}
-
-function onStatusChange() {
-  const text = statusEl?.textContent || ''
-
-  /* 同步失败也要解除武装，否则下次成功的同步会拿旧快照去比 */
-  if (text.startsWith('同步失败')) {
-    armed = false
-    return
-  }
-  if (!armed || !text.startsWith('同步完成')) return
-
-  armed = false
-  const after = readDict()
-  if (!after) return
-
-  const entry = { at: Date.now(), first: !before, kinds: diffTypes(before, after) }
-  log.value = [entry, ...log.value].slice(0, MAX_LOG)
-  saveLog()
-
-  open.value = true
-  nextTick(() => panel.value?.focus())
-}
-
 function onKey(e) {
   if (e.key === 'Escape') open.value = false
 }
 
-onMounted(() => {
-  log.value = readLog()
-
-  /* 同步按钮与状态条都由 app.js 那边的模板提供，这里只挂监听。
-     SyncReport 在 app.js 被 import 之前就挂载了，所以我们的 click 监听
-     比 app.js 的先注册、先执行 —— 快照拿到的一定是同步前的数据。 */
-  document.getElementById('btnSync')?.addEventListener('click', onSyncClick)
-  document.getElementById('btnSyncLog')?.addEventListener('click', () => {
-    open.value = true
-    nextTick(() => panel.value?.focus())
-  })
-
-  statusEl = document.getElementById('status')
-  if (statusEl) {
-    observer = new MutationObserver(onStatusChange)
-    observer.observe(statusEl, { childList: true, characterData: true, subtree: true })
-  }
-
-  document.addEventListener('keydown', onKey)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKey)
-  observer?.disconnect()
-})
+onMounted(() => document.addEventListener('keydown', onKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 </script>
 
 <template>
@@ -204,20 +73,14 @@ onBeforeUnmount(() => {
           class="grid max-h-[80dvh] w-full max-w-md grid-rows-[auto_minmax(0,1fr)_auto] gap-3 rounded-panel border border-line bg-surface p-4 shadow-float focus:outline-none"
         >
           <div class="flex items-center gap-2">
-            <h2 id="sr-title" class="min-w-0 flex-1 text-sm font-semibold text-ink">
-              同步日志
-            </h2>
+            <h2 id="sr-title" class="min-w-0 flex-1 text-sm font-semibold text-ink">同步日志</h2>
             <button
               type="button"
               class="grid size-7 shrink-0 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
               aria-label="关闭"
               @click="open = false"
             >
-              <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-                <path
-                  d="M4.4 4.55a.75.75 0 0 1 1.06 0L12 11.1l6.54-6.55a.75.75 0 1 1 1.06 1.06L13.06 12.1l6.54 6.55a.75.75 0 1 1-1.06 1.06L12 13.16 5.46 19.7a.75.75 0 0 1-1.06-1.06l6.54-6.55-6.54-6.56a.75.75 0 0 1 0-1.06"
-                />
-              </svg>
+              <Icon name="ui.close" size="sm" />
             </button>
           </div>
 
@@ -249,7 +112,9 @@ onBeforeUnmount(() => {
                 >
                   <p class="text-xs font-medium text-ink">
                     {{ LABELS[t] }}
-                    <span class="font-normal text-muted">{{ e.kinds[t].from }} → {{ e.kinds[t].to }}</span>
+                    <span class="font-normal text-muted">
+                      {{ e.kinds[t].from }} → {{ e.kinds[t].to }}
+                    </span>
                   </p>
 
                   <template v-if="e.kinds[t].added.length">
