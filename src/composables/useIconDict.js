@@ -15,32 +15,24 @@ import { loadGlobalScript } from './useData.js'
  * 【绝不能动的东西】
  *   · STORAGE_KEY 与存储结构（换了键 = 用户草稿全丢）
  *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
- *   · 行结构 { key, name, order, star?, local?, url? }
  *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
  *     applyBackground 一致，否则缩略图底色和已烘焙的图片对不上
  *
- * 【相对旧版的三处有意修改】
- *   1. 「载入」之后 dirty = false（数据刚从仓库来、本来就是干净的）
- *   2. 状态条拆开：条数/筛选是常驻信息行，操作结果走 toast
- *   3. 同步的排除规则分两档（见下）；另新增「强制本地条目」
+ * 【行结构】{ key, name, order, star?, local?, url?, lock?, card?, art?, base? }
+ *   key/name/order/star/local/url   头像（原有，格式不动）
+ *   lock    true = 这条我手填过，同步整条跳过
+ *   card    { key, url, local }  名片大图
+ *   art     { key, url, local }  立绘（没有自动源，只手填）
+ *   base    变体指回基名（'旅行者·冰' → '旅行者'）
+ *
+ * 【谁是「不许动」的】
+ *   只有 local / url / lock 三条算「我手填过」。card / art 是普通字段，
+ *   同步时会跟着更新 —— 别把它们加进自定义判定，否则填过名片的角色
+ *   就再也不同步了。
  *
  * 【「API 条目 → 字段」与「排除规则」是两件事，别再搅在一起】
- *   deriveFields()      带任何排除规则，只按分类推导 name / star / order
- *                       —— 自动同步和手动粘贴共用它
+ *   deriveFields()      不带任何排除规则，只按分类推导 name / star / order
  *   transformAmber()    在 deriveFields 前面加排除规则，只服务自动同步
- *   → 所以：手动粘的 URL 不会被「怪物 28 开头」之类挡掉，那是你明确要的
- *
- * 【同步时的三类规则】
- *   硬（transformAmber 把 key 记进 skipped）：
- *       武器 id 非五位数 · 怪物 28 开头 · 官方旅行者男女图
- *       → 不仅不加，还会把本地同名条目一并清掉
- *   软（只 return、不记 skipped）：角色白名单
- *       → 只「不加」。白名单是人手维护的，漏一行不该删本地数据
- *   强制（FORCED_LOCAL）：无论如何都要存在
- *       → 本地没有就补上；本地已有就保持原样，不覆盖你的改动
- *
- * 【星级底色的前提】
- *   非怪物分类的条目都必须带 star —— 没有 star 就没有底色。
  * ========================================================================= */
 
 const STORAGE_KEY = 'icon_dict_editor_v4'
@@ -49,8 +41,23 @@ const MAX_LOG = 10
 const DICT_SRC = 'shared/gi-icons/icon-dict.js'
 const CHARS_SRC = 'shared/data/characters.txt'
 
+const AMBER_UI = 'https://gi.yatta.moe/assets/UI/'
+
+/* config 会随字典一起导出。prefix / ext 是 icon-loader.js 读的字段，
+   一个字都不能改；alt / card 是这次新加的，loader 不认识它们、也不受影响。 */
 const DEFAULT_CONFIG = {
-  characters: { prefix: 'https://api.lunaris.moe/data/assets/avataricon/', ext: '.webp' },
+  characters: {
+    prefix: 'https://api.lunaris.moe/data/assets/avataricon/',
+    ext: '.webp',
+    /* 备用源：主源图挂了，缩略图会换这个地址再试一次。
+       Amber 的资源目录和 lunaris 不一样 —— 头像是扁平的，名片在 namecard/ 下 */
+    alt: { prefix: AMBER_UI, ext: '.png' },
+    card: {
+      prefix: 'https://api.lunaris.moe/data/assets/namecardpic/',
+      ext: '.webp',
+      alt: { prefix: `${AMBER_UI}namecard/`, ext: '.png' },
+    },
+  },
   artifacts: { prefix: 'https://api.lunaris.moe/data/assets/artifacts/', ext: '.webp' },
   weapons: { prefix: 'https://api.lunaris.moe/data/assets/weaponicon/', ext: '.webp' },
   monsters: { prefix: 'https://api.lunaris.moe/data/assets/monstericon/', ext: '.png' },
@@ -61,18 +68,21 @@ const AMBER_ENDPOINTS = {
   weapons: 'https://gi.yatta.moe/api/v2/CHS/weapon',
   artifacts: 'https://gi.yatta.moe/api/v2/CHS/reliquary',
   monsters: 'https://gi.yatta.moe/api/v2/CHS/monster',
+  /* 名片列表（41KB，很小）：icon → 中文名 反查用 */
+  namecard: 'https://gi.yatta.moe/api/v2/CHS/namecard',
 }
 
 const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
 const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
 
-/* 官方把旅行者拆成男女两张官方图，我们要的是仓库里那张自制的。
-   key 是文件名（带扩展名），local: true 时 resolveUrl 会去 shared/gi-icons/ 取。
-   图片目录以后若搬家，只改 resolveUrl 里那一处前缀。 */
+/* 槽位：'' = 头像，'card' = 名片，'art' = 立绘 */
+const SLOTS = ['', 'card', 'art']
+const SLOT_LABELS = { '': '头像', card: '名片', art: '立绘' }
+
+/* 官方把旅行者拆成男女两张官方图，我们要的是仓库里那张自制的。 */
 const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
 
-/* 同步时必须存在的本地条目。本地已有同 key 的条目就保持原样，不覆盖你的改动。
-   star 必须写：没有它就没有星级底色（非怪物分类都该有）。 */
+/* 同步时必须存在的本地条目。本地已有同 key 的条目就保持原样，不覆盖你的改动。 */
 const FORCED_LOCAL = {
   characters: [
     { key: 'UI_AvatarIcon_Traveler.webp', name: '旅行者', order: 1, star: 5, local: true },
@@ -81,13 +91,6 @@ const FORCED_LOCAL = {
 
 /* =========================================================================
  * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
- * -------------------------------------------------------------------------
- * 为什么是「抄一份」而不是 import：loader 只把 applyBackground 挂出来了，
- * darken / hexToHsl / hslToHex 都在闭包里。但这段必须是同一个算法 ——
- * 缩略图的边缘色和已烘焙的图片对不上，一眼就能看出来。
- *   底色表来自 virtual:gg-icon-lib（构建期读 loader，单一真源）
- *   渐变的几何两边也等价：canvas 是 r = size × 0.707、两档颜色；
- *   CSS 的 radial-gradient(circle, …) 默认 farthest-corner，正方形下正好 √2/2 × 边长。
  * ========================================================================= */
 
 function hexToHsl(hex) {
@@ -146,12 +149,58 @@ function hslToHex(h, s, l) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
-/* 保持色相与饱和度，亮度 × (1 - percent)。缩略图边缘固定传 0.5 */
 function darkenHex(hex, percent) {
   if (!hex || typeof hex !== 'string' || hex.length !== 7) return '#333333'
   const [h, s, l] = hexToHsl(hex)
   if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return '#333333'
   return hslToHex(h, s, Math.max(0, l * (1 - percent)))
+}
+
+/* =========================================================================
+ * key ↔ 代号 ↔ 中文名
+ * -------------------------------------------------------------------------
+ * 三种 key 形态都归一到「代号」再比对，这样绮良良那种
+ * 「头像叫 Momoka、名片叫 Kirara」也能各查各的：
+ *   UI_AvatarIcon_Momoka.webp   → momoka
+ *   UI_NameCardIcon_Kirara      → kirara
+ *   UI_NameCardPic_Kirara_P     → kirara
+ * ========================================================================= */
+
+const KEY_PREFIX_RE = /^UI_(?:AvatarIcon|NameCardPic|NameCardIcon|Gacha_AvatarImg|MonsterIcon|WeaponIcon|RelicIcon)_/i
+
+function codeOf(key) {
+  return String(key || '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(KEY_PREFIX_RE, '')
+    .replace(/_P$/i, '')
+    .toLowerCase()
+}
+
+/* 从 URL 里认 key。认不出返回空 —— 调用方就存完整链接。 */
+const SLOT_KEY_RE = {
+  '': /^UI_AvatarIcon_(.+?)(?:\.[a-z0-9]+)?$/i,
+  card: /^UI_NameCard(?:Pic|Icon)_(.+?)(?:_P)?(?:\.[a-z0-9]+)?$/i,
+  art: /^UI_Gacha_AvatarImg_(.+?)(?:\.[a-z0-9]+)?$/i,
+}
+
+function extractKey(input, slot = '') {
+  let s = String(input || '').trim()
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s)) s = s.split('/').pop().split('?')[0]
+  const m = s.match(SLOT_KEY_RE[slot] || SLOT_KEY_RE[''])
+  /* 认得出就还原成「完整图标名」（和头像 key 的写法保持一致），认不出留空 */
+  if (!m) return ''
+  const code = m[1]
+  if (slot === 'card') return `UI_NameCardPic_${code}_P`
+  if (slot === 'art') return `UI_Gacha_AvatarImg_${code}`
+  return `UI_AvatarIcon_${code}`
+}
+
+/* 仓库内路径：老 txt 里写的是 ../../shared/xxx，统一成 shared/xxx */
+function repoPath(url) {
+  const s = String(url || '').trim()
+  const m = s.match(/^(?:\.\.\/)+shared\//)
+  return m ? `shared/${s.slice(m[0].length)}` : ''
 }
 
 /* =========================================================================
@@ -165,15 +214,44 @@ function escJs(s) {
     .replace(/\r?\n/g, ' ')
 }
 
+const kvSrc = (o) => `prefix: "${escJs(o.prefix)}", ext: "${escJs(o.ext || '')}"`
+const litSrc = (o) => `{ ${kvSrc(o)} }`
+
+function litConfig(cfg) {
+  const parts = [kvSrc(cfg)]
+  if (cfg.alt) parts.push(`alt: ${litSrc(cfg.alt)}`)
+  if (cfg.card) parts.push(`card: { ${kvSrc(cfg.card)}, alt: ${litSrc(cfg.card.alt)} }`)
+  return `{ ${parts.join(', ')} }`
+}
+
+const litSlot = (o) => {
+  const p = []
+  if (o.key) p.push(`key: "${escJs(o.key)}"`)
+  if (o.url) p.push(`url: "${escJs(o.url)}"`)
+  if (o.local) p.push('local: true')
+  return `{ ${p.join(', ')} }`
+}
+
+function litRow(row) {
+  const p = [`name: "${escJs(row.name)}"`]
+  if (row.star != null) p.push(`star: ${row.star}`)
+  p.push(`order: ${row.order || 0}`)
+  if (row.local) p.push('local: true')
+  if (row.url) p.push(`url: "${escJs(row.url)}"`)
+  if (row.lock) p.push('lock: true')
+  if (row.base) p.push(`base: "${escJs(row.base)}"`)
+  if (row.card) p.push(`card: ${litSlot(row.card)}`)
+  if (row.art) p.push(`art: ${litSlot(row.art)}`)
+  return `{ ${p.join(', ')} }`
+}
+
 function serializeDict(config, data) {
   const lines = ['window.ICON_DICT = {', '  config: {']
 
   TYPES.forEach((type, ti) => {
     const cfg = config[type] || DEFAULT_CONFIG[type]
     const tail = ti < TYPES.length - 1 ? ',' : ''
-    lines.push(
-      `    ${type}: { prefix: "${escJs(cfg.prefix)}", ext: "${escJs(cfg.ext || '')}" }${tail}`,
-    )
+    lines.push(`    ${type}: ${litConfig(cfg)}${tail}`)
   })
   lines.push('  },')
 
@@ -187,13 +265,8 @@ function serializeDict(config, data) {
     if (!list.length) lines.push('    // 暂无条目')
 
     list.forEach((item, i) => {
-      const parts = [`name: "${escJs(item.name)}"`]
-      if (item.star != null) parts.push(`star: ${item.star}`)
-      parts.push(`order: ${item.order || 0}`)
-      if (item.local) parts.push('local: true')
-      if (item.url) parts.push(`url: "${escJs(item.url)}"`)
       const tail = i < list.length - 1 ? ',' : ''
-      lines.push(`    "${escJs(item.key)}": { ${parts.join(', ')} }${tail}`)
+      lines.push(`    "${escJs(item.key)}": ${litRow(item)}${tail}`)
     })
 
     lines.push(`  }${ti < TYPES.length - 1 ? ',' : ''}`)
@@ -201,6 +274,26 @@ function serializeDict(config, data) {
 
   lines.push('};', '')
   return lines.join('\n')
+}
+
+/* 深拷贝一行，字段一个不漏 —— 合并逻辑里所有「保留旧行」都走它。
+   以前是手写字段列表，加了新字段很容易漏掉一处，同步一次就丢数据。 */
+function cloneRow(row) {
+  const out = { key: row.key, name: row.name || '', order: row.order || 0 }
+  if (row.star != null) out.star = row.star
+  if (row.local) out.local = true
+  if (row.url) out.url = row.url
+  if (row.lock) out.lock = true
+  if (row.base) out.base = row.base
+  if (row.card) out.card = { ...row.card }
+  if (row.art) out.art = { ...row.art }
+  return out
+}
+
+function readSlot(o) {
+  if (!o || typeof o !== 'object') return null
+  const s = { key: o.key || '', url: o.url || '', local: !!o.local }
+  return s.key || s.url ? s : null
 }
 
 /* 字典对象 → 行数组。字段顺序与旧版一致 */
@@ -212,6 +305,12 @@ function dictToRows(dict, type) {
     if (item.star != null) row.star = item.star
     if (item.local) row.local = true
     if (item.url) row.url = item.url
+    if (item.lock) row.lock = true
+    if (item.base) row.base = item.base
+    const card = readSlot(item.card)
+    const art = readSlot(item.art)
+    if (card) row.card = card
+    if (art) row.art = art
     return row
   })
 }
@@ -225,6 +324,28 @@ function readLog() {
   }
 }
 
+function mergeSrc(o, def) {
+  const s = o && typeof o === 'object' ? o : {}
+  return {
+    prefix: typeof s.prefix === 'string' && s.prefix ? s.prefix : def?.prefix || '',
+    ext: typeof s.ext === 'string' ? s.ext : def?.ext || '',
+  }
+}
+
+function normConfig(cfg, def) {
+  const c = cfg && typeof cfg === 'object' ? cfg : {}
+  const out = {
+    prefix: typeof c.prefix === 'string' && c.prefix ? c.prefix : def.prefix,
+    ext: typeof c.ext === 'string' ? c.ext : def.ext,
+  }
+  if (def.alt) out.alt = mergeSrc(c.alt, def.alt)
+  if (def.card) {
+    out.card = mergeSrc(c.card, def.card)
+    out.card.alt = mergeSrc(c.card?.alt, def.card.alt)
+  }
+  return out
+}
+
 /* ========================================================================= */
 
 export function useIconDict() {
@@ -235,16 +356,19 @@ export function useIconDict() {
   const tab = ref('characters')
   const search = ref('')
   const dirty = ref(false)
+  /* 角色页签的两个新状态：选中的行 + 缺项筛选 */
+  const activeKey = ref('')
+  const filter = ref('all')
 
   const config = reactive(structuredClone(DEFAULT_CONFIG))
   const data = reactive({ characters: [], artifacts: [], weapons: [], monsters: [] })
   const log = ref(readLog())
 
-  /* characters.txt 的两张表 */
   const orderToName = {}
   const nameToOrder = {}
-  /* 每个分类的「图标名 → API 原始条目」，粘贴 URL 时补名字/星级/序号用 */
   const amberIndex = {}
+  /* 代号 → 中文名（key 反查用）。头像走 Amber 角色表，名片走 Amber 名片表 */
+  const nameIndex = { '': {}, card: {}, art: {} }
 
   /* ---------------- 存储 ---------------- */
 
@@ -272,17 +396,11 @@ export function useIconDict() {
     }
     if (!parsed || typeof parsed !== 'object') return
 
-    /* 老数据没有 dirty 字段 → 视为「未导出」，提醒先导一次 */
     dirty.value = parsed.dirty !== false
 
     if (parsed.config && typeof parsed.config === 'object') {
       TYPES.forEach((t) => {
-        const cfg = parsed.config[t]
-        if (!cfg || typeof cfg !== 'object') return
-        config[t] = {
-          prefix: typeof cfg.prefix === 'string' ? cfg.prefix : DEFAULT_CONFIG[t].prefix,
-          ext: typeof cfg.ext === 'string' ? cfg.ext : DEFAULT_CONFIG[t].ext,
-        }
+        config[t] = normConfig(parsed.config[t], DEFAULT_CONFIG[t])
       })
     }
 
@@ -297,7 +415,7 @@ export function useIconDict() {
     try {
       localStorage.setItem(LOG_KEY, JSON.stringify(log.value))
     } catch {
-      /* 日志只是便利功能，写不进去就只留在内存里 */
+      /* 日志只是便利功能 */
     }
   }
 
@@ -318,18 +436,17 @@ export function useIconDict() {
         if (parts.length < 2) return
         const order = parseInt(parts[0], 10)
         const name = parts.slice(1).join(' ').trim()
-        if (order && name) {
-          orderToName[order] = name
-          nameToOrder[name] = order
-        }
+        if (!order || !name) return
+        nameToOrder[name] = order
+        /* 变体行（旅行者·冰）和主体共用序号 1：
+           「序号 → 名字」只认第一个登记的人（也就是主体），否则反查会串到变体上 */
+        if (!orderToName[order]) orderToName[order] = name
       })
     } catch (e) {
       toast.error('角色白名单加载失败：' + e.message)
     }
   }
 
-  /* loadGlobalScript 里有短路：window[名字] 已存在就直接返回。
-     要真正重新拉一份，必须先删掉它，并给 src 加时间戳绕开它内部的按 src 缓存。 */
   async function fetchDict() {
     delete window.ICON_DICT
     return loadGlobalScript(`${DICT_SRC}?t=${Date.now()}`, 'ICON_DICT')
@@ -338,12 +455,7 @@ export function useIconDict() {
   function applyDictConfig(dict) {
     if (!dict.config || typeof dict.config !== 'object') return
     TYPES.forEach((t) => {
-      const cfg = dict.config[t]
-      if (!cfg || typeof cfg !== 'object') return
-      config[t] = {
-        prefix: typeof cfg.prefix === 'string' ? cfg.prefix : DEFAULT_CONFIG[t].prefix,
-        ext: typeof cfg.ext === 'string' ? cfg.ext : DEFAULT_CONFIG[t].ext,
-      }
+      config[t] = normConfig(dict.config[t], DEFAULT_CONFIG[t])
     })
   }
 
@@ -355,8 +467,6 @@ export function useIconDict() {
       TYPES.forEach((t) => {
         data[t] = dictToRows(dict, t)
       })
-
-      /* 有意与旧版不同：数据刚从仓库来，本来就是干净的，不该报「未导出」 */
       dirty.value = false
       writeLocal()
       toast.success('已从仓库载入')
@@ -375,14 +485,44 @@ export function useIconDict() {
 
   const keyword = computed(() => search.value.trim().toLowerCase())
 
+  const isVariant = (row) => !!row.base || String(row.name || '').includes('·')
+  const missingCard = (row) => !row.card?.key && !row.card?.url
+  const missingArt = (row) => !row.art?.key && !row.art?.url
+
+  const FILTERS = [
+    { value: 'all', label: '全部' },
+    { value: 'noCard', label: '缺名片' },
+    { value: 'noArt', label: '缺立绘' },
+    { value: 'variant', label: '变体' },
+  ]
+
   const filtered = computed(() => {
-    if (!keyword.value) return sorted.value
-    return sorted.value.filter(
+    let list = sorted.value
+    if (tab.value === 'characters') {
+      if (filter.value === 'noCard') list = list.filter(missingCard)
+      else if (filter.value === 'noArt') list = list.filter(missingArt)
+      else if (filter.value === 'variant') list = list.filter(isVariant)
+    }
+    if (!keyword.value) return list
+    return list.filter(
       (row) =>
         (row.name || '').toLowerCase().includes(keyword.value) ||
         (row.key || '').toLowerCase().includes(keyword.value),
     )
   })
+
+  const activeRow = computed(() =>
+    tab.value === 'characters'
+      ? data.characters.find((r) => r.key === activeKey.value) || null
+      : null,
+  )
+
+  const counts = computed(() => ({
+    all: sorted.value.length,
+    noCard: sorted.value.filter(missingCard).length,
+    noArt: sorted.value.filter(missingArt).length,
+    variant: sorted.value.filter(isVariant).length,
+  }))
 
   const infoText = computed(() => {
     if (busy.value) return busy.value
@@ -390,25 +530,60 @@ export function useIconDict() {
     return `共 ${sorted.value.length} 条 · 自动保存`
   })
 
-  /* ---------------- 行的读写 ---------------- */
+  /* ---------------- 地址 ---------------- */
+
+  function slotCfg(type, slot) {
+    const cfg = config[type] || {}
+    if (!slot) return { src: { prefix: cfg.prefix, ext: cfg.ext }, alt: cfg.alt }
+    if (slot === 'card') return { src: cfg.card, alt: cfg.card?.alt }
+    return { src: null, alt: null } /* 立绘没有自动源 */
+  }
 
   function resolveUrl(type, row) {
+    const cfg = config[type] || {}
     if (!row || !row.key) return ''
     if (row.local) return `${import.meta.env.BASE_URL}shared/gi-icons/${row.key}`
     if (row.url) return row.url
     if (/^https?:\/\//i.test(row.key)) return row.key
-    const cfg = config[type] || {}
     return cfg.prefix ? cfg.prefix + row.key + (cfg.ext || '') : ''
   }
 
-  /* 缩略图底：星级径向渐变。
-     底色表来自 loader（单一真源），边缘色用同一套 darken 算法。
-     无星级（怪物）返回空对象 —— 与 applyBackground 的 star == null 分支一致：不加底色。 */
+  /* 一个槽位的「主地址 + 备用地址」。备用只给 <img> 的 error 兜底用，
+     不预探测、不多发请求。 */
+  function slotSrc(type, row, slot = '') {
+    if (!row) return { src: '', alt: '' }
+    if (!slot) {
+      const src = resolveUrl(type, row)
+      const cfg = config[type] || {}
+      const alt =
+        cfg.alt && cfg.alt.prefix && row.key && !row.url && !row.local
+          ? cfg.alt.prefix + row.key + (cfg.alt.ext || '')
+          : ''
+      return { src, alt }
+    }
+
+    const o = row[slot]
+    if (!o) return { src: '', alt: '' }
+    if (o.local) return { src: o.url ? import.meta.env.BASE_URL + o.url : '', alt: '' }
+    if (o.url) return { src: o.url, alt: '' }
+    if (!o.key) return { src: '', alt: '' }
+
+    const { src, alt } = slotCfg(type, slot)
+    return {
+      src: src?.prefix ? src.prefix + o.key + (src.ext || '') : '',
+      alt: alt?.prefix ? alt.prefix + o.key + (alt.ext || '') : '',
+    }
+  }
+
+  /* ---------------- 缩略图底色 ---------------- */
+
   function starStyle(row) {
     if (row.star == null) return {}
     const base = STAR_COLORS[row.star] || '#939393'
     return { '--star-color': base, '--star-edge': darkenHex(base, 0.5) }
   }
+
+  /* ---------------- 行的读写 ---------------- */
 
   function findOrderByName(name, exclude) {
     if (!name) return 0
@@ -422,16 +597,14 @@ export function useIconDict() {
     return hit ? hit.name : orderToName[order] || ''
   }
 
-  /* 序号 ↔ 角色名 双向联动（只在角色页签） */
   function setOrder(row, value) {
     const v = String(value ?? '').trim()
     const next = v === '' ? 0 : parseInt(v, 10) || 0
 
     if (tab.value === 'characters') {
       const name = (row.name || '').trim()
-      if (name) {
-        row.order = findOrderByName(name, row) || next
-      } else {
+      if (name) row.order = findOrderByName(name, row) || next
+      else {
         row.order = next
         if (next > 0) row.name = findNameByOrder(next, row) || row.name
       }
@@ -439,7 +612,7 @@ export function useIconDict() {
       row.order = next
     }
 
-    markDirty() /* 序号变了要重排 */
+    markDirty()
   }
 
   function setName(row, value) {
@@ -459,14 +632,138 @@ export function useIconDict() {
   function removeRow(row) {
     const idx = data[tab.value].indexOf(row)
     if (idx >= 0) data[tab.value].splice(idx, 1)
+    if (row.key === activeKey.value) activeKey.value = ''
     markDirty()
     toast.success('已删除')
   }
 
   function clearTab() {
     data[tab.value] = []
+    activeKey.value = ''
     markDirty()
     toast.success(`已清空「${LABELS[tab.value]}」`)
+  }
+
+  function select(row) {
+    activeKey.value = row?.key || ''
+  }
+
+  /* ---------------- 槽位 ---------------- */
+
+  function ensureSlot(row, slot) {
+    if (!row[slot]) row[slot] = { key: '', url: '', local: false }
+    return row[slot]
+  }
+
+  /* 落一个 URL：能认出 key 就只存 key（地址走自动拼接），认不出才存完整链接。
+     仓库内路径（shared/…）一律转成 local + 路径。 */
+  function applyUrl(row, slot, raw) {
+    const url = String(raw || '').trim()
+    if (!url) return ''
+
+    const repo = repoPath(url)
+    if (repo) {
+      if (slot) {
+        const o = ensureSlot(row, slot)
+        o.key = ''
+        o.url = repo
+        o.local = true
+      } else {
+        row.url = repo
+        row.local = true
+      }
+      markDirty()
+      return ''
+    }
+
+    const key = extractKey(url, slot)
+    const cfg = slotCfg(tab.value, slot)
+
+    if (slot) {
+      const o = ensureSlot(row, slot)
+      const auto = cfg.src?.prefix ? cfg.src.prefix + key + (cfg.src.ext || '') : ''
+      o.local = false
+      /* URL 正好等于「源前缀 + key + 后缀」→ 记 key 就够了，不写 url */
+      if (key && auto && url === auto) {
+        o.key = key
+        o.url = ''
+      } else {
+        o.key = key
+        o.url = key ? url : url
+      }
+      markDirty()
+      return key
+    }
+
+    /* 头像：key 是这一行的身份，粘 URL 不改身份。
+       URL 属于当前 key 的标准地址 → 清掉覆盖；否则存成覆盖地址 */
+    const std = cfg.src?.prefix && row.key ? cfg.src.prefix + row.key + (cfg.src.ext || '') : ''
+    row.local = false
+    if (key && key === row.key && url === std) row.url = ''
+    else if (key && key === row.key) row.url = url
+    else row.url = url
+    markDirty()
+    return key
+  }
+
+  function clearSlot(row, slot) {
+    if (slot) delete row[slot]
+    else {
+      row.url = ''
+      row.local = false
+    }
+    markDirty()
+  }
+
+  function setSlotLocal(row, slot, value) {
+    if (slot) ensureSlot(row, slot).local = !!value
+    else row.local = !!value
+    markDirty()
+  }
+
+  function setBase(row, value) {
+    const v = String(value ?? '').trim()
+    if (v) row.base = v
+    else delete row.base
+    markDirty()
+  }
+
+  /* key → 中文名。nameIndex 按需建：头像查 Amber 角色表，名片查 Amber 名片表
+     （41KB，很小；lunaris 的角色表 74KB 也行，但它俩的分工留到下一步）。
+     查不到就返回空 —— 调用方保持原样，不报错。 */
+  async function lookupName(slot, key) {
+    const code = codeOf(key)
+    if (!code) return ''
+    if (nameIndex[slot][code]) return nameIndex[slot][code]
+
+    try {
+      if (slot === '') {
+        const items = await fetchAmber('characters')
+        Object.keys(items).forEach((k) => {
+          const it = items[k]
+          if (!it?.icon || !it.name) return
+          const c = codeOf(it.icon)
+          if (c && !nameIndex[''][c]) nameIndex[''][c] = it.name
+        })
+        return nameIndex[''][code] || ''
+      }
+
+      if (slot === 'card') {
+        const items = await fetchAmber('namecard')
+        Object.keys(items).forEach((k) => {
+          const it = items[k]
+          if (!it?.icon || !it.name) return
+          const c = codeOf(it.icon)
+          /* 名片中文名是「角色名·卡片名」，取中点前那段 */
+          const who = String(it.name).split('·')[0].trim()
+          if (c && who && !nameIndex.card[c]) nameIndex.card[c] = who
+        })
+        return nameIndex.card[code] || ''
+      }
+    } catch {
+      /* 反查失败不影响保存 */
+    }
+    return ''
   }
 
   /* ---------------- Amber ---------------- */
@@ -484,14 +781,6 @@ export function useIconDict() {
     }
   }
 
-  /* API 条目 → 行字段。**不带任何排除规则**，因为手动粘贴也该能用它。
-     序号规则：
-       角色     characters.txt 反查（查不到 = 0 → 排序落在最下方）
-       武器     item.id
-       圣遗物   item.id
-       怪物     item.id
-     星级规则：
-       角色 rank · 武器 rank · 圣遗物 max(levelList) · 怪物 无（null） */
   function deriveFields(type, item) {
     if (type === 'characters') {
       return { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
@@ -509,14 +798,6 @@ export function useIconDict() {
     return { name: item.name, star: null, order: item.id || 0 }
   }
 
-  /* 只服务自动同步：在 deriveFields 前面加排除规则，并把被排除的 key 记下来。
-     四条规则：
-       · 角色：官方旅行者男女图 → 硬排除
-               characters.txt 白名单 → 软排除（只不加，不删本地）
-       · 武器：id 必须是五位数（10000–99999）→ 硬排除
-               /weapon 接口还会返回武器素材/突破材料，那些 id 是四/六位数
-       · 圣遗物：无额外规则
-       · 怪物：28 开头是野生生物（动物）→ 硬排除 */
   function transformAmber(type, items) {
     const kept = {}
     const skipped = new Set()
@@ -526,8 +807,6 @@ export function useIconDict() {
       if (!item || !item.icon || !item.name) return
 
       if (type === 'characters') {
-        /* 顺序要紧：先判官方旅行者，再判白名单 ——
-           否则它会被白名单提前 return 掉，就轮不到登记 skip 了 */
         if (OFFICIAL_TRAVELER_RE.test(item.icon)) {
           skipped.add(item.icon)
           return
@@ -552,9 +831,6 @@ export function useIconDict() {
     return { kept, skipped }
   }
 
-  /* 图标名 → API 原始条目。粘贴 URL 时一次建好，之后按 key 取。
-     除完整图标名，也登记「剥掉 UI_Xxx_ 前缀的小写」和 item.id，
-     容错那些写法略有出入的 key。 */
   async function ensureAmberIndex(type) {
     if (amberIndex[type]) return amberIndex[type]
     const items = await fetchAmber(type)
@@ -571,20 +847,13 @@ export function useIconDict() {
     return map
   }
 
-  /* ---------------- 粘贴 URL ---------------- */
-
-  function extractKey(input) {
-    let s = String(input || '').trim()
-    if (!s) return ''
-    if (/^https?:\/\//i.test(s)) s = s.split('/').pop().split('?')[0]
-    return s.replace(/\.[^.]+$/, '')
-  }
+  /* ---------------- 粘贴 URL（头像批量） ---------------- */
 
   async function parsePastedUrls(text) {
     const urls = String(text || '')
       .split(/\r?\n/)
       .map((l) => l.trim())
-      .filter((l) => /^https?:\/\//i.test(l))
+      .filter((l) => /^https?:\/\//i.test(l) || repoPath(l))
 
     if (!urls.length) {
       toast.error('未识别到有效链接')
@@ -601,19 +870,25 @@ export function useIconDict() {
 
     const created = []
     urls.forEach((url) => {
-      const key = extractKey(url)
+      const repo = repoPath(url)
+      const key = repo ? ExtractNameFromRepo(repo) : extractKey(url, '')
       if (!key) return
-      /* URL 恰好等于「前缀 + key + 后缀」→ 走默认拼接规则，不写 url 字段 */
-      const isConfig = cfg.prefix && url === cfg.prefix + key + (cfg.ext || '')
+      const isConfig = !repo && cfg.prefix && url === cfg.prefix + key + (cfg.ext || '')
       const existing = byKey[key]
       if (existing) {
-        if (isConfig) delete existing.url
-        else existing.url = url
+        if (isConfig) {
+          existing.url = ''
+          existing.local = false
+        } else if (repo) {
+          existing.url = repo
+          existing.local = true
+        } else existing.url = url
       } else {
-        /* 先落位再补字段：新条目立刻出现在列表末尾（order 0 排最下），
-           随后的 API 查询会把名字/星级/序号填上 */
         const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
-        if (!isConfig) row.url = url
+        if (repo) {
+          row.url = repo
+          row.local = true
+        } else if (!isConfig) row.url = url
         list.push(row)
         byKey[key] = row
         created.push(row)
@@ -628,7 +903,7 @@ export function useIconDict() {
       try {
         index = await ensureAmberIndex(type)
       } catch {
-        /* 查不到就保持空名字/0 序号，不阻断流程 */
+        /* 查不到就保持空名字，不阻断流程 */
       }
 
       let changed = false
@@ -638,7 +913,6 @@ export function useIconDict() {
         if (!item) return
 
         const f = deriveFields(type, item)
-
         if (f.name && f.name !== row.name) {
           row.name = f.name
           changed = true
@@ -647,7 +921,6 @@ export function useIconDict() {
           row.star = f.star
           changed = true
         }
-        /* 序号：API 查得到就补上；查不到保持 0 → 排序落最下方 */
         if (f.order && f.order !== row.order) {
           row.order = f.order
           changed = true
@@ -661,15 +934,18 @@ export function useIconDict() {
     toast.success('解析完成')
   }
 
-  /* ---------------- 同步（合并规则 v5） ---------------- */
+  /* 仓库文件名就是 key：shared/gi-icons/UI_AvatarIcon_Traveler.webp */
+  function ExtractNameFromRepo(path) {
+    return String(path).split('/').pop() || ''
+  }
 
-  /* 自定义条目 = 带 local 或 url 的行，按 key 与 name 双登记。
-     1. 自定义先落位，name/star/order/local/url 全保留
-        · 另外把 FORCED_LOCAL 里、本地还没有的条目也按自定义补上
-     2. API 条目：key 命中自定义 → 跳过；name 命中自定义 → 跳过；
-        都没命中 → 以 API 为准（手打错的名字在这里被修正）
-     3. 剩余旧条目按 key 判重保留：key 未出现 = API 下架或手工新增，保留
-        · 例外：被硬规则排除的（excluded）不保留，直接丢掉 */
+  /* ---------------- 同步（合并规则 v6） ---------------- */
+
+  /* 与 v5 的差别只有两处：
+     1. 保留旧行统一走 cloneRow()，新字段不会再被漏掉
+     2. API 条目命中已有行时，是「合并进那一行」而不是整行替换 ——
+        否则同步一次就会把名片 / 立绘 / 变体基名全冲掉
+     自定义判定仍是 local / url / lock 三条。 */
   async function syncFromAmber() {
     const before = JSON.parse(JSON.stringify(data))
 
@@ -680,12 +956,11 @@ export function useIconDict() {
       customByName[t] = {}
 
       ;(data[t] || []).forEach((row) => {
-        if (!row.local && !row.url) return
+        if (!row.local && !row.url && !row.lock) return
         if (row.key) customByKey[t][row.key] = row
         if (row.name) customByName[t][row.name] = row
       })
 
-      /* 强制条目：本地已有同 key 就保持你的版本，没有才补 */
       ;(FORCED_LOCAL[t] || []).forEach((row) => {
         if (row.key && customByKey[t][row.key]) return
         if (row.key) customByKey[t][row.key] = row
@@ -714,45 +989,35 @@ export function useIconDict() {
       const merged = {}
       const byKey = customByKey[type] || {}
       const byName = customByName[type] || {}
+      const old = {}
+      ;(data[type] || []).forEach((row) => {
+        if (row.key) old[row.key] = row
+      })
 
       Object.keys(byKey).forEach((key) => {
-        const row = byKey[key]
-        merged[key] = {
-          name: row.name,
-          star: row.star,
-          order: row.order,
-          local: row.local,
-          url: row.url,
-        }
+        merged[key] = cloneRow(byKey[key])
       })
 
       Object.keys(amber[type] || {}).forEach((key) => {
         const item = amber[type][key]
         if (byKey[key] || (item.name && byName[item.name])) return
-        merged[key] = item
+        /* 已有同 key 的行：API 覆盖 name/star/order，其它字段（名片、立绘、
+           变体基名、锁定）原样保留 */
+        merged[key] = old[key] ? { ...cloneRow(old[key]), ...item } : item
       })
 
       ;(data[type] || []).forEach((row) => {
         if (!row.key || merged[row.key]) return
-        if (excluded[type].has(row.key)) return /* 硬排除：本地旧条目也一起清掉 */
-        merged[row.key] = {
-          name: row.name,
-          star: row.star,
-          order: row.order,
-          local: row.local,
-          url: row.url,
-        }
+        if (excluded[type].has(row.key)) return
+        merged[row.key] = cloneRow(row)
       })
 
-      data[type] = Object.keys(merged).map((k) => {
-        const r = merged[k]
-        const out = { key: k, name: r.name || '', order: r.order || 0 }
-        if (r.star != null) out.star = r.star
-        if (r.local) out.local = true
-        if (r.url) out.url = r.url
-        return out
-      })
+      data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
     })
+
+    if (activeKey.value && !data.characters.some((r) => r.key === activeKey.value)) {
+      activeKey.value = ''
+    }
 
     markDirty()
     busy.value = ''
@@ -763,8 +1028,6 @@ export function useIconDict() {
     return entry
   }
 
-  /* 同步前后比对。同步是唯一会整表变动的操作，报告只在这一处产生。
-     旧版是「盯状态条文字 + 嗅 localStorage」从外面猜，现在直接算。 */
   function diffTypes(beforeData, afterData) {
     const cut = (arr, n) => (arr.length > n ? arr.slice(0, n) : arr)
     const MAX = 30
@@ -836,6 +1099,7 @@ export function useIconDict() {
     tab,
     search,
     dirty,
+    filter,
     config,
     data,
     log,
@@ -843,19 +1107,39 @@ export function useIconDict() {
     filtered,
     sorted,
     infoText,
+    counts,
+    activeRow,
+    activeKey,
+    isVariant,
+    missingCard,
+    missingArt,
     /* 行操作 */
     resolveUrl,
+    slotSrc,
     starStyle,
     setOrder,
     setName,
     setStar,
     removeRow,
     clearTab,
+    select,
+    /* 槽位 */
+    applyUrl,
+    clearSlot,
+    setSlotLocal,
+    setBase,
+    lookupName,
     /* 业务 */
     init,
     loadDict,
     parsePastedUrls,
     syncFromAmber,
     exportDict,
+    /* 常量 */
+    TYPES,
+    LABELS,
+    SLOTS,
+    SLOT_LABELS,
+    FILTERS,
   }
 }
