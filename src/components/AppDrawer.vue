@@ -17,8 +17,9 @@ const subOf = computed(() => route.meta?.sub || '')
 
 const ROW =
   'flex h-11 w-full items-center gap-2.5 rounded-ctl px-3 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+/* 子行与父行同高、高亮框左右齐平：缩进写在行内，不写在容器上 */
 const SUB_ROW =
-  'flex h-9 w-full items-center gap-2 rounded-ctl px-3 text-left text-xs focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+  'flex h-11 w-full items-center gap-2 rounded-ctl pl-12 pr-3 text-left text-xs focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 
 /* 进到某个带子工具的工具，就把它的分组展开（与旧版一致） */
 watch(
@@ -167,7 +168,7 @@ function go(path) {
               </span>
             </button>
 
-            <div v-if="t.subtools" v-show="expanded.has(t.key)" class="grid gap-0.5 pb-1 pl-9 pr-2">
+            <div v-if="t.subtools" v-show="expanded.has(t.key)" class="grid gap-0.5 pb-1">
               <button
                 v-for="s in t.subtools"
                 :key="s.key"
