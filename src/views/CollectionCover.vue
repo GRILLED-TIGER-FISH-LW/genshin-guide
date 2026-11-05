@@ -235,15 +235,16 @@ onActivated(render)
         </p>
 
         <template #toolbar>
+          <!-- 预览底色恒为深色，所以用 on-dark（固定白底黑字）；危险靠图标变红 -->
           <Btn
-            variant="danger"
+            variant="on-dark"
             size="md"
             square
             aria-label="清空合集封面"
             title="清空"
             @click.stop="askClear = true"
           >
-            <template #icon><Icon name="ui.trash" /></template>
+            <template #icon><Icon name="ui.trash" class="text-danger" /></template>
           </Btn>
         </template>
       </PreviewFrame>
