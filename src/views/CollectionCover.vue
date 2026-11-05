@@ -235,9 +235,10 @@ onActivated(render)
         </p>
 
         <template #toolbar>
-          <!-- 预览底色恒为深色，所以用 on-dark（固定白底黑字）；危险靠图标变红 -->
+          <!-- 预览底是固定深色，但按钮用描边变体：不透明 + 跟主题走，
+               两种主题下图标都和自己的底有对比；危险靠图标变红 -->
           <Btn
-            variant="on-dark"
+            variant="secondary"
             size="md"
             square
             aria-label="清空合集封面"
@@ -307,7 +308,7 @@ onActivated(render)
           </span>
           <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
           <!-- Dropdown 根节点自带 w-full，宽度只能由外面这层容器定 -->
-          <div class="w-40 shrink-0">
+          <div class="w-32 shrink-0">
             <Dropdown
               v-model="fontFile"
               :options="fontOptions"
