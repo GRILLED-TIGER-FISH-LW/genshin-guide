@@ -53,7 +53,7 @@ const box = computed(() => (editing.value ? undefined : model.value))
       />
 
       <span
-        class="flex h-9 w-24 shrink-0 items-center gap-1 rounded-ctl border border-line-2 bg-surface px-2 focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
+        class="flex h-9 w-[72px] shrink-0 items-center gap-1 rounded-ctl border border-line-2 bg-surface px-1.5 focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
       >
         <input
           :value="box"
@@ -62,12 +62,12 @@ const box = computed(() => (editing.value ? undefined : model.value))
           :max="max"
           :step="step"
           :disabled="disabled"
-          class="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none"
+          class="min-w-0 flex-1 bg-transparent text-right text-xs text-ink outline-none"
           @input="onNumber"
           @focus="editing = true"
           @blur="endEdit"
         />
-        <span v-if="unit" class="shrink-0 text-xs text-muted">{{ unit }}</span>
+        <span v-if="unit" class="shrink-0 text-[10px] text-muted">{{ unit }}</span>
       </span>
     </div>
   </div>
