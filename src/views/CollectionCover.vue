@@ -23,6 +23,9 @@ const loaded = ref('')
 const fontData = ref('')
 const fontStatus = ref('') /* '' | 'loading' | 'error' */
 
+/* 点预览空白处淡出右上角工具栏（旧版行为） */
+const toolbarOn = ref(true)
+
 const askClear = ref(false)
 const exporting = ref(false)
 
@@ -219,22 +222,48 @@ onActivated(render)
 </script>
 
 <template>
-  <div class="grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
-    <div class="grid grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
+    <!-- 预览固定在顶部，只有表单区滚动 -->
+    <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
+      <!-- 描边留在外框：不占内容盒，16:9 才是精确的 16:9 -->
       <div
-        class="relative mx-auto w-full max-w-[720px] overflow-hidden rounded-panel border border-line bg-surface"
+        class="mx-auto w-full max-w-[720px] overflow-hidden rounded-panel border border-line bg-[#121212]"
       >
-        <canvas ref="cv" class="block w-full" />
-        <p
-          v-if="!bg"
-          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-muted"
-        >
-          还没上传背景图，先在下面选一张
-        </p>
+        <div class="relative grid aspect-video cursor-pointer" @click="toolbarOn = !toolbarOn">
+          <canvas ref="cv" class="block size-full" />
+
+          <!-- 点预览淡出；用 Tab 聚焦到按钮时自动显形，键盘用户不会把它弄丢 -->
+          <div
+            class="absolute right-2 top-2 transition-opacity duration-200"
+            :class="
+              toolbarOn
+                ? 'opacity-100'
+                : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100'
+            "
+          >
+            <Btn
+              variant="danger"
+              size="sm"
+              icon
+              aria-label="清空合集封面"
+              @click.stop="askClear = true"
+            >
+              <Icon name="ui.trash" size="sm" />
+            </Btn>
+          </div>
+
+          <p
+            v-if="!bg"
+            class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+          >
+            还没上传背景图，先在下面选一张
+          </p>
+        </div>
       </div>
     </div>
 
-    <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3">
+    <!-- pb-24 给悬浮导出按钮让位，否则最后一段会被压在下面 -->
+    <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
         <div class="rounded-panel border border-line bg-surface p-3">
@@ -249,11 +278,9 @@ onActivated(render)
             />
             <span
               v-else
-              class="grid size-9 place-items-center rounded-ctl border border-line-2 bg-canvas text-muted"
+              class="size-9 rounded-ctl border border-dashed border-line-2 bg-canvas"
               aria-hidden="true"
-            >
-              <Icon name="ui.textFont" size="sm" />
-            </span>
+            ></span>
 
             <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
               {{ bg ? '已载入背景图（点击更换）' : '点击上传背景图' }}
@@ -286,7 +313,10 @@ onActivated(render)
 
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
-        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-3">
+        <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
+          <span class="grid size-5 shrink-0 place-items-center text-muted" aria-hidden="true">
+            <Icon name="ui.textFont" size="sm" />
+          </span>
           <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
           <!-- Dropdown 根节点自带 w-full，宽度只能由外面这层容器定 -->
           <div class="w-40 shrink-0">
@@ -301,14 +331,14 @@ onActivated(render)
       </section>
     </main>
 
-    <footer class="flex shrink-0 items-center gap-2 border-t border-line bg-canvas px-3 py-2">
-      <Btn variant="danger" size="sm" @click="askClear = true">
-        <Icon name="ui.trash" size="sm" />
-        <span>清空</span>
+    <!-- 悬浮导出：旧版是 fixed 底部居中，这里是同一位置的等价实现 -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+    >
+      <Btn variant="primary" class="pointer-events-auto" :disabled="exporting" @click="exportPng">
+        导出图片
       </Btn>
-      <span class="flex-1"></span>
-      <Btn variant="primary" :disabled="exporting" @click="exportPng">导出图片</Btn>
-    </footer>
+    </div>
 
     <Modal
       v-model="askClear"
