@@ -708,9 +708,10 @@ onMounted(async () => {
         </svg>
 
         <template #toolbar>
-          <!-- 预览底色恒为深色：一律 on-dark（固定白底黑字），危险靠图标变红 -->
+          <!-- 预览底是固定深色，但按钮用描边变体：不透明 + 跟主题走，
+               两种主题下图标都和自己的底有对比；危险靠图标变红 -->
           <Btn
-            variant="on-dark"
+            variant="secondary"
             size="md"
             square
             :aria-pressed="s.showGuides"
@@ -722,7 +723,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="on-dark"
+            variant="secondary"
             size="md"
             square
             aria-label="导出配置"
@@ -733,7 +734,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="on-dark"
+            variant="secondary"
             size="md"
             square
             aria-label="导入配置"
@@ -744,7 +745,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="on-dark"
+            variant="secondary"
             size="md"
             square
             aria-label="清空"
@@ -972,7 +973,7 @@ onMounted(async () => {
             <Icon name="ui.textFont" size="sm" />
           </span>
           <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
-          <div class="w-40 shrink-0">
+          <div class="w-32 shrink-0">
             <Dropdown
               v-model="fontFile"
               :options="fontOptions"
