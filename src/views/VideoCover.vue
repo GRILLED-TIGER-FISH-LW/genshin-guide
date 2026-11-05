@@ -708,10 +708,9 @@ onMounted(async () => {
         </svg>
 
         <template #toolbar>
-          <!-- 预览底是固定深色，但按钮用描边变体：不透明 + 跟主题走，
-               两种主题下图标都和自己的底有对比；危险靠图标变红 -->
+          <!-- 底下是什么颜色不知道，所以用 float 变体；危险靠图标变红 -->
           <Btn
-            variant="secondary"
+            variant="float"
             size="md"
             square
             :aria-pressed="s.showGuides"
@@ -723,7 +722,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="secondary"
+            variant="float"
             size="md"
             square
             aria-label="导出配置"
@@ -734,7 +733,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="secondary"
+            variant="float"
             size="md"
             square
             aria-label="导入配置"
@@ -745,7 +744,7 @@ onMounted(async () => {
           </Btn>
 
           <Btn
-            variant="secondary"
+            variant="float"
             size="md"
             square
             aria-label="清空"
