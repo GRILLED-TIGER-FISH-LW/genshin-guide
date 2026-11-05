@@ -19,11 +19,13 @@ import { useIconDict } from '../composables/useIconDict.js'
  *     详情栏   md 以上常驻；窄屏只在「选中了」时显示
  *   窄屏的返回按钮放在详情栏最外层，任何状态都能回列表。
  *
- * 【为什么 root / header / main 都要写 grid-cols-1】
- *   它们都是 grid，但没声明列。隐式的 auto 轨道会被内容的 max-content 撑开，
- *   而「flex-wrap 的按钮行」的 max-content 是全部按钮排成一行的总宽 ——
- *   于是整条轨道被撑破，整页横向溢出。grid-cols-1 生成的是
- *   repeat(1, minmax(0, 1fr))，那个 minmax(0, …) 正好把轨道锁在容器宽度内。
+ * 【grid 必须声明列，一个都不能漏】
+ *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开。
+ *   「flex-wrap 的按钮行」和「一整条不换行的 URL」都会把它撑破，
+ *   结果是整页横向溢出、手机上得左右拖。
+ *   所以本文件里**每个 grid 都写了列**：固定尺寸的写 place-items-center，
+ *   装内容的写 grid-cols-1（= repeat(1, minmax(0,1fr))，那个 minmax(0,…)
+ *   才真正把轨道锁在容器宽度内）。
  *
  * 【缩略图的两个部分别拆开】
  *   starStyle() 只往 style 塞 --star-color / --star-edge；
@@ -192,7 +194,7 @@ onMounted(init)
   <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
     <!-- ---------------- 头部：搜索 / 分类 / 筛选 / 操作 ---------------- -->
     <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
-      <div class="relative flex items-center">
+      <div class="relative flex min-w-0 items-center">
         <span
           class="pointer-events-none absolute left-3 top-1/2 grid size-4 -translate-y-1/2 place-items-center text-muted"
           aria-hidden="true"
@@ -265,11 +267,14 @@ onMounted(init)
       >
         <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
 
-        <div v-else-if="!filtered.length" class="grid place-items-center gap-3 py-12 text-center">
+        <div
+          v-else-if="!filtered.length"
+          class="grid grid-cols-1 place-items-center gap-3 py-12 text-center"
+        >
           <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
             <Icon :name="emptyIcon" size="lg" />
           </span>
-          <div class="grid gap-1">
+          <div class="grid grid-cols-1 gap-1">
             <p class="text-sm text-body">{{ emptyTitle }}</p>
             <p class="text-xs text-muted">{{ emptyHint }}</p>
           </div>
@@ -281,7 +286,7 @@ onMounted(init)
             v-for="row in filtered"
             :key="row.key"
             type="button"
-            class="flex w-full items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
             :class="
               row.key === activeKey
                 ? 'border-line-3 bg-surface-2'
@@ -304,7 +309,7 @@ onMounted(init)
               />
             </span>
 
-            <span class="grid min-w-0 flex-1 gap-0.5">
+            <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
               <span class="truncate text-xs text-ink">{{ row.name || row.key }}</span>
               <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
                 <span>No.{{ row.order || 0 }}</span>
@@ -329,7 +334,7 @@ onMounted(init)
             :key="row.key"
             class="rounded-panel border border-line bg-surface p-2"
           >
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 items-center gap-2">
               <input
                 type="number"
                 :class="[
@@ -390,7 +395,7 @@ onMounted(init)
       >
         <template v-if="activeRow">
           <!-- 返回放最外层：窄屏任何状态都能回列表 -->
-          <div class="flex items-center gap-2">
+          <div class="flex min-w-0 items-center gap-2">
             <Btn size="sm" class="md:hidden" @click="activeKey = ''">
               <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
               返回
@@ -400,7 +405,7 @@ onMounted(init)
 
           <!-- 身份行：序号 + 名字 + 星级 + 变体基名 -->
           <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 items-center gap-2">
               <input
                 type="number"
                 :class="[FIELD, 'w-16 shrink-0 px-1 text-center font-semibold']"
@@ -447,12 +452,12 @@ onMounted(init)
             :key="meta.slot || 'avatar'"
             class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
           >
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 items-center gap-2">
               <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
 
               <label
                 v-if="meta.slot !== 'art'"
-                class="flex cursor-pointer items-center gap-1.5 text-[10px] text-muted"
+                class="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-muted"
               >
                 <input
                   type="checkbox"
@@ -464,7 +469,7 @@ onMounted(init)
               </label>
             </div>
 
-            <div class="flex items-start gap-2">
+            <div class="flex min-w-0 items-start gap-2">
               <!-- 预览：头像带星级底，名片/立绘给一块定宽的画板 -->
               <span
                 class="thumb grid shrink-0 place-items-center rounded-ctl border border-line-2"
@@ -483,7 +488,7 @@ onMounted(init)
               </span>
 
               <!-- 地址输入 + 当前 key -->
-              <div class="grid min-w-0 flex-1 gap-1">
+              <div class="grid min-w-0 flex-1 grid-cols-1 gap-1">
                 <input
                   :value="draftOf(meta.slot)"
                   type="url"
@@ -496,8 +501,12 @@ onMounted(init)
                   @change="commitUrl(activeRow, meta.slot)"
                 />
 
-                <div class="flex flex-wrap items-center gap-2 text-[10px] text-muted">
-                  <span class="min-w-0 truncate">
+                <div class="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-muted">
+                  <!-- 立绘那条 URL 很长：换行显示，别让它把整页顶宽 -->
+                  <span
+                    class="min-w-0"
+                    :class="meta.slot === 'art' ? 'break-all' : 'truncate'"
+                  >
                     {{
                       meta.slot
                         ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
@@ -527,7 +536,7 @@ onMounted(init)
           </div>
         </template>
 
-        <div v-else class="grid place-items-center gap-2 py-16 text-center">
+        <div v-else class="grid grid-cols-1 place-items-center gap-2 py-16 text-center">
           <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
             <Icon name="ui.inbox" size="lg" />
           </span>
