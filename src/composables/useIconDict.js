@@ -26,12 +26,12 @@ import { loadGlobalScript } from './useData.js'
  *   base    变体指回基名（'旅行者·冰' → '旅行者'）
  *
  * 【谁是「不许动」的】
- *   只有 local / url / lock 三条算「我手填过」。card / art 是普通字段，
- *   同步时会跟着更新 —— 别把它们加进自定义判定，否则填过名片的角色
- *   就再也不同步了。
+ *   只有 local / url / lock 三条算「我手填过」，整条不参与更新。
+ *   card / art 是普通字段：同步会更新，但你「粘的完整链接」形态会被保留
+ *   （见 mergeSlots）—— 手填一条别的地址，同步不会把它冲掉。
  *
  * 【「API 条目 → 字段」与「排除规则」是两件事，别再搅在一起】
- *   deriveFields()      不带任何排除规则，只按分类推导 name / star / order
+ *   deriveFields()      不带任何排除规则，只按分类推导 name / star / order（+ 名片）
  *   transformAmber()    在 deriveFields 前面加排除规则，只服务自动同步
  * ========================================================================= */
 
@@ -164,16 +164,27 @@ function darkenHex(hex, percent) {
  *   UI_AvatarIcon_Momoka.webp   → momoka
  *   UI_NameCardIcon_Kirara      → kirara
  *   UI_NameCardPic_Kirara_P     → kirara
+ * 反查表用小写代号；拼地址必须用原样大小写的代号（URL 区分大小写）。
  * ========================================================================= */
 
-const KEY_PREFIX_RE = /^UI_(?:AvatarIcon|NameCardPic|NameCardIcon|Gacha_AvatarImg|MonsterIcon|WeaponIcon|RelicIcon)_/i
+const KEY_PREFIX_RE =
+  /^UI_(?:AvatarIcon|NameCardPic|NameCardIcon|Gacha_AvatarImg|MonsterIcon|WeaponIcon|RelicIcon)_/i
 
-function codeOf(key) {
+/* 保留原大小写的代号 */
+function rawCode(key) {
   return String(key || '')
     .replace(/\.[a-z0-9]+$/i, '')
     .replace(KEY_PREFIX_RE, '')
     .replace(/_P$/i, '')
-    .toLowerCase()
+}
+
+const codeOf = (key) => rawCode(key).toLowerCase()
+
+/* Amber 给的是名片小图标名（UI_NameCardIcon_Hutao），
+   我们要的是大图（UI_NameCardPic_Hutao_P），换前后缀即可。 */
+const cardKeyFrom = (icon) => {
+  const code = rawCode(icon)
+  return code ? `UI_NameCardPic_${code}_P` : ''
 }
 
 /* 从 URL 里认 key。认不出返回空 —— 调用方就存完整链接。 */
@@ -188,7 +199,6 @@ function extractKey(input, slot = '') {
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) s = s.split('/').pop().split('?')[0]
   const m = s.match(SLOT_KEY_RE[slot] || SLOT_KEY_RE[''])
-  /* 认得出就还原成「完整图标名」（和头像 key 的写法保持一致），认不出留空 */
   if (!m) return ''
   const code = m[1]
   if (slot === 'card') return `UI_NameCardPic_${code}_P`
@@ -290,6 +300,19 @@ function cloneRow(row) {
   return out
 }
 
+/* API 给的槽位与旧行合并：你「粘的完整链接」形态优先，API 不覆盖它。
+   返回的是「准备盖到旧行上的那一叠字段」。 */
+function mergeSlots(oldRow, item) {
+  const out = { ...item }
+  ;['card', 'art'].forEach((s) => {
+    const prev = oldRow?.[s]
+    if (!prev) return
+    if (prev.url && !prev.local) out[s] = { ...prev } /* 手粘的链接：留着 */
+    else if (!item?.[s]) out[s] = { ...prev } /* API 没给这张：留着 */
+  })
+  return out
+}
+
 function readSlot(o) {
   if (!o || typeof o !== 'object') return null
   const s = { key: o.key || '', url: o.url || '', local: !!o.local }
@@ -356,7 +379,6 @@ export function useIconDict() {
   const tab = ref('characters')
   const search = ref('')
   const dirty = ref(false)
-  /* 角色页签的两个新状态：选中的行 + 缺项筛选 */
   const activeKey = ref('')
   const filter = ref('all')
 
@@ -681,7 +703,7 @@ export function useIconDict() {
 
     if (slot) {
       const o = ensureSlot(row, slot)
-      const auto = cfg.src?.prefix ? cfg.src.prefix + key + (cfg.src.ext || '') : ''
+      const auto = cfg.src?.prefix && key ? cfg.src.prefix + key + (cfg.src.ext || '') : ''
       o.local = false
       /* URL 正好等于「源前缀 + key + 后缀」→ 记 key 就够了，不写 url */
       if (key && auto && url === auto) {
@@ -689,18 +711,16 @@ export function useIconDict() {
         o.url = ''
       } else {
         o.key = key
-        o.url = key ? url : url
+        o.url = url
       }
       markDirty()
       return key
     }
 
-    /* 头像：key 是这一行的身份，粘 URL 不改身份。
-       URL 属于当前 key 的标准地址 → 清掉覆盖；否则存成覆盖地址 */
+    /* 头像：key 是这一行的身份，粘 URL 不改身份 */
     const std = cfg.src?.prefix && row.key ? cfg.src.prefix + row.key + (cfg.src.ext || '') : ''
     row.local = false
-    if (key && key === row.key && url === std) row.url = ''
-    else if (key && key === row.key) row.url = url
+    if (key === row.key && url === std) row.url = ''
     else row.url = url
     markDirty()
     return key
@@ -728,9 +748,7 @@ export function useIconDict() {
     markDirty()
   }
 
-  /* key → 中文名。nameIndex 按需建：头像查 Amber 角色表，名片查 Amber 名片表
-     （41KB，很小；lunaris 的角色表 74KB 也行，但它俩的分工留到下一步）。
-     查不到就返回空 —— 调用方保持原样，不报错。 */
+  /* key → 中文名。查不到返回空 —— 调用方保持原样，不报错。 */
   async function lookupName(slot, key) {
     const code = codeOf(key)
     if (!code) return ''
@@ -781,9 +799,18 @@ export function useIconDict() {
     }
   }
 
+  /* API 条目 → 字段。**不带任何排除规则**，因为手动粘贴也该能用它。
+     序号：角色走 characters.txt 反查（查不到 = 0 → 排序落最下方），
+           武器 / 圣遗物 / 怪物取 item.id。
+     星级：角色 / 武器 rank，圣遗物 max(levelList)，怪物无（null）。
+     名片：Amber 的头像响应里直接带这个角色用哪张（nameCard.icon）——
+           不用按 key 去猜，所以绮良良那种「头像 Momoka、名片 Kirara」也无所谓。 */
   function deriveFields(type, item) {
     if (type === 'characters') {
-      return { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
+      const out = { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
+      const cardKey = cardKeyFrom(item.nameCard?.icon)
+      if (cardKey) out.card = { key: cardKey, url: '', local: false }
+      return out
     }
     if (type === 'weapons') {
       return { name: item.name, star: item.rank || 5, order: item.id || 0 }
@@ -847,7 +874,7 @@ export function useIconDict() {
     return map
   }
 
-  /* ---------------- 粘贴 URL（头像批量） ---------------- */
+  /* ---------------- 粘贴 URL（批量） ---------------- */
 
   async function parsePastedUrls(text) {
     const urls = String(text || '')
@@ -871,7 +898,7 @@ export function useIconDict() {
     const created = []
     urls.forEach((url) => {
       const repo = repoPath(url)
-      const key = repo ? ExtractNameFromRepo(repo) : extractKey(url, '')
+      const key = repo ? repo.split('/').pop() : extractKey(url, '')
       if (!key) return
       const isConfig = !repo && cfg.prefix && url === cfg.prefix + key + (cfg.ext || '')
       const existing = byKey[key]
@@ -925,6 +952,11 @@ export function useIconDict() {
           row.order = f.order
           changed = true
         }
+        /* 顺手把名片也带上：头像 URL 都能认出是谁了，名片没理由还空着 */
+        if (f.card && !row.card) {
+          row.card = { ...f.card }
+          changed = true
+        }
       })
 
       if (changed) markDirty()
@@ -934,16 +966,11 @@ export function useIconDict() {
     toast.success('解析完成')
   }
 
-  /* 仓库文件名就是 key：shared/gi-icons/UI_AvatarIcon_Traveler.webp */
-  function ExtractNameFromRepo(path) {
-    return String(path).split('/').pop() || ''
-  }
-
   /* ---------------- 同步（合并规则 v6） ---------------- */
 
   /* 与 v5 的差别只有两处：
      1. 保留旧行统一走 cloneRow()，新字段不会再被漏掉
-     2. API 条目命中已有行时，是「合并进那一行」而不是整行替换 ——
+     2. API 条目命中已有行时是「合并进那一行」而不是整行替换 ——
         否则同步一次就会把名片 / 立绘 / 变体基名全冲掉
      自定义判定仍是 local / url / lock 三条。 */
   async function syncFromAmber() {
@@ -994,18 +1021,24 @@ export function useIconDict() {
         if (row.key) old[row.key] = row
       })
 
+      /* 1. 手填过的行先落位，整条保留 */
       Object.keys(byKey).forEach((key) => {
         merged[key] = cloneRow(byKey[key])
       })
 
+      /* 2. API 条目：key 或名字命中手填行就跳过；否则以 API 为准。
+            已有同 key 的行：API 覆盖 name / star / order（以及名片），
+            其它字段（立绘、变体基名、锁定、手粘的链接）由 mergeSlots 保住 */
       Object.keys(amber[type] || {}).forEach((key) => {
         const item = amber[type][key]
         if (byKey[key] || (item.name && byName[item.name])) return
-        /* 已有同 key 的行：API 覆盖 name/star/order，其它字段（名片、立绘、
-           变体基名、锁定）原样保留 */
-        merged[key] = old[key] ? { ...cloneRow(old[key]), ...item } : item
+        merged[key] = old[key]
+          ? { ...cloneRow(old[key]), ...mergeSlots(old[key], item) }
+          : item
       })
 
+      /* 3. 剩下没被 API 提到的旧条目：key 判重保留（已下架或手工新增）。
+            硬排除的例外 —— 那些连本地旧条目一起清掉 */
       ;(data[type] || []).forEach((row) => {
         if (!row.key || merged[row.key]) return
         if (excluded[type].has(row.key)) return
