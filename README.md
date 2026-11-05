@@ -5,165 +5,169 @@
 > 个人自用的原神攻略图制作工具集 · 纯前端 · 本地处理 · 不收集任何数据
 
 [![在线访问](https://img.shields.io/badge/在线访问-打开网站-9E6C47?style=flat-square&logo=googlechrome&logoColor=white)](https://grilled-tiger-fish-lw.github.io/genshin-guide/)
-[![最后更新](https://img.shields.io/github/last-commit/grilled-tiger-fish-lw/genshin-guide?style=flat-square&label=最后更新&color=9E6C47&logo=github&logoColor=white)](https://github.com/grilled-tiger-fish-lw/genshin-guide/commits)
-[![Tech Stack](https://img.shields.io/badge/Tech-Vite%20%7C%20Vue%203%20%7C%20Tailwind%204-F4F1EA?style=flat-square)]()
+[![最后更新](https://img.shields.io/github/last-commit/GRILLED-TIGER-FISH-LW/genshin-guide?style=flat-square&label=最后更新&color=9E6C47&logo=github&logoColor=white)]()
+[![Tech Stack](https://img.shields.io/badge/Tech-Vue%203%20%7C%20Vite%20%7C%20Tailwind-f5f0e8?style=flat-square)]()
 
-[工具列表](#tools) · [仓库结构](#structure) · [技术要点](#tech) · [更新记录](./CHANGELOG.md)
+[开始使用](#start) · [工具导航](#tools) · [数据保存](#save) · [常见问题](#faq) · [项目结构](#structure)
 
 </div>
 
 ---
 
-> [!NOTE]
-> **动手改代码之前，先看 [AGENTS.md](./AGENTS.md)。**
-> 两仓库（本仓库 + [adventurer-handbook](https://github.com/grilled-tiger-fish-lw/adventurer-handbook)）共用的约定、共享层清单、协作规则都在那里；本仓库的里程碑与坑位在 [CHANGELOG](./CHANGELOG.md)。
+<a id="start" name="start"></a>
+## 🚀 开始使用
+
+打开站点后，首页是一张卡片网格，**点卡片进工具，左上角 ☰ 随时切换**。
+
+**不需要登录，不需要填任何个人信息，打开就能用。不会上传任何图片，全部在你手机本地处理。**
+
+| 你想要 | 怎么做 |
+|---|---|
+| 做一张角色攻略封面 | 进「封面制作 → 视频封面」，选「角色攻略」模式，第二行填角色名 |
+| 做一张世界 Boss 封面 | 同上，切到「Boss攻略」模式，第一行填 Boss 名 |
+| 做一张合集封面 | 进「封面制作 → 合集封面」，上传背景图 + 填标题 |
+| 维护图标字典 | 进「图标字典编辑器」，一键从 Amber 同步 |
+| 换手机、换浏览器 | 先导出配置 / 存档，到新设备导入（见[数据保存](#save)） |
+| 夜间使用 | 点右上角图标切换深浅色 |
+
+首次打开会自动跟随系统主题，之后按你的选择记住。
+
+---
 
 <a id="tools" name="tools"></a>
-## 🛠️ 工具列表
+## 🛠️ 工具导航
 
-主页为 Bento 网格布局，点击卡片进入工具。**已搬进 SPA 的工具是真正的 Vue 组件；还没搬的由 `FrameLayer` 用 iframe 常驻托管**（`v-show` 隐藏、不销毁，切换工具不重新加载）。
+| 工具 | 打开 | 状态 |
+|---|---|---|
+| 首页 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/) | — |
+| 角色一图流 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/character) | 🟡 旧版界面 |
+| 图标字典编辑器 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/icon-editor) | ✅ 新界面 |
+| 封面制作 · 视频封面 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/video-cover/video) | ✅ 新界面 |
+| 封面制作 · 合集封面 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/video-cover/collection) | ✅ 新界面 |
+| 图片处理 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/image-tools) | 🟡 旧版界面 |
+| 图表 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/chart) | 🟡 旧版界面 |
+| 角色梯队 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/tier) | 🟡 旧版界面 |
 
-| 工具 | 入口 | 说明 | 状态 |
-|---|---|---|---|
-| **角色一图流** | [`#character`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#character) | 武器 / 圣遗物 / 天赋 / 命座 / 配队总览 | 🟡 仍是 iframe |
-| **图标字典编辑器** | [`#icon-editor`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#icon-editor) | 维护 `icon-dict.js`，查缺补漏 | ✅ 已搬进 SPA |
-| **封面制作 · 视频封面** | [`#video-cover/video`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#video-cover/video) | 角色 / Boss / 自定义三种模式的封面排版 | ✅ 已搬进 SPA |
-| **封面制作 · 合集封面** | [`#video-cover/collection`](https://grilled-tiger-fish-lw.github.io/genshin-guide/#video-cover/collection) | 合集封面排版生成 | ✅ 已搬进 SPA |
-| **图片处理** | — | 背景修改 / 双图羽化 / 图层拼接等 | 🟡 仍是 iframe |
-| **图表** | — | 雷达图 / 柱状图 | 🟡 仍是 iframe |
-| **角色梯队** | — | S / A / B 三档排行榜 | 🟡 仍是 iframe |
+> 老书签照旧能用（`#character` 会自动变成 `#/character`）。
+> 🟡 的几个工具功能正常，只是还没搬到新界面，视觉上和别的不太一样，属于已知遗留。
 
-> 老书签照旧可用：`index.html` 会把旧 hash 归一成新路由（`#character` → `#/character`）。
+---
+
+## 🖼️ 封面制作 · 视频封面
+
+### 三种模式
+
+| 模式 | 做什么 | 你要填 |
+|---|---|---|
+| **角色攻略** | 自动配编号 + 立绘 + 名片图 | 第二行填**角色名** |
+| **Boss攻略** | 自动配怪物图标 | 第一行填 **Boss 名** |
+| **自定义** | 全部手填，可加浮动素材 | 主标题 / 副标题 / 标签文字 |
+
+切模式会弹确认框 —— 因为**会清掉背景图、立绘、Boss 头像**，别误点。
+
+### 操作
+
+- **预览框右上角**四个按钮：参考线、导出配置、导入配置、清空。
+- **点预览空白处**可以把右上角那排按钮淡出，看清整张图；再点一下回来。
+- **名字要在输入框失焦（点别处）后才会去匹配**，匹配不到会弹提示。
+- 立绘位置、背景亮度、背景模糊、标签文字亮度都是滑杆，**右侧数字框可以直接输入精确值**。
+- 自定义模式可以加多张「浮动素材」，每张能调 X 位置 / 缩放 / 圆角，以及放在模糊层上方还是下方。
+
+### 导出
+
+- 底部悬浮的「导出图片」= 3840×2160 PNG。
+- **字体只作用于导出的图**，导出时字体会被内嵌进图片，换设备也不会变。
+- 导出文件名取「第二行 → 第一行 → 主标题」，后面跟当天日期。
+- 配置可以导出成 JSON（不含字体数据，体积小），换设备时用它恢复。
+
+---
+
+## 🖼️ 封面制作 · 合集封面
+
+- 2560×1440，背景图会自动模糊（模糊度 / 亮度可调），并做边缘拉伸防漏底。
+- 主标题白色、副标题浅金，整块自动垂直居中；单行太长会自动缩字号。
+- 右上角一个清空按钮，点预览空白处同样会淡出。
+- 草稿自动保存，下次打开还在。
+
+---
+
+## 🔤 图标字典编辑器
+
+- **一键同步**：从 Amber 拉最新数据，合并进本地字典。
+- **硬规则**（武器非五位数 / 28 开头怪物 / 官方旅行者图）会跳过并记进「跳过」，同时清掉本地同 key 的条目；**软规则只加不删**。
+- **粘贴 URL** 会自动补名字、星级、序号。
+- **导出 `icon-dict.js`**：格式被两个仓库读取，改动前想清楚。
+- 有未导出的改动时，导出按钮会变红提醒。
+
+---
+
+<a id="save" name="save"></a>
+## 💾 数据保存
+
+**全部存在你这台设备的浏览器里，不会上传到任何服务器，也不会跨设备同步。**
+
+| 内容 | 存在哪 |
+|---|---|
+| 图标字典编辑器的编辑内容 | 浏览器本地存储（`icon_dict_editor_v4`） |
+| 视频封面配置 | 浏览器 IndexedDB（`video_cover_db` → `video_state`） |
+| 合集封面配置 | 浏览器 IndexedDB（`video_cover_db` → `collection_state`） |
+| 深浅色选择 | 浏览器本地存储 |
+
+> ⚠️ 封面的「清空」是**立即生效且不可撤销**的，里面有二次确认；清空前建议先「导出配置」备份。
+> 换手机时：封面用**导出配置 JSON** 搬，图标字典用**导出 `icon-dict.js`** 搬。
+
+---
+
+<a id="faq" name="faq"></a>
+## ❓ 常见问题
+
+**换了大字体，导出的图里还是默认字体？**
+字体要等下载完（下拉旁会显示「正在加载…」）。如果显示「字体加载失败」，重新选一次即可；也可能是那个字体文件本身有问题。
+
+**导出的图能和预览一模一样吗？**
+能。预览和导出用的是同一份画面结构，不存在「预览好导出坏」。
+
+**封面导出的图很大？**
+视频封面是 3840×2160，几千 KB 是正常的。合集封面是 2560×1440。
+
+**我选的图片会上传吗？**
+不会。图片只在你的浏览器里用 Canvas 处理，不经过任何服务器。
+
+**为什么有几个工具长得不一样？**
+那几个还没搬到新界面（见上面的🟡）。功能都是好的。
+
+**清空缓存后草稿没了？**
+会没。清空浏览器数据 = 删掉本机草稿；重要配置建议导出成 JSON 存别处。
 
 ---
 
 <a id="structure" name="structure"></a>
-## 📁 仓库结构
+## 📁 项目结构
 
     genshin-guide/
-    ├── index.html                Vite 入口：主题预置 + 加载守卫 + 旧 hash 归一
-    ├── favicon.ico
-    ├── package.json  vite.config.js
-    ├── README.md  CHANGELOG.md  AGENTS.md
-    │
-    ├── src/                      SPA
-    │   ├── main.js  router.js  App.vue
-    │   ├── styles/               tokens.css（令牌唯一真源）· base.css · app.css
-    │   ├── components/           通用控件（Btn Field Seg Radios Slider Dropdown Modal Combobox
-    │   │                         Icon Tabs PreviewFrame DockCta ToastHost AppNav AppDrawer
-    │   │                         FrameLayer SyncReport）
-    │   ├── composables/          useTheme useToast useData useIconDict
-    │   ├── lib/                  videoCover · collectionCover · fonts（纯绘制 / 导出 / 存档）
-    │   └── views/                Home · IconEditor · VideoCover · CollectionCover
-    │
-    ├── tools/                    还没搬进 SPA 的旧工具页（原样 cp 进 dist，不走打包）
-    │   ├── character/            角色一图流（consts / svg / app 三层）
-    │   ├── image-tools.html      图片处理        🟡 待搬
-    │   ├── chart.html            图表            🟡 待搬
-    │   └── tier.html             角色梯队        🟡 待搬
-    │
-    └── shared/                   共享资源（仓库根，不进打包，靠 build 时 cp）
-        ├── css/                  旧工具仍在用的设计系统（新 SPA 不加载）
+    ├── index.html                入口（主题预置 + 加载守卫 + 旧链接归一）
+    ├── src/                      页面与控件
+    │   ├── styles/               设计令牌 + 全局基线
+    │   ├── components/           通用控件
+    │   ├── composables/          主题 / 提示队列 / 数据加载
+    │   ├── lib/                  绘制与导出引擎
+    │   └── views/                页面
+    ├── tools/                    还没搬进新界面的旧工具页
+    └── shared/                   共享资源
+        ├── css/                  旧工具仍在用的样式
         ├── gi-icons/             游戏图标：加载器 + 图标字典
         ├── data/                 纯文本数据字典
-        ├── fonts/                字体库 + fonts.json
-        ├── assets/               本地素材（立绘 / 名片 / 封面底图 / logo）
-        ├── saves/                在线存档
-        └── ui-icons.js           共享 UI 图标库（Fluent UI System Icons）
+        ├── fonts/                字体库
+        ├── assets/               本地素材
+        └── ui-icons.js           共享 UI 图标库
 
-`shared/` 和 `tools/` **故意留在仓库根、不进打包**：构建脚本里手工 `cp` 进 `dist`，这样目录层级、工具页里的相对路径、跨仓库绝对 URL 三者一起保住。
-
----
-
-## 🎨 各工具说明
-
-<details>
-<summary><b>视频封面</b>（已搬进 SPA）</summary>
-
-<br>
-
-- 角色攻略 / Boss 攻略 / 自定义三种模式。角色模式填角色名 → 自动补编号、立绘、名片图；Boss 模式填 Boss 名 → 自动补怪物图标。
-- 预览就是页面里那份真正的 `<svg>`，导出时克隆同一份节点、把远程图烘成 data URL 再栅格化 —— 预览与导出永远一致。
-- 切换模式有确认框（会清掉背景图 / 立绘 / Boss 头像），避免误操作。
-- 配置可导出 / 导入 JSON；草稿存 IndexedDB（`video_cover_db` / `video_state`）。
-
-</details>
-
-<details>
-<summary><b>合集封面</b>（已搬进 SPA）</summary>
-
-<br>
-
-- 2K（2560×1440）画布，背景用 Canvas 预生成高斯模糊，并做边缘像素拉伸防止漏底。
-- 模糊层只在换背景图 / 改模糊 / 改亮度时重算，结果按「图 + 模糊 + 亮度」缓存。
-- 字号随内容自适应（超宽逐级缩字号），整块垂直居中。
-- 点预览空白处淡出右上角工具栏；草稿存 IndexedDB（`video_cover_db` / `collection_state`）。
-
-</details>
-
-<details>
-<summary><b>图标字典编辑器</b>（已搬进 SPA）</summary>
-
-<br>
-
-- 从 Amber 一键同步数据，维护图标映射字典；硬规则（武器非五位数 / 28 开头怪物 / 官方旅行者图）记入 `skipped` 并清掉本地同 key 条目，软规则只加不删。
-- 粘贴 URL 会按 `deriveFields()` 自动补名字、星级、序号；导出 `icon-dict.js` 的格式被两个仓库读取，逐字不能变。
-- 缩略图渐变算法与 `icon-loader.js` 的 `applyBackground` 一致，因此和其它工具里已烘焙的图标颜色对得上。
-
-</details>
-
-<details>
-<summary><b>其余三个工具</b>（仍是 iframe 旧版）</summary>
-
-<br>
-
-- 角色一图流、图片处理、图表、角色梯队仍是 `tools/` 下的旧版页面，功能正常，但视觉与新系统不一致（已知遗留）。
-- 它们与 SPA 之间靠 `FrameLayer` 通信；迁移方式：模板 1:1 搬、纯绘图与导出引擎留在 `src/lib/`、碰 DOM 的那部分换成共享控件。
-
-</details>
-
----
-
-<a id="tech" name="tech"></a>
-## 🎨 技术要点（速查）
-
-> 完整约定与协作规则见 **[AGENTS.md](./AGENTS.md)**；里程碑与坑位见 **[CHANGELOG](./CHANGELOG.md)**。
-
-### 技术栈
-
-Vite + Vue 3 + vue-router(hash) + Tailwind 4。**没有遗留引擎、没有运行时 `window` 全局**（唯一例外见 AGENTS.md），页面里只有 Vue 组件和共享控件。
-
-### 尺寸线（控件三档，别再手写高度）
-
-| 档位 | 高度 | 用在哪 |
-|---|---|---|
-| `sm` | 36px | 工具栏、列表行、卡片角 |
-| `md` | 40px（窄屏）/ 36px（宽屏） | 表单、弹窗 |
-| `lg` | 48px | 只有底部悬浮主操作（`DockCta`） |
-
-圆角：控件 8px（`rounded-ctl`）、卡片 12px（`rounded-panel`）；**胶囊只给页签和徽章**，普通按钮永远是 8px 矩形。
-
-### 焦点
-
-全站一种方言：`focus-visible:outline-2 outline-offset-1 outline-accent`。
-例外：`Modal` 面板与 `AppDrawer` 抽屉不画环；容器会裁掉 outline 的地方用负 `outline-offset`。
-
-### 禁用项
-
-- **`backdrop-filter` 全站禁用** —— 它会让元素成为后代 fixed 元素的包含块，破坏弹层定位。
-- **不用浏览器原生样式**：滚动条、下拉、复选框、滑块全部走共享控件。
-- **不改 `tokens.css` 里的值**：它与另一个仓库逐字节相同。
-
-### 加载
-
-所有动态资源（字体、数据字典、图标字典、图片）一律**带时间戳**，路径一律走 `import.meta.env.BASE_URL + 'shared/…'`（相对路径在 SPA 里是按仓库根算的，`../../shared/` 会跑到域名外面）。
+> 想改代码的话，先看 [AGENTS.md](./AGENTS.md)（协作流程、实现约定、诊断套路）和 [CHANGELOG](./CHANGELOG.md)（里程碑）。
 
 ---
 
 ## 📌 备注与致谢
 
 - **中文名查询**：[Project Amber](https://gi.yatta.moe)
-- **本地数据**：所有编辑数据存在浏览器本地（IndexedDB / `localStorage`），字体也缓存一份
 - **UI 图标**：[Fluent UI System Icons](https://yesicon.app/zh-Hans/fluent)
 - **元素 / 圣遗物图标**：[iconfont · 原神图标库](https://www.iconfont.cn/collections/detail?cid=34264)（作者：SwordMasterJS）
 - **favicon**：AI 生成（豆包），工具箱 + 游戏手柄图标
