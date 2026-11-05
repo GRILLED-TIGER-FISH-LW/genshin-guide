@@ -13,46 +13,59 @@ import { useIconDict } from '../composables/useIconDict.js'
  * -------------------------------------------------------------------------
  * 域逻辑全在 useIconDict.js，这里只管长得怎么样。
  *
- * 布局（相对旧版的主要改动）：
- *   · 操作按钮从「一行左右拖动」改成 flex-wrap 自动换行
- *   · 分类页签用 Seg（等宽分段控件），不再横向滚动
- *   · 信息行 + 「清空」独立成底部一行 —— 破坏性操作不跟常用操作挤在一起
+ * 【角色页签：宽屏双栏 / 窄屏全屏子页】
+ *   纯 CSS 断点实现，不用 JS 读窗口宽度：
+ *     列表栏   md 以上常驻；窄屏只在「没选中」时显示
+ *     详情栏   md 以上常驻；窄屏只在「选中了」时显示
+ *   窄屏的返回按钮放在详情栏最外层，任何状态都能回列表。
  *
  * 【为什么 root / header / main 都要写 grid-cols-1】
  *   它们都是 grid，但没声明列。隐式的 auto 轨道会被内容的 max-content 撑开，
- *   而「flex-wrap 的按钮行」的 max-content 是「全部按钮排成一行的总宽」（约 560px）
- *   —— 于是整条轨道被撑到 560px，整页横向溢出，必须左右拖动才看得全。
- *   Tailwind 的 grid-cols-1 生成的是 repeat(1, minmax(0, 1fr))，
- *   那个 minmax(0, …) 正好把轨道锁在容器宽度内。少一层写，就会被撑破一层。
+ *   而「flex-wrap 的按钮行」的 max-content 是全部按钮排成一行的总宽 ——
+ *   于是整条轨道被撑破，整页横向溢出。grid-cols-1 生成的是
+ *   repeat(1, minmax(0, 1fr))，那个 minmax(0, …) 正好把轨道锁在容器宽度内。
  *
  * 【缩略图的两个部分别拆开】
- *   starStyle() 只往 style 塞 --star-color / --star-edge 两个变量；
- *   真正画出渐变的是 <style scoped> 里的 .thumb；圆角则是模板上的 rounded-ctl。
- *   三者少任何一个，缩略图要么没底色、要么是方块。
+ *   starStyle() 只往 style 塞 --star-color / --star-edge；
+ *   真正画出渐变的是 <style scoped> 里的 .thumb；圆角是模板上的 rounded-ctl。
  * ------------------------------------------------------------------------- */
 
 const {
   loading,
-  busy,
   tab,
   search,
   dirty,
+  filter,
   log,
   filtered,
   sorted,
   infoText,
-  resolveUrl,
+  counts,
+  activeRow,
+  activeKey,
+  isVariant,
+  missingCard,
+  missingArt,
+  slotSrc,
   starStyle,
   setOrder,
   setName,
   setStar,
   removeRow,
   clearTab,
+  select,
+  applyUrl,
+  clearSlot,
+  setSlotLocal,
+  setBase,
+  lookupName,
   init,
   loadDict,
   parsePastedUrls,
   syncFromAmber,
   exportDict,
+  LABELS,
+  FILTERS,
 } = useIconDict()
 
 const TABS = [
@@ -61,31 +74,86 @@ const TABS = [
   { value: 'weapons', label: '武器' },
   { value: 'monsters', label: '怪物' },
 ]
-const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
-
 const STAR_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}★` }))
+
+const FILTER_LABELS = { all: '全部', noCard: '缺名片', noArt: '缺立绘', variant: '变体' }
 
 const reportOpen = ref(false)
 const confirmOpen = ref(false)
 const pasteOpen = ref(false)
 const pasteText = ref('')
-
 const syncing = ref(false)
 const fetching = ref(false)
 
-/* 输入框的通用外观：工具栏档（36px），与外壳的控件同一套 */
 const FIELD =
   'h-9 min-w-0 rounded-ctl border border-line-2 bg-surface text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 
-/* 切分类就清掉搜索 —— 与旧版一致 */
+const isCharTab = computed(() => tab.value === 'characters')
+
+/* 切分类：清搜索、清筛选、清选中 —— 免得切过去还停在上一条的详情里 */
 watch(tab, () => {
   search.value = ''
+  filter.value = 'all'
+  activeKey.value = ''
 })
 
 const hasData = computed(() => sorted.value.length > 0)
 const emptyIcon = computed(() => (hasData.value ? 'ui.search' : 'ui.inbox'))
 const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
-const emptyHint = computed(() => (hasData.value ? '试试其他关键词' : '点上方按钮开始'))
+const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上方按钮开始'))
+
+const filterOptions = computed(() =>
+  FILTERS.map((f) => ({
+    value: f.value,
+    label: `${FILTER_LABELS[f.value] ?? f.label} ${counts.value[f.value] ?? 0}`,
+  })),
+)
+
+/* 三个槽位的说明写在一处，免得模板里到处散文字 */
+const SLOT_META = [
+  { slot: '', title: '头像', hint: '有 key 就走源地址，主源挂了自动换备用源；仓库图勾「用仓库图」。' },
+  { slot: 'card', title: '名片', hint: '粘大图链接（NameCardPic），能认出 key 就只存 key。' },
+  { slot: 'art', title: '立绘', hint: '没有自动源，永远手填链接；仓库图直接粘仓库路径。' },
+]
+
+/* 槽位的 URL 草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
+const urlDraft = ref({ key: '', value: '' })
+const draftOf = (slot) =>
+  urlDraft.value.key === `${activeKey.value}|${slot}` ? urlDraft.value.value : ''
+const setDraft = (slot, value) => {
+  urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
+}
+
+async function commitUrl(row, slot) {
+  const value = draftOf(slot)
+  setDraft(slot, '')
+  if (!value) return
+
+  const key = applyUrl(row, slot, value)
+  /* 认出了 key 而这条还没名字 → 顺便反查中文名；查不到保持原样，不报错 */
+  if (key && !(row.name || '').trim()) {
+    const name = await lookupName(slot, key)
+    if (name) setName(row, name)
+  }
+}
+
+function onSelect(row) {
+  urlDraft.value = { key: '', value: '' }
+  select(row)
+}
+
+/* 缩略图备用源：主源挂了就用 data-alt 再试一次，只试一次。
+   data-alt 用完即删，避免备用源也挂时来回弹。 */
+function onThumbError(e) {
+  const img = e.target
+  const alt = img.dataset.alt
+  if (!alt) {
+    img.removeAttribute('src')
+    return
+  }
+  delete img.dataset.alt
+  img.src = alt
+}
 
 async function onSync() {
   syncing.value = true
@@ -122,7 +190,7 @@ onMounted(init)
 
 <template>
   <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
-    <!-- ---------------- 头部：搜索 / 分类 / 操作 ---------------- -->
+    <!-- ---------------- 头部：搜索 / 分类 / 筛选 / 操作 ---------------- -->
     <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
       <div class="relative flex items-center">
         <span
@@ -155,10 +223,12 @@ onMounted(init)
 
       <Seg v-model="tab" :options="TABS" full />
 
+      <Seg v-if="isCharTab" v-model="filter" :options="filterOptions" full />
+
       <div class="flex flex-wrap gap-2">
         <Btn size="sm" variant="primary" :loading="syncing" @click="onSync">
           <template #icon><Icon name="ui.reload" size="sm" /></template>
-          从 Amber 同步
+          从源匹配
         </Btn>
 
         <Btn size="sm" @click="reportOpen = true">
@@ -183,77 +253,285 @@ onMounted(init)
       </div>
     </header>
 
-    <!-- ---------------- 列表（唯一滚动区） ---------------- -->
-    <main class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto overscroll-contain p-3">
-      <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
+    <!-- ---------------- 主体 ---------------- -->
+    <main
+      class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain"
+      :class="isCharTab ? 'md:grid-cols-[15rem_minmax(0,1fr)]' : ''"
+    >
+      <!-- 列表栏 -->
+      <div
+        class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto p-3"
+        :class="isCharTab && activeRow ? 'hidden md:grid' : ''"
+      >
+        <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
 
-      <div v-else-if="!filtered.length" class="grid place-items-center gap-3 py-12 text-center">
-        <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
-          <Icon :name="emptyIcon" size="lg" />
-        </span>
-        <div class="grid gap-1">
-          <p class="text-sm text-body">{{ emptyTitle }}</p>
-          <p class="text-xs text-muted">{{ emptyHint }}</p>
+        <div v-else-if="!filtered.length" class="grid place-items-center gap-3 py-12 text-center">
+          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
+            <Icon :name="emptyIcon" size="lg" />
+          </span>
+          <div class="grid gap-1">
+            <p class="text-sm text-body">{{ emptyTitle }}</p>
+            <p class="text-xs text-muted">{{ emptyHint }}</p>
+          </div>
         </div>
+
+        <!-- 角色：紧凑行，点了进详情 -->
+        <template v-else-if="isCharTab">
+          <button
+            v-for="row in filtered"
+            :key="row.key"
+            type="button"
+            class="flex w-full items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            :class="
+              row.key === activeKey
+                ? 'border-line-3 bg-surface-2'
+                : 'border-line bg-surface hover:bg-hover'
+            "
+            @click="onSelect(row)"
+          >
+            <span
+              class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
+              :style="starStyle(row)"
+            >
+              <img
+                v-if="slotSrc(tab, row, '').src"
+                :src="slotSrc(tab, row, '').src"
+                :data-alt="slotSrc(tab, row, '').alt || undefined"
+                alt=""
+                loading="lazy"
+                class="size-full object-contain"
+                @error="onThumbError"
+              />
+            </span>
+
+            <span class="grid min-w-0 flex-1 gap-0.5">
+              <span class="truncate text-xs text-ink">{{ row.name || row.key }}</span>
+              <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
+                <span>No.{{ row.order || 0 }}</span>
+                <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
+                <span
+                  v-if="isVariant(row)"
+                  class="rounded-ctl bg-accent-soft px-1 text-accent-strong"
+                >
+                  变体
+                </span>
+                <span v-if="missingCard(row)" class="text-faint">缺名片</span>
+                <span v-if="missingArt(row)" class="text-faint">缺立绘</span>
+              </span>
+            </span>
+          </button>
+        </template>
+
+        <!-- 其它分类：沿用原来的就地编辑 -->
+        <template v-else>
+          <div
+            v-for="row in filtered"
+            :key="row.key"
+            class="rounded-panel border border-line bg-surface p-2"
+          >
+            <div class="flex items-center gap-2">
+              <input
+                type="number"
+                :class="[
+                  FIELD,
+                  'w-11 shrink-0 px-1 text-center font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                ]"
+                :value="row.order || ''"
+                aria-label="序号"
+                @change="setOrder(row, $event.target.value)"
+              />
+
+              <span
+                class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
+                :style="starStyle(row)"
+              >
+                <img
+                  v-if="slotSrc(tab, row, '').src"
+                  :src="slotSrc(tab, row, '').src"
+                  :data-alt="slotSrc(tab, row, '').alt || undefined"
+                  alt=""
+                  loading="lazy"
+                  class="size-full object-contain"
+                  @error="onThumbError"
+                />
+              </span>
+
+              <input
+                v-model="row.name"
+                type="text"
+                :class="[FIELD, 'flex-1 px-2']"
+                placeholder="中文名"
+                aria-label="中文名"
+                @blur="setName(row, row.name)"
+              />
+
+              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
+                <Dropdown
+                  :options="STAR_OPTIONS"
+                  :model-value="String(row.star ?? 5)"
+                  :label="`星级：${row.star ?? 5} 星`"
+                  @update:model-value="setStar(row, $event)"
+                />
+              </span>
+
+              <Btn size="sm" variant="danger" square aria-label="删除" @click="removeRow(row)">
+                <template #icon><Icon name="ui.trash" size="sm" /></template>
+              </Btn>
+            </div>
+          </div>
+        </template>
       </div>
 
+      <!-- 详情栏（只有角色页签用） -->
       <div
-        v-for="row in filtered"
-        :key="row.key"
-        class="rounded-panel border border-line bg-surface p-2"
+        v-if="isCharTab"
+        class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3"
+        :class="activeRow ? '' : 'hidden md:grid'"
       >
-        <div class="flex items-center gap-2">
-          <!-- 序号 -->
-          <input
-            type="number"
-            :class="[
-              FIELD,
-              'w-11 shrink-0 px-1 text-center font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-            ]"
-            :value="row.order || ''"
-            aria-label="序号"
-            @change="setOrder(row, $event.target.value)"
-          />
+        <template v-if="activeRow">
+          <!-- 返回放最外层：窄屏任何状态都能回列表 -->
+          <div class="flex items-center gap-2">
+            <Btn size="sm" class="md:hidden" @click="activeKey = ''">
+              <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
+              返回
+            </Btn>
+            <p class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ activeRow.key }}</p>
+          </div>
 
-          <!-- 缩略图：圆角在 class 上，渐变在 .thumb 上，变量由 starStyle() 给 -->
-          <span
-            class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
-            :style="starStyle(row)"
+          <!-- 身份行：序号 + 名字 + 星级 + 变体基名 -->
+          <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
+            <div class="flex items-center gap-2">
+              <input
+                type="number"
+                :class="[FIELD, 'w-16 shrink-0 px-1 text-center font-semibold']"
+                :value="activeRow.order || ''"
+                aria-label="序号"
+                @change="setOrder(activeRow, $event.target.value)"
+              />
+              <input
+                :value="activeRow.name"
+                type="text"
+                :class="[FIELD, 'min-w-0 flex-1 px-2']"
+                placeholder="中文名"
+                aria-label="中文名"
+                @input="activeRow.name = $event.target.value"
+                @blur="setName(activeRow, activeRow.name)"
+              />
+              <span class="w-[72px] shrink-0">
+                <Dropdown
+                  :options="STAR_OPTIONS"
+                  :model-value="String(activeRow.star ?? 5)"
+                  :label="`星级：${activeRow.star ?? 5} 星`"
+                  @update:model-value="setStar(activeRow, $event)"
+                />
+              </span>
+            </div>
+
+            <label class="grid grid-cols-1 gap-1">
+              <span class="text-[10px] text-muted">
+                变体基名（留空 = 它就是主体；填了表示这条挂在谁下面）
+              </span>
+              <input
+                :value="activeRow.base || ''"
+                type="text"
+                :class="[FIELD, 'w-full px-2']"
+                placeholder="旅行者"
+                @change="setBase(activeRow, $event.target.value)"
+              />
+            </label>
+          </div>
+
+          <!-- 三个槽位 -->
+          <div
+            v-for="meta in SLOT_META"
+            :key="meta.slot || 'avatar'"
+            class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
           >
-            <img
-              v-if="resolveUrl(tab, row)"
-              :src="resolveUrl(tab, row)"
-              alt=""
-              loading="lazy"
-              class="size-full object-contain"
-              @error="$event.target.removeAttribute('src')"
-            />
+            <div class="flex items-center gap-2">
+              <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
+
+              <label
+                v-if="meta.slot !== 'art'"
+                class="flex cursor-pointer items-center gap-1.5 text-[10px] text-muted"
+              >
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="meta.slot ? !!activeRow[meta.slot]?.local : !!activeRow.local"
+                  @change="setSlotLocal(activeRow, meta.slot, $event.target.checked)"
+                />
+                用仓库图
+              </label>
+            </div>
+
+            <div class="flex items-start gap-2">
+              <!-- 预览：头像带星级底，名片/立绘给一块定宽的画板 -->
+              <span
+                class="thumb grid shrink-0 place-items-center rounded-ctl border border-line-2"
+                :class="meta.slot ? 'h-16 w-28' : 'size-12'"
+                :style="meta.slot ? {} : starStyle(activeRow)"
+              >
+                <img
+                  v-if="slotSrc(tab, activeRow, meta.slot).src"
+                  :src="slotSrc(tab, activeRow, meta.slot).src"
+                  :data-alt="slotSrc(tab, activeRow, meta.slot).alt || undefined"
+                  alt=""
+                  loading="lazy"
+                  :class="meta.slot ? 'size-full object-cover' : 'size-full object-contain'"
+                  @error="onThumbError"
+                />
+              </span>
+
+              <!-- 地址输入 + 当前 key -->
+              <div class="grid min-w-0 flex-1 gap-1">
+                <input
+                  :value="draftOf(meta.slot)"
+                  type="url"
+                  :class="[FIELD, 'w-full px-2']"
+                  :placeholder="
+                    meta.slot === 'art' ? '粘立绘完整链接，或仓库路径' : '粘链接自动识别 key'
+                  "
+                  :aria-label="`${meta.title} 链接`"
+                  @input="setDraft(meta.slot, $event.target.value)"
+                  @change="commitUrl(activeRow, meta.slot)"
+                />
+
+                <div class="flex flex-wrap items-center gap-2 text-[10px] text-muted">
+                  <span class="min-w-0 truncate">
+                    {{
+                      meta.slot
+                        ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
+                        : activeRow.key
+                    }}
+                  </span>
+                  <button
+                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.local"
+                    type="button"
+                    class="shrink-0 rounded-ctl px-1 text-danger hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    @click="clearSlot(activeRow, meta.slot)"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[10px] leading-relaxed text-faint">{{ meta.hint }}</p>
+          </div>
+
+          <div class="flex justify-end">
+            <Btn size="sm" variant="danger" @click="removeRow(activeRow)">
+              <template #icon><Icon name="ui.trash" size="sm" /></template>
+              删除这条
+            </Btn>
+          </div>
+        </template>
+
+        <div v-else class="grid place-items-center gap-2 py-16 text-center">
+          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
+            <Icon name="ui.inbox" size="lg" />
           </span>
-
-          <!-- 名字 -->
-          <input
-            v-model="row.name"
-            type="text"
-            :class="[FIELD, 'flex-1 px-2']"
-            placeholder="中文名"
-            aria-label="中文名"
-            @blur="setName(row, row.name)"
-          />
-
-          <!-- 星级：外面套定宽容器，别跟 Dropdown 自带的 w-full 抢 -->
-          <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
-            <Dropdown
-              :options="STAR_OPTIONS"
-              :model-value="String(row.star ?? 5)"
-              :label="`星级：${row.star ?? 5} 星`"
-              @update:model-value="setStar(row, $event)"
-            />
-          </span>
-
-          <!-- 删除 -->
-          <Btn size="sm" variant="danger" square aria-label="删除" @click="removeRow(row)">
-            <template #icon><Icon name="ui.trash" size="sm" /></template>
-          </Btn>
+          <p class="text-xs text-muted">左边选一个角色</p>
         </div>
       </div>
     </main>
@@ -284,7 +562,7 @@ onMounted(init)
       @confirm="onPasteConfirm"
     >
       <p class="text-xs leading-relaxed text-muted">
-        每行一个完整 URL，程序自动提取图标名并查询 Amber 中文名。
+        每行一个完整 URL（也可以用仓库内路径），程序自动提取图标名并查询 Amber 中文名。
       </p>
       <Field
         v-model="pasteText"
@@ -307,7 +585,7 @@ onMounted(init)
    的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
    正方形下正好也是 √2/2 × 边长。
    无星级（怪物）时两个变量都不存在，回落到 transparent = 不加底色。
-   圆角不在这里写，在模板的 rounded-ctl 上 —— 那才是全站声明圆角的地方。 */
+   圆角不在这里写，在模板的 rounded-ctl 上。 */
 .thumb {
   background: radial-gradient(
     circle,
