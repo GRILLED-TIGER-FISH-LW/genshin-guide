@@ -22,10 +22,16 @@ import { loadGlobalScript } from './useData.js'
  * 【相对旧版的三处有意修改】
  *   1. 「载入」之后 dirty = false（数据刚从仓库来、本来就是干净的）
  *   2. 状态条拆开：条数/筛选是常驻信息行，操作结果走 toast
- *   3. 同步的排除规则分两档（见下），并新增「强制本地条目」
+ *   3. 同步的排除规则分两档（见下）；另新增「强制本地条目」
  *
- * 【同步时三类规则，别混】
- *   硬（transformAmber 里把 key 记进 skipped）：
+ * 【「API 条目 → 字段」与「排除规则」是两件事，别再搅在一起】
+ *   deriveFields()      带任何排除规则，只按分类推导 name / star / order
+ *                       —— 自动同步和手动粘贴共用它
+ *   transformAmber()    在 deriveFields 前面加排除规则，只服务自动同步
+ *   → 所以：手动粘的 URL 不会被「怪物 28 开头」之类挡掉，那是你明确要的
+ *
+ * 【同步时的三类规则】
+ *   硬（transformAmber 把 key 记进 skipped）：
  *       武器 id 非五位数 · 怪物 28 开头 · 官方旅行者男女图
  *       → 不仅不加，还会把本地同名条目一并清掉
  *   软（只 return、不记 skipped）：角色白名单
@@ -33,12 +39,8 @@ import { loadGlobalScript } from './useData.js'
  *   强制（FORCED_LOCAL）：无论如何都要存在
  *       → 本地没有就补上；本地已有就保持原样，不覆盖你的改动
  *
- *   还要记住合并规则第 3 条：API 没返回的旧条目一律保留（已下架 / 手工新增）。
- *   硬排除是唯一的例外，因为它表达的是「这类东西我们不要」。
- *
  * 【星级底色的前提】
  *   非怪物分类的条目都必须带 star —— 没有 star 就没有底色。
- *   API 来的条目 star 取自 rank；自己写的条目（如 FORCED_LOCAL）要手动写。
  * ========================================================================= */
 
 const STORAGE_KEY = 'icon_dict_editor_v4'
@@ -241,8 +243,8 @@ export function useIconDict() {
   /* characters.txt 的两张表 */
   const orderToName = {}
   const nameToOrder = {}
-  /* Amber 的 id → 中文名，粘贴 URL 时用 */
-  const amberNames = {}
+  /* 每个分类的「图标名 → API 原始条目」，粘贴 URL 时补名字/星级/序号用 */
+  const amberIndex = {}
 
   /* ---------------- 存储 ---------------- */
 
@@ -401,8 +403,7 @@ export function useIconDict() {
 
   /* 缩略图底：星级径向渐变。
      底色表来自 loader（单一真源），边缘色用同一套 darken 算法。
-     无星级（怪物）返回空对象 —— 与 applyBackground 的 star == null 分支一致：不加底色。
-     所以非怪物条目必须带 star，自己写的条目也一样。 */
+     无星级（怪物）返回空对象 —— 与 applyBackground 的 star == null 分支一致：不加底色。 */
   function starStyle(row) {
     if (row.star == null) return {}
     const base = STAR_COLORS[row.star] || '#939393'
@@ -483,11 +484,33 @@ export function useIconDict() {
     }
   }
 
-  /* 返回 { kept, skipped }：
-     kept    = 要收进来的条目
-     skipped = 被「硬规则」明确排除的 key。同步时会连带把本地同名条目清掉，
-               因为硬规则表达的是「这类东西我们不要」，而不是「这次没拉到」。
-     只看这个函数的话，四条规则是：
+  /* API 条目 → 行字段。**不带任何排除规则**，因为手动粘贴也该能用它。
+     序号规则：
+       角色     characters.txt 反查（查不到 = 0 → 排序落在最下方）
+       武器     item.id
+       圣遗物   item.id
+       怪物     item.id
+     星级规则：
+       角色 rank · 武器 rank · 圣遗物 max(levelList) · 怪物 无（null） */
+  function deriveFields(type, item) {
+    if (type === 'characters') {
+      return { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
+    }
+    if (type === 'weapons') {
+      return { name: item.name, star: item.rank || 5, order: item.id || 0 }
+    }
+    if (type === 'artifacts') {
+      const star =
+        Array.isArray(item.levelList) && item.levelList.length
+          ? Math.max.apply(null, item.levelList)
+          : 5
+      return { name: item.name, star, order: item.id || 0 }
+    }
+    return { name: item.name, star: null, order: item.id || 0 }
+  }
+
+  /* 只服务自动同步：在 deriveFields 前面加排除规则，并把被排除的 key 记下来。
+     四条规则：
        · 角色：官方旅行者男女图 → 硬排除
                characters.txt 白名单 → 软排除（只不加，不删本地）
        · 武器：id 必须是五位数（10000–99999）→ 硬排除
@@ -502,9 +525,6 @@ export function useIconDict() {
       const item = items[id]
       if (!item || !item.icon || !item.name) return
 
-      let order = 0
-      let star = null
-
       if (type === 'characters') {
         /* 顺序要紧：先判官方旅行者，再判白名单 ——
            否则它会被白名单提前 return 掉，就轮不到登记 skip 了 */
@@ -513,51 +533,42 @@ export function useIconDict() {
           return
         }
         if (!nameToOrder[item.name]) return /* 软排除：只不加 */
-        order = nameToOrder[item.name]
-        star = item.rank || 5
       } else if (type === 'weapons') {
-        order = item.id || 0
-        star = item.rank || 5
+        const order = item.id || 0
         if (order < 10000 || order >= 100000) {
           skipped.add(item.icon)
           return
         }
-      } else if (type === 'artifacts') {
-        order = item.id || 0
-        star =
-          Array.isArray(item.levelList) && item.levelList.length
-            ? Math.max.apply(null, item.levelList)
-            : 5
-      } else {
+      } else if (type === 'monsters') {
         if (String(item.id || '').startsWith('28')) {
           skipped.add(item.icon)
           return
         }
-        order = item.id || 0
       }
 
-      kept[item.icon] = { name: item.name, star, order }
+      kept[item.icon] = deriveFields(type, item)
     })
 
     return { kept, skipped }
   }
 
-  /* id → 中文名（粘贴 URL 时补名字用） */
-  async function ensureAmberNames(type) {
-    if (amberNames[type]) return amberNames[type]
+  /* 图标名 → API 原始条目。粘贴 URL 时一次建好，之后按 key 取。
+     除完整图标名，也登记「剥掉 UI_Xxx_ 前缀的小写」和 item.id，
+     容错那些写法略有出入的 key。 */
+  async function ensureAmberIndex(type) {
+    if (amberIndex[type]) return amberIndex[type]
     const items = await fetchAmber(type)
-    const table = {}
+    const map = {}
     Object.keys(items).forEach((k) => {
       const item = items[k]
-      if (!item || !item.name) return
-      const id = String(item.icon || '')
-        .replace(/^UI_[A-Za-z]+_/i, '')
-        .toLowerCase()
-      if (id) table[id] = item.name
-      if (item.id != null) table[String(item.id)] = item.name
+      if (!item || !item.icon || !item.name) return
+      map[item.icon] = item
+      const stripped = String(item.icon).replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
+      if (stripped && !map[stripped]) map[stripped] = item
+      if (item.id != null && !map[String(item.id)]) map[String(item.id)] = item
     })
-    amberNames[type] = table
-    return table
+    amberIndex[type] = map
+    return map
   }
 
   /* ---------------- 粘贴 URL ---------------- */
@@ -599,6 +610,8 @@ export function useIconDict() {
         if (isConfig) delete existing.url
         else existing.url = url
       } else {
+        /* 先落位再补字段：新条目立刻出现在列表末尾（order 0 排最下），
+           随后的 API 查询会把名字/星级/序号填上 */
         const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
         if (!isConfig) row.url = url
         list.push(row)
@@ -610,22 +623,37 @@ export function useIconDict() {
     markDirty()
 
     if (created.length) {
-      busy.value = '正在查询中文名…'
-      let table = {}
+      busy.value = '正在查询补全…'
+      let index = {}
       try {
-        table = await ensureAmberNames(type)
+        index = await ensureAmberIndex(type)
       } catch {
-        /* 查不到就留空名字，不阻断流程 */
+        /* 查不到就保持空名字/0 序号，不阻断流程 */
       }
+
       let changed = false
       created.forEach((row) => {
-        const normalized = row.key.toLowerCase().replace(/^ui_[a-z]+_/i, '')
-        const name = table[normalized] || table[row.key.toLowerCase()] || ''
-        if (name && name !== row.name) {
-          row.name = name
+        const normalized = String(row.key).replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
+        const item = index[row.key] || index[String(row.key).toLowerCase()] || index[normalized]
+        if (!item) return
+
+        const f = deriveFields(type, item)
+
+        if (f.name && f.name !== row.name) {
+          row.name = f.name
+          changed = true
+        }
+        if (f.star != null && f.star !== row.star) {
+          row.star = f.star
+          changed = true
+        }
+        /* 序号：API 查得到就补上；查不到保持 0 → 排序落最下方 */
+        if (f.order && f.order !== row.order) {
+          row.order = f.order
           changed = true
         }
       })
+
       if (changed) markDirty()
       busy.value = ''
     }
