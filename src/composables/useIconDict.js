@@ -449,7 +449,13 @@ export function useIconDict() {
     }
   }
 
-  /* 每类的过滤条件与旧版一致 */
+  /* 每类的过滤条件。
+     「不记录某一批条目」在这个文件里只有一种写法：落到 out[...] 之前一句 return。
+       · 角色：characters.txt 是白名单，不在里面就丢
+       · 武器：id 必须是五位数（10000–99999）—— Amber 的 /weapon 接口还会返回
+               武器素材/突破材料，那些 id 是四位数或六位数，一律丢
+       · 圣遗物：无额外过滤
+       · 怪物：28 开头是野生生物（动物），不进字典 */
   function transformAmber(type, items) {
     const out = {}
     Object.keys(items).forEach((id) => {
@@ -460,7 +466,6 @@ export function useIconDict() {
       let star = null
 
       if (type === 'characters') {
-        /* characters.txt 是白名单：不在里面的直接丢 */
         if (!nameToOrder[item.name]) return
         order = nameToOrder[item.name]
         star = item.rank || 5
@@ -475,6 +480,7 @@ export function useIconDict() {
             ? Math.max.apply(null, item.levelList)
             : 5
       } else {
+        if (String(item.id || '').startsWith('28')) return
         order = item.id || 0
       }
 
@@ -580,7 +586,9 @@ export function useIconDict() {
      1. 自定义先落位，name/star/order/local/url 全保留
      2. API 条目：key 命中自定义 → 跳过；name 命中自定义 → 跳过；
         都没命中 → 以 API 为准（手打错的名字在这里被修正）
-     3. 剩余旧条目按 key 判重保留：key 未出现 = API 下架或手工新增，保留 */
+     3. 剩余旧条目按 key 判重保留：key 未出现 = API 下架或手工新增，保留
+     —— 注意第 3 条：过滤规则只作用于「新拉进来的 API 数据」，
+        本地已经存在的条目不会被摘掉。要清掉旧的得手动删或清空该分类。 */
   async function syncFromAmber() {
     const before = JSON.parse(JSON.stringify(data))
     const customByKey = {}
