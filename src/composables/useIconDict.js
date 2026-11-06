@@ -4,7 +4,7 @@ import { useToast } from './useToast.js'
 import { loadGlobalScript } from './useData.js'
 
 /* =========================================================================
- * 图标字典 · 域逻辑
+ * 图片字典 · 域逻辑
  * -------------------------------------------------------------------------
  * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js，这里是
  * 编辑器页面的逻辑（载入 / 合并 / 序列化 / 颜色）。
@@ -23,11 +23,13 @@ import { loadGlobalScript } from './useData.js'
  *   拼出来的地址都是同一套：prefix + 代号 + ext
  *
  * 【链接怎么落】
- *   粘的链接对得上主源规则 → 只记代号
- *   对得上备用源规则   → 只记代号 + alt: true（夏洛蒂：粘 Amber 的头像链接）
- *   两组都对不上（官网那串、别的站）→ 才存 url 兜底
+ *   判断一个链接属于谁，只看「路径」不比扩展名（lunaris 同一张图 .png / .webp
+ *   两种后缀都可能给出，旧数据里全是 .png）。
+ *   对得上主源规则 → 只记代号
+ *   对得上备用源规则 → 只记代号 + alt: true（夏洛蒂：粘 Amber 的头像链接）
+ *   两组都对不上（官网那一长串、别的站）→ 才存 url 兜底
  *   仓库内的图（…/shared/…）→ 转成站点绝对路径存 url
- *   载入老字典时会把上面这种「其实是源拼得出来的链接」自动化简成代号 / 标记。
+ *   载入老字典时会把上面这种「其实是源拼得出来的链接」自动化简代号 / 标记。
  *
  * 【三件事怎么互推】
  *   ① 中文名：查源（Amber 角色表）→ 头像代号；名片代号再按下面两条取
@@ -175,6 +177,17 @@ function repoUrl(input) {
   if (!s || /^https?:\/\//i.test(s)) return ''
   const i = s.indexOf('shared/')
   return i < 0 ? '' : BASE + s.slice(i)
+}
+
+/* 两个地址是不是同一张图：只看路径，不比扩展名。
+   lunaris 同一张图 .webp / .png 都可能给出（旧数据里存的是 .png），
+   不比扩展名才能把它们认成「主源地址」而不是「手填的链接」。 */
+function sameAsset(a, b) {
+  const cut = (s) =>
+    String(s || '')
+      .split('?')[0]
+      .replace(/\.[a-z0-9]+$/i, '')
+  return !!a && !!b && cut(a) === cut(b)
 }
 
 /* =========================================================================
@@ -612,6 +625,15 @@ export function useIconDict() {
   /* 槽位现在用不用备用源（详情界面那个勾） */
   const slotAlt = (row, slot) => !!row && (slot ? !!row[slot]?.alt : !!row.alt)
 
+  /* 一个地址属于谁：'main' 主源拼得出来的 · 'alt' 备用源拼得出来的 · 'url' 都不是 */
+  function urlKind(type, slot, url, code) {
+    const c = code || codeFrom(url, type, slot)
+    if (!c) return 'url'
+    if (sameAsset(url, stdUrl(type, slot, c, false))) return 'main'
+    if (hasAlt(type, slot) && sameAsset(url, stdUrl(type, slot, c, true))) return 'alt'
+    return 'url'
+  }
+
   function slotSrc(type, row, slot = '') {
     if (!row) return { src: '', alt: '' }
     if (!slot) {
@@ -637,14 +659,11 @@ export function useIconDict() {
      备用源的 → 换成 alt 标记。存死链接只留给源拼不出来的（仓库图、官网那串）。 */
   function tidySrc(o, type, slot) {
     if (!o.url || !/^https?:\/\//i.test(o.url)) return
-    const code = codeFrom(o.key, type, slot)
-    if (!code) return
-    if (o.url === stdUrl(type, slot, code, false)) {
+    const kind = urlKind(type, slot, o.url, codeFrom(o.key, type, slot))
+    if (kind === 'main') {
       o.url = ''
       delete o.alt
-      return
-    }
-    if (hasAlt(type, slot) && o.url === stdUrl(type, slot, code, true)) {
+    } else if (kind === 'alt') {
       o.url = ''
       o.alt = true
     }
@@ -652,9 +671,6 @@ export function useIconDict() {
 
   function tidyRow(row, type) {
     tidySrc(row, type, '')
-    if (!row.url && !row.alt) {
-      /* 头像槽空着就不用折腾 */
-    }
     SLOTS.forEach((s) => {
       if (s && row[s]) tidySrc(row[s], type, s)
     })
@@ -789,14 +805,13 @@ export function useIconDict() {
     }
 
     const code = codeFrom(url, type, slot)
-    const isMain = !!code && url === stdUrl(type, slot, code, false)
-    const useAlt = !!code && !isMain && hasAlt(type, slot) && url === stdUrl(type, slot, code, true)
-    const keepUrl = !isMain && !useAlt
+    const kind = urlKind(type, slot, url, code)
+    const keepUrl = kind === 'url'
 
     const put = (o) => {
       o.key = code
       o.url = keepUrl ? url : ''
-      if (useAlt) o.alt = true
+      if (kind === 'alt') o.alt = true
       else delete o.alt
     }
 
@@ -1161,14 +1176,9 @@ export function useIconDict() {
         return
       }
       const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
-      if (repo) {
-        row.url = repo
-      } else {
-        if (!code || url !== stdUrl(type, '', code, false)) {
-          if (hasAlt(type, '') && code && url === stdUrl(type, '', code, true)) row.alt = true
-          else row.url = url
-        }
-      }
+      const kind = repo ? 'url' : urlKind(type, '', url, code)
+      if (kind === 'url') row.url = repo || url
+      else if (kind === 'alt') row.alt = true
       list.push(row)
       byKey[key] = row
       created.push(row)
