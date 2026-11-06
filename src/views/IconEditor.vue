@@ -15,21 +15,17 @@ import { useIconDict } from '../composables/useIconDict.js'
  *
  * 【顶部只留一个「新增」入口】
  *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
- *   一行一个批量解析。四个分类都吃这一套，所以不需要「新增角色」和
- *   「粘贴 URL」两个按钮打架。
+ *   一行一个批量解析。四个分类都吃这一套。
  *
- * 【角色页签：宽屏双栏 / 窄屏全屏子页】
- *   纯 CSS 断点实现，不用 JS 读窗口宽度：
- *     列表栏   md 以上常驻；窄屏只在「没选中」时显示
- *     详情栏   md 以上常驻；窄屏只在「选中了」时显示
- *   窄屏的返回按钮放在详情栏最外层，任何状态都能回列表。
+ * 【槽位的「用备用源」勾】
+ *   主源（lunaris）图不对时（夏洛蒂那种）勾上，或用备用源那一组的链接
+ *   粘一遍（会自动勾上）。这一格从此走 config 里的备用源规则，
+ *   字典里不写死链接。立绘没有源规则，所以没有这个勾。
  *
- * 【grid 必须声明列，一个都不能漏】
- *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开，
- *   一整条不换行的 URL 就能把整页撑到左右拖。
- *
- * 【图标名必须在 shared/ui-icons.js 里真实存在】
- *   Icon.vue 是从那儿按 `组.名字` 取的，取不到就渲染成空白（不报错）。
+ * 【角色页签：宽屏双栏 / 窄屏全屏子页】纯 CSS 断点，不用 JS 读宽度。
+ * 【grid 必须声明列】没写 grid-cols-* 的 grid，隐式轨道是 auto，
+ *   会被一整条不换行的 URL 撑到左右拖。
+ * 【图标名必须在 shared/ui-icons.js 里真实存在】取不到就渲染成空白（不报错）。
  *   ui 组现有：plus trash arrowUp arrowDown back check chevronUp chevronDown
  *             close export file guides import inbox reload reorder search textFont
  * ------------------------------------------------------------------------- */
@@ -60,6 +56,9 @@ const {
   applyUrl,
   clearSlot,
   hydrate,
+  hasAlt,
+  slotAlt,
+  setSlotAlt,
   addFromInput,
   init,
   loadDict,
@@ -115,12 +114,12 @@ const SLOT_META = [
   {
     slot: '',
     title: '头像',
-    hint: '粘头像链接（或直接填代号）自动认代号；地址由主源拼，主源挂了自动换备用源。',
+    hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
   },
   {
     slot: 'card',
     title: '名片',
-    hint: '粘名片大图链接只记代号，地址同样由源拼。代号和头像不一样时（绮良良）会自己查源。',
+    hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
   },
   {
     slot: 'art',
@@ -137,7 +136,7 @@ const setDraft = (slot, value) => {
   urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
 }
 
-/* 粘完地址：先落代号，再拿这个代号去源里反查，把名字 / 另一个代号补齐 */
+/* 粘完地址：先落代号 / 标记，再拿代号去源里反查，把名字、另一个代号补齐 */
 async function commitUrl(row, slot) {
   const value = draftOf(slot)
   setDraft(slot, '')
@@ -178,7 +177,6 @@ async function onSync() {
     const res = await syncFromAmber()
     if (!res) return
     if (res.conflicts.length) {
-      /* 有代号对不上的项 → 先问你要哪个，报告留给「日志」按钮看 */
       conflicts.value = res.conflicts
       useSource.value = res.conflicts.map(() => false)
       conflictOpen.value = true
@@ -223,7 +221,7 @@ onMounted(init)
 
 <template>
   <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
-    <!-- ---------------- 头部：搜索 / 分类 / 筛选 / 操作 ---------------- -->
+    <!-- ---------------- 头部 ---------------- -->
     <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
       <div class="relative flex min-w-0 items-center">
         <span
@@ -311,7 +309,6 @@ onMounted(init)
           </div>
         </div>
 
-        <!-- 角色：紧凑行，点了进详情 -->
         <template v-else-if="isCharTab">
           <button
             v-for="row in filtered"
@@ -345,6 +342,7 @@ onMounted(init)
               <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
                 <span>No.{{ row.order || 0 }}</span>
                 <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
+                <span v-if="slotAlt(row, '')" class="text-accent">备用源</span>
                 <span v-if="missingCard(row)" class="text-faint">缺名片</span>
                 <span v-if="missingArt(row)" class="text-faint">缺立绘</span>
               </span>
@@ -352,7 +350,6 @@ onMounted(init)
           </button>
         </template>
 
-        <!-- 其它分类：沿用就地编辑 -->
         <template v-else>
           <div
             v-for="row in filtered"
@@ -419,7 +416,6 @@ onMounted(init)
         :class="activeRow ? '' : 'hidden md:grid'"
       >
         <template v-if="activeRow">
-          <!-- 返回放最外层：窄屏任何状态都能回列表 -->
           <div class="flex min-w-0 items-center gap-2">
             <Btn size="sm" class="md:hidden" @click="activeKey = ''">
               <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
@@ -428,7 +424,6 @@ onMounted(init)
             <p class="min-w-0 flex-1 truncate text-[10px] text-muted">代号：{{ activeRow.key }}</p>
           </div>
 
-          <!-- 身份行：序号 + 名字 + 星级 -->
           <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
             <div class="flex min-w-0 items-center gap-2">
               <input
@@ -464,7 +459,22 @@ onMounted(init)
             :key="meta.slot || 'avatar'"
             class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
           >
-            <p class="text-xs font-medium text-ink">{{ meta.title }}</p>
+            <div class="flex min-w-0 items-center gap-2">
+              <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
+
+              <label
+                v-if="hasAlt(tab, meta.slot)"
+                class="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-muted"
+              >
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="slotAlt(activeRow, meta.slot)"
+                  @change="setSlotAlt(activeRow, meta.slot, $event.target.checked)"
+                />
+                用备用源
+              </label>
+            </div>
 
             <div class="flex min-w-0 items-start gap-2">
               <span
@@ -505,7 +515,7 @@ onMounted(init)
                     }}
                   </span>
                   <button
-                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url"
+                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.alt"
                     type="button"
                     class="shrink-0 rounded-ctl px-1 text-danger hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
                     @click="clearSlot(activeRow, meta.slot)"
@@ -536,7 +546,7 @@ onMounted(init)
       </div>
     </main>
 
-    <!-- ---------------- 底部：信息行 + 破坏性操作 ---------------- -->
+    <!-- ---------------- 底部 ---------------- -->
     <footer class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-3 py-2">
       <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ infoText }}</p>
       <Btn size="sm" variant="danger" :disabled="!sorted.length" @click="confirmOpen = true">
