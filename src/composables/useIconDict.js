@@ -14,21 +14,20 @@ import { loadGlobalScript } from './useData.js'
  *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
  *     applyBackground 一致
  *
- * 【key 只存代号】
- *   地址 = config[type].prefix + key + ext，prefix 里含图标名常量：
- *     头像  prefix ".../avataricon/UI_AvatarIcon_"   ext ".webp"   key "Ambor"
- *     名片  prefix ".../namecardpic/UI_NameCardPic_" ext "_P.webp"  key "Ambor"
- *     武器  prefix ".../weaponicon/UI_EquipIcon_"    key "Sword_Blunt"
- *   这样头像和名片共用同一个代号，互推就是「同名代换」。
- *   变体（旅行者·冰）和仓库里的图不走这套，直接存 url。
+ * 【地址 = config 里的规则 + 代号】
+ *   config[type].prefix / ext 是主源（lunaris），config[type].alt 是备用源（Amber）
+ *   名片、立绘在 config[type].card / config[type].art 里各有一组
+ *   某一格想用备用源 → 那一格记 alt: true（不是把链接写死进字典）
+ *     头像  { name, order, alt: true }                     → 用 config.characters.alt
+ *     名片  { card: { key: "Charlotte", alt: true } }       → 用 config.characters.card.alt
+ *   拼出来的地址都是同一套：prefix + 代号 + ext
  *
- * 【行结构】
- *   { key, name, order, star?, url?, lock?, card?, art? }
- *   key    头像代号（或变体的名字，如「旅行者·冰」）
- *   url    完整链接 / 站点绝对路径（如 /genshin-guide/shared/gi-icons/…）
- *   card   { key, url }  名片代号（绮良良那种和头像不一样）
- *   art    { key, url }  立绘（只手填 / 从 character-art.txt 灌）
- *   lock   true = 这一条我全手维护，同步整条不碰
+ * 【链接怎么落】
+ *   粘的链接对得上主源规则 → 只记代号
+ *   对得上备用源规则   → 只记代号 + alt: true（夏洛蒂：粘 Amber 的头像链接）
+ *   两组都对不上（官网那串、别的站）→ 才存 url 兜底
+ *   仓库内的图（…/shared/…）→ 转成站点绝对路径存 url
+ *   载入老字典时会把上面这种「其实是源拼得出来的链接」自动化简成代号 / 标记。
  *
  * 【三件事怎么互推】
  *   ① 中文名：查源（Amber 角色表）→ 头像代号；名片代号再按下面两条取
@@ -36,17 +35,10 @@ import { loadGlobalScript } from './useData.js'
  *      连源里没有的未实装角色也能用（URL 里带着代号就行）
  *   ③ 按英文名查源：代号代换不成立时（绮良良头像 Momoka、名片 Kirara），
  *      拿角色的 route（Kirara）去名片表对上
- *   猜出来的地址会先用 <img> 试加载（跨域不影响 onload/onerror），加载不出来
- *   就当没推出来，留空让你手填。
  *
  * 【「不更新」是按槽位算的】
- *   头像槽 / 名片槽：带 url 就留你的，否则跟源走
- *   立绘槽：源里没有
+ *   头像槽 / 名片槽：带 url 或 alt 就留你的，否则跟源走
  *   名字 / 星级 / 序号 永远跟源走 —— 只有 lock: true 是整条不动
- *
- * 【过渡期】
- *   立绘靠 shared/data/character-art.txt 灌（「导入一次」）。那份 txt 退休时，
- *   删掉 PORTRAIT_SRC、fetchPortraits()、syncFromAmber 里那段和这些注释。
  * ========================================================================= */
 
 const BASE = import.meta.env.BASE_URL
@@ -55,26 +47,37 @@ const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
 const MAX_LOG = 10
 const DICT_SRC = 'shared/gi-icons/icon-dict.js'
 const CHARS_SRC = 'shared/data/characters.txt'
-const PORTRAIT_SRC = 'shared/data/character-art.txt' /* 过渡期，见文件头 */
+const PORTRAIT_SRC = 'shared/data/character-art.txt' /* 过渡期，见文件尾 */
 
 const LU = 'https://api.lunaris.moe/data/assets/'
-const AMBER_UI = 'https://gi.yatta.moe/assets/UI/'
+const AMBER = 'https://gi.yatta.moe/assets/UI/'
 
 const DEFAULT_CONFIG = {
   characters: {
     prefix: `${LU}avataricon/UI_AvatarIcon_`,
     ext: '.webp',
-    /* 备用源：主源图挂了，缩略图换这个地址再试一次 */
-    alt: { prefix: `${AMBER_UI}UI_AvatarIcon_`, ext: '.png' },
+    alt: { prefix: `${AMBER}UI_AvatarIcon_`, ext: '.png' },
     card: {
       prefix: `${LU}namecardpic/UI_NameCardPic_`,
       ext: '_P.webp',
-      alt: { prefix: `${AMBER_UI}namecard/UI_NameCardPic_`, ext: '_P.png' },
+      alt: { prefix: `${AMBER}namecard/UI_NameCardPic_`, ext: '_P.png' },
     },
   },
-  artifacts: { prefix: `${LU}artifacts/UI_RelicIcon_`, ext: '.webp' },
-  weapons: { prefix: `${LU}weaponicon/UI_EquipIcon_`, ext: '.webp' },
-  monsters: { prefix: `${LU}monstericon/UI_MonsterIcon_`, ext: '.png' },
+  artifacts: {
+    prefix: `${LU}artifacts/UI_RelicIcon_`,
+    ext: '.webp',
+    alt: { prefix: `${AMBER}reliquary/UI_RelicIcon_`, ext: '.png' },
+  },
+  weapons: {
+    prefix: `${LU}weaponicon/UI_EquipIcon_`,
+    ext: '.webp',
+    alt: { prefix: `${AMBER}UI_EquipIcon_`, ext: '.png' },
+  },
+  monsters: {
+    prefix: `${LU}monstericon/UI_MonsterIcon_`,
+    ext: '.png',
+    alt: { prefix: `${AMBER}monster/UI_MonsterIcon_`, ext: '.png' },
+  },
 }
 
 const AMBER_ENDPOINTS = {
@@ -111,8 +114,7 @@ const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
 /* 不被源影响、必须存在的条目。本地已有同 key 的行就完全不动它。
    旅行者·冰 和旅行者共用头像和名片，只有立绘不同 ——
    字典的 key 不能重复（那是个对象），所以给它一个自己的 key（中文名），
-   头像用 url 指回旅行者那张图。仓库里的图存站点绝对路径（/genshin-guide/…），
-   这样在别的仓库里也能加载。 */
+   头像用 url 指回旅行者那张图（仓库里的图，走站点绝对路径）。 */
 const TRAVELER_ICON = `${BASE}shared/gi-icons/UI_AvatarIcon_Traveler.webp`
 const TRAVELER_CARD = 'Ysxf6'
 const FORCED_LOCAL = {
@@ -267,6 +269,7 @@ const litSlot = (o) => {
   const p = []
   if (o.key) p.push(`key: "${escJs(o.key)}"`)
   if (o.url) p.push(`url: "${escJs(o.url)}"`)
+  if (o.alt) p.push('alt: true')
   return `{ ${p.join(', ')} }`
 }
 
@@ -275,6 +278,7 @@ function litRow(row) {
   if (row.star != null) p.push(`star: ${row.star}`)
   p.push(`order: ${row.order || 0}`)
   if (row.url) p.push(`url: "${escJs(row.url)}"`)
+  if (row.alt) p.push('alt: true')
   if (row.lock) p.push('lock: true')
   if (row.card) p.push(`card: ${litSlot(row.card)}`)
   if (row.art) p.push(`art: ${litSlot(row.art)}`)
@@ -317,6 +321,7 @@ function cloneRow(row) {
   const out = { key: row.key, name: row.name || '', order: row.order || 0 }
   if (row.star != null) out.star = row.star
   if (row.url) out.url = row.url
+  if (row.alt) out.alt = true
   if (row.lock) out.lock = true
   if (row.card) out.card = { ...row.card }
   if (row.art) out.art = { ...row.art }
@@ -326,10 +331,12 @@ function cloneRow(row) {
 function readSlot(o) {
   if (!o || typeof o !== 'object') return null
   const s = { key: o.key || '', url: o.url || '' }
+  if (o.alt) s.alt = true
   return s.key || s.url ? s : null
 }
 
-/* 老数据归一：全名 key → 代号；local:true → 站点绝对路径 */
+/* 老数据归一：全名 key → 代号；local:true → 站点绝对路径。
+   「其实是源拼得出来的链接」那部分交给 tidyRow（要用到 config，得在实例里做） */
 function migrateRow(row, type) {
   if (row.local) {
     /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
@@ -363,6 +370,7 @@ function dictToRows(dict, type) {
     if (item.star != null) row.star = item.star
     if (item.local) row.local = true
     if (item.url) row.url = item.url
+    if (item.alt) row.alt = true
     if (item.lock) row.lock = true
     const card = readSlot(item.card)
     const art = readSlot(item.art)
@@ -438,7 +446,7 @@ export function useIconDict() {
     if (parsed.data && typeof parsed.data === 'object') {
       TYPES.forEach((t) => {
         data[t] = Array.isArray(parsed.data[t])
-          ? parsed.data[t].map((row) => migrateRow(row, t))
+          ? parsed.data[t].map((row) => tidyRow(migrateRow(row, t), t))
           : []
       })
     }
@@ -519,7 +527,7 @@ export function useIconDict() {
       /* config 只导出不读 —— 地址规则由 DEFAULT_CONFIG 说了算，
          免得载入一份老 prefix 的字典后地址全拼错 */
       TYPES.forEach((t) => {
-        data[t] = dictToRows(dict, t)
+        data[t] = dictToRows(dict, t).map((row) => tidyRow(row, t))
       })
       dirty.value = false
       writeLocal()
@@ -580,7 +588,7 @@ export function useIconDict() {
     return `共 ${sorted.value.length} 条 · 自动保存`
   })
 
-  /* ---------------- 地址 ---------------- */
+  /* ---------------- 地址规则 ---------------- */
 
   function slotCfg(type, slot) {
     const cfg = config[type] || {}
@@ -589,27 +597,68 @@ export function useIconDict() {
     return { src: null, alt: null } /* 立绘没有自动源 */
   }
 
-  const joinSrc = (src, key) => (src?.prefix && key ? src.prefix + key + (src.ext || '') : '')
-
-  function resolveUrl(type, row) {
-    const cfg = config[type] || {}
-    if (!row || !row.key) return ''
-    if (row.url) return row.url
-    return joinSrc(cfg, row.key)
+  /* 这一格该用哪组规则：带 alt 标记就用备用源 */
+  function srcOf(type, slot, useAlt) {
+    const c = slotCfg(type, slot)
+    return useAlt && c.alt?.prefix ? c.alt : c.src
   }
+
+  const joinSrc = (src, key) => (src?.prefix && key ? src.prefix + key + (src.ext || '') : '')
+  const stdUrl = (type, slot, code, useAlt) => joinSrc(srcOf(type, slot, useAlt), code)
+
+  /* 这一格有没有备用源可切 */
+  const hasAlt = (type, slot) => !!slotCfg(type, slot).alt?.prefix
+
+  /* 槽位现在用不用备用源（详情界面那个勾） */
+  const slotAlt = (row, slot) => !!row && (slot ? !!row[slot]?.alt : !!row.alt)
 
   function slotSrc(type, row, slot = '') {
     if (!row) return { src: '', alt: '' }
     if (!slot) {
-      const cfg = config[type] || {}
-      return { src: resolveUrl(type, row), alt: row.url ? '' : joinSrc(cfg.alt, row.key) }
+      if (row.url) return { src: row.url, alt: '' }
+      const useAlt = hasAlt(type, '') && !!row.alt
+      return {
+        src: joinSrc(srcOf(type, '', useAlt), row.key),
+        alt: joinSrc(srcOf(type, '', !useAlt), row.key),
+      }
     }
 
     const o = row[slot]
     if (!o) return { src: '', alt: '' }
-    if (o.url) return { src: o.url, alt: '' } /* 完整链接 / 仓库绝对路径 */
-    const { src, alt } = slotCfg(type, slot)
-    return { src: joinSrc(src, o.key), alt: joinSrc(alt, o.key) }
+    if (o.url) return { src: o.url, alt: '' } /* 兜底链接 / 仓库绝对路径 */
+    const useAlt = hasAlt(type, slot) && !!o.alt
+    return {
+      src: joinSrc(srcOf(type, slot, useAlt), o.key),
+      alt: joinSrc(srcOf(type, slot, !useAlt), o.key),
+    }
+  }
+
+  /* 把「其实就是源拼得出来的那条链接」化简：主源的 → 干脆不存；
+     备用源的 → 换成 alt 标记。存死链接只留给源拼不出来的（仓库图、官网那串）。 */
+  function tidySrc(o, type, slot) {
+    if (!o.url || !/^https?:\/\//i.test(o.url)) return
+    const code = codeFrom(o.key, type, slot)
+    if (!code) return
+    if (o.url === stdUrl(type, slot, code, false)) {
+      o.url = ''
+      delete o.alt
+      return
+    }
+    if (hasAlt(type, slot) && o.url === stdUrl(type, slot, code, true)) {
+      o.url = ''
+      o.alt = true
+    }
+  }
+
+  function tidyRow(row, type) {
+    tidySrc(row, type, '')
+    if (!row.url && !row.alt) {
+      /* 头像槽空着就不用折腾 */
+    }
+    SLOTS.forEach((s) => {
+      if (s && row[s]) tidySrc(row[s], type, s)
+    })
+    return row
   }
 
   /* 猜出来的地址能不能真加载。跨域也能拿到 onload/onerror，不需要 CORS。 */
@@ -629,8 +678,8 @@ export function useIconDict() {
   /* 名片代号能不能用（主源、备用源各试一次） */
   async function cardOk(code) {
     if (!code) return false
-    const { src, alt } = slotCfg('characters', 'card')
-    return (await probe(joinSrc(src, code))) || (await probe(joinSrc(alt, code)))
+    const c = slotCfg('characters', 'card')
+    return (await probe(joinSrc(c.src, code))) || (await probe(joinSrc(c.alt, code)))
   }
 
   /* ---------------- 缩略图底色 ---------------- */
@@ -714,12 +763,15 @@ export function useIconDict() {
   }
 
   /* 落一个地址：
-     仓库路径（…/shared/…）→ 站点绝对路径
-     认得出代号 → 只记代号（有源前缀的槽位地址由源拼；立绘没前缀所以代号和链接都留）
-     认不出 → 只记完整链接 */
+     1. 仓库路径（…/shared/…）→ 站点绝对路径，存 url
+     2. 对得上主源规则 → 只记代号
+     3. 对得上备用源规则 → 只记代号 + alt: true
+     4. 两组都对不上 → 存 url 兜底 */
   function applyUrl(row, slot, raw) {
     const url = String(raw || '').trim()
     if (!url) return ''
+
+    const type = tab.value
 
     const repo = repoUrl(url)
     if (repo) {
@@ -727,35 +779,47 @@ export function useIconDict() {
         const o = ensureSlot(row, slot)
         o.key = ''
         o.url = repo
+        delete o.alt
       } else {
         row.url = repo
+        delete row.alt
       }
       markDirty()
       return ''
     }
 
-    const code = codeFrom(url, tab.value, slot)
-    const { src } = slotCfg(tab.value, slot)
+    const code = codeFrom(url, type, slot)
+    const isMain = !!code && url === stdUrl(type, slot, code, false)
+    const useAlt = !!code && !isMain && hasAlt(type, slot) && url === stdUrl(type, slot, code, true)
+    const keepUrl = !isMain && !useAlt
+
+    const put = (o) => {
+      o.key = code
+      o.url = keepUrl ? url : ''
+      if (useAlt) o.alt = true
+      else delete o.alt
+    }
 
     if (slot) {
       const o = ensureSlot(row, slot)
-      o.key = code
-      o.url = code && src?.prefix ? '' : url
+      put(o)
       markDirty()
       return code
     }
 
     /* 头像：代号就是这一行的身份 —— 以你粘的为准 */
     const oldKey = row.key
-    if (code && data[tab.value].some((r) => r !== row && r.key === code)) {
+    if (code && data[type].some((r) => r !== row && r.key === code)) {
       toast.error('这个代号已经被另一条占用了')
       row.url = url
+      delete row.alt
     } else if (code) {
       row.key = code
-      row.url = ''
+      put(row)
       if (activeKey.value === oldKey) activeKey.value = code
     } else {
       row.url = url
+      delete row.alt
     }
     markDirty()
     return code
@@ -763,7 +827,20 @@ export function useIconDict() {
 
   function clearSlot(row, slot) {
     if (slot) delete row[slot]
-    else row.url = ''
+    else {
+      row.url = ''
+      delete row.alt
+    }
+    markDirty()
+  }
+
+  function setSlotAlt(row, slot, value) {
+    if (slot) {
+      const o = ensureSlot(row, slot)
+      if (value) o.alt = true
+      else delete o.alt
+    } else if (value) row.alt = true
+    else delete row.alt
     markDirty()
   }
 
@@ -1009,7 +1086,12 @@ export function useIconDict() {
     }
 
     const f = deriveFields(type, item)
-    const row = { key: codeFrom(item.icon, type), name: f.name || n, order: f.order || 0, star: f.star }
+    const row = {
+      key: codeFrom(item.icon, type),
+      name: f.name || n,
+      order: f.order || 0,
+      star: f.star,
+    }
     if (f.card) row.card = { ...f.card }
     data[type].push(row)
     markDirty()
@@ -1079,7 +1161,14 @@ export function useIconDict() {
         return
       }
       const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
-      if (repo) row.url = repo
+      if (repo) {
+        row.url = repo
+      } else {
+        if (!code || url !== stdUrl(type, '', code, false)) {
+          if (hasAlt(type, '') && code && url === stdUrl(type, '', code, true)) row.alt = true
+          else row.url = url
+        }
+      }
       list.push(row)
       byKey[key] = row
       created.push(row)
@@ -1134,7 +1223,7 @@ export function useIconDict() {
     toast.success('解析完成')
   }
 
-  /* ---------------- 同步（合并规则 v11） ---------------- */
+  /* ---------------- 同步（合并规则 v13） ---------------- */
 
   /* 返回 { entry, conflicts }：
      conflicts = 源里的代号与你手填的代号不一致的项，**先按你的保留**，
@@ -1210,7 +1299,7 @@ export function useIconDict() {
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
 
-        /* 头像槽：带 url 就留你的；代号和源不一样则先留你的并记冲突 */
+        /* 头像槽：带 url / alt 就留你的；代号和源不一样则先留你的并记冲突 */
         if (prev.key !== code) {
           conflicts.push({
             type,
@@ -1222,9 +1311,9 @@ export function useIconDict() {
           })
         }
 
-        /* 名片槽：带 url 就留你的；代号和源不一样就记冲突、先留你的；
+        /* 名片槽：带 url / alt 就留你的；代号和源不一样就记冲突、先留你的；
            其余情况以源为准 —— 这一条以前漏了，导致名片永远填不进去 */
-        if (prev.card?.url) {
+        if (prev.card?.url || prev.card?.alt) {
           next.card = { ...prev.card }
         } else if (prev.card?.key && item.card?.key && prev.card.key !== item.card.key) {
           conflicts.push({
@@ -1254,7 +1343,7 @@ export function useIconDict() {
       data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
     })
 
-    /* ---- 立绘：从 shared/data/character-art.txt 灌进来（过渡期，见文件头）----
+    /* ---- 立绘：从 shared/data/character-art.txt 灌进来（过渡期）----
        「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
        按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
     busy.value = '正在导入立绘对照…'
@@ -1328,7 +1417,9 @@ export function useIconDict() {
         if (activeKey.value === row.key) activeKey.value = c.key
         row.key = c.key
       } else {
+        const keepAlt = !!row[c.slot]?.alt
         row[c.slot] = { key: c.key, url: '' }
+        if (keepAlt) row[c.slot].alt = true
       }
       done++
     })
@@ -1420,7 +1511,6 @@ export function useIconDict() {
     missingCard,
     missingArt,
     /* 行操作 */
-    resolveUrl,
     slotSrc,
     starStyle,
     setOrder,
@@ -1433,6 +1523,9 @@ export function useIconDict() {
     applyUrl,
     clearSlot,
     hydrate,
+    hasAlt,
+    slotAlt,
+    setSlotAlt,
     /* 新增 */
     addFromInput,
     addByName,
