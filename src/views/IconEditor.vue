@@ -13,6 +13,11 @@ import { useIconDict } from '../composables/useIconDict.js'
  * -------------------------------------------------------------------------
  * 域逻辑全在 useIconDict.js，这里只管长得怎么样。
  *
+ * 【顶部只留一个「新增」入口】
+ *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
+ *   一行一个批量解析。四个分类都吃这一套，所以不需要「新增角色」和
+ *   「粘贴 URL」两个按钮打架。
+ *
  * 【角色页签：宽屏双栏 / 窄屏全屏子页】
  *   纯 CSS 断点实现，不用 JS 读窗口宽度：
  *     列表栏   md 以上常驻；窄屏只在「没选中」时显示
@@ -23,9 +28,10 @@ import { useIconDict } from '../composables/useIconDict.js'
  *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开，
  *   一整条不换行的 URL 就能把整页撑到左右拖。
  *
- * 【缩略图的两个部分别拆开】
- *   starStyle() 只往 style 塞 --star-color / --star-edge；
- *   真正画渐变的是 <style scoped> 里的 .thumb。
+ * 【图标名必须在 shared/ui-icons.js 里真实存在】
+ *   Icon.vue 是从那儿按 `组.名字` 取的，取不到就渲染成空白（不报错）。
+ *   ui 组现有：plus trash arrowUp arrowDown back check chevronUp chevronDown
+ *             close export file guides import inbox reload reorder search textFont
  * ------------------------------------------------------------------------- */
 
 const {
@@ -54,10 +60,9 @@ const {
   applyUrl,
   clearSlot,
   hydrate,
-  addCharacter,
+  addFromInput,
   init,
   loadDict,
-  parsePastedUrls,
   syncFromAmber,
   applyConflicts,
   exportDict,
@@ -76,10 +81,8 @@ const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
 
 const reportOpen = ref(false)
 const confirmOpen = ref(false)
-const pasteOpen = ref(false)
-const pasteText = ref('')
 const addOpen = ref(false)
-const addName = ref('')
+const addText = ref('')
 const syncing = ref(false)
 const fetching = ref(false)
 
@@ -102,7 +105,7 @@ watch(tab, () => {
 const hasData = computed(() => sorted.value.length > 0)
 const emptyIcon = computed(() => (hasData.value ? 'ui.search' : 'ui.inbox'))
 const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
-const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上方按钮开始'))
+const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上面「新增」开始'))
 
 const filterOptions = computed(() =>
   FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
@@ -194,10 +197,15 @@ function confirmConflicts() {
   conflicts.value = []
 }
 
+function openAdd() {
+  addText.value = ''
+  addOpen.value = true
+}
+
 async function onAdd() {
-  const name = addName.value
-  addName.value = ''
-  const ok = await addCharacter(name)
+  const text = addText.value
+  addText.value = ''
+  const ok = await addFromInput(text)
   if (ok) addOpen.value = false
 }
 
@@ -208,22 +216,6 @@ async function onLoad() {
   } finally {
     fetching.value = false
   }
-}
-
-async function onPasteConfirm() {
-  const text = pasteText.value
-  pasteText.value = ''
-  await parsePastedUrls(text)
-}
-
-function openPaste() {
-  pasteText.value = ''
-  pasteOpen.value = true
-}
-
-function openAdd() {
-  addName.value = ''
-  addOpen.value = true
 }
 
 onMounted(init)
@@ -272,19 +264,14 @@ onMounted(init)
           从源匹配
         </Btn>
 
-        <Btn v-if="isCharTab" size="sm" @click="openAdd">
+        <Btn size="sm" :disabled="syncing" @click="openAdd">
           <template #icon><Icon name="ui.plus" size="sm" /></template>
-          新增角色
+          新增
         </Btn>
 
         <Btn size="sm" @click="reportOpen = true">
           <template #icon><Icon name="ui.file" size="sm" /></template>
           日志
-        </Btn>
-
-        <Btn size="sm" :disabled="syncing" @click="openPaste">
-          <template #icon><Icon name="ui.link" size="sm" /></template>
-          粘贴 URL
         </Btn>
 
         <Btn size="sm" :loading="fetching" @click="onLoad">
@@ -568,28 +555,18 @@ onMounted(init)
       @confirm="clearTab"
     />
 
-    <Modal v-model="addOpen" title="新增角色" confirm-text="加入" @confirm="onAdd">
+    <Modal v-model="addOpen" title="新增条目" confirm-text="加入" @confirm="onAdd">
       <p class="text-xs leading-relaxed text-muted">
-        填中文名，头像与名片代号会自动从源取；序号取自 characters.txt（不在里面就是 0）。
-      </p>
-      <Field v-model="addName" label="角色名" placeholder="如：枫原万叶" data-autofocus />
-    </Modal>
-
-    <Modal
-      v-model="pasteOpen"
-      title="粘贴图标链接"
-      confirm-text="解析并添加"
-      @confirm="onPasteConfirm"
-    >
-      <p class="text-xs leading-relaxed text-muted">
-        每行一个链接（也可以用仓库内路径）。能认出代号的只记代号，其余存完整链接。
+        填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，
+        自动认代号并补齐另一个。
       </p>
       <Field
-        v-model="pasteText"
+        v-model="addText"
         type="textarea"
-        :rows="6"
+        :rows="5"
         data-autofocus
-        placeholder="https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp"
+        label="名字 或 图标链接"
+        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya"
       />
     </Modal>
 
