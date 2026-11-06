@@ -73,7 +73,7 @@
 
 **只剩 1 个，且只有单向**：
 
-- `adventurer-handbook` → 绝对 URL 读本仓库的 `shared/gi-icons/icon-dict.js`（角色头像字典）。
+- `adventurer-handbook` → 绝对 URL 读本仓库的 `shared/gi-icons/icon-dict.js`（**图片字典**：角色头像 / 名片 / 立绘 + 圣遗物 / 武器 / 怪物）。文件名与内容已经不太相符，改名见待办。
 - **反向禁止**：本仓库不依赖 `adventurer-handbook`；图标一律来自本仓库自己的 `shared/ui-icons.js`。
 
 ---
@@ -90,6 +90,7 @@
 | `src/components/{PreviewFrame,DockCta}` | 工具页外壳：预览框（16:9 + 右上角浮动工具栏 + 点一下淡出）、底部悬浮主操作 |
 | `src/components/{AppNav,AppDrawer,FrameLayer,ToastHost,SyncReport}` | 应用外壳 |
 | `src/lib/fonts.js` | 字体：清单 / 取字节 / 装进文档 / 导出用的 `@font-face` 文本 |
+| `shared/gi-icons/icon-loader.js` | 图标加载器：`getPath` / `match` / `load` / `openPicker`。**两个仓库都在读** |
 
 **先看有没有现成的**：控件一律用共享层，不新写本地样式、不用浏览器原生外观。
 
@@ -139,9 +140,18 @@
 - 图标走**构建期虚拟模块**，运行时不再加载图标脚本：
   - `virtual:gg-icons` ← `shared/ui-icons.js`（只收值是 `<svg` 开头的条目，剥掉外层 `<svg>`，键名 `组.名字`，如 `ui.trash`）
   - `virtual:gg-icon-lib` ← `shared/gi-icons/icon-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
-- **唯一允许的运行时全局**：Boss 图标要用的 `window.ICON_LIB.fromName(...)`，走 `useData.js` 的 `loadGlobalScript()` 载入图标字典。**这个 `window` 只出现在 `src/lib/` 里，不外溢**。
+- **唯一允许的运行时全局**：Boss 图标要用的 `window.ICON_LIB.fromName(...)`，走 `useData.js` 的 `loadGlobalScript()` 载入图片字典。**这个 `window` 只出现在 `src/lib/` 里，不外溢**。
 - 本地草稿一律 IndexedDB，**库名 / 表名 / 键名不能改**：`video_cover_db` / `state` / `video_state`、`collection_state`、`icon_dict_editor_v4`。
-- **`icon-dict.js` 的导出格式逐字不能变**（两个仓库都在读）。
+
+### 图片字典的数据模型（`shared/gi-icons/icon-dict.js`）
+
+- **地址 = 规则 + 代号**。`config[分类]` 放两组源规则：主源（lunaris）用 `prefix` / `ext`，备用源（Amber）在同级的 `alt`。条目 key 是**代号**（`Ambor` / `10001_4` / `Sword_Blunt`），不是图标全名。
+- 条目字段：`name` / `order` / `star` / `url` / `alt` / `lock` / `card` / `art`。
+  - `url`：直接用它（**只在源拼不出来时才写**，比如仓库里的图、官网那一串）；`alt: true`：这一格改用备用源那组规则（lunaris 图不对时用，如夏洛蒂）。
+  - `card` / `art` 是槽位对象（`{ key, url, alt }`）；`key` 是那一格的代号 —— 头像代号和名片代号**可以不一样**（绮良良：Momoka / Kirara）。
+  - `lock: true`：这一条同步整条不碰。**其余情况下同步按槽位算**：头像槽 / 名片槽带 `url` 或 `alt` 就留用户的，名字 / 星级 / 序号永远跟源走。
+- **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`icon-loader.js` 也留着兼容分支。
+- 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致。
 
 ### 绘制与导出
 
@@ -149,7 +159,6 @@
 - 导出前必须把图片洗成 `dataURL`，否则跨域图会丢。
 - 导出的 SVG 是**独立文档**，摸不到页面的 `document.fonts`，所以 `@font-face` 必须内嵌（只在导出的那一瞬间挂上，避免预览把字体解析两遍）。
 - 模糊层：半分辨率 + JPEG + 按「图 + 参数」缓存，只在参数变化时重算。
-- 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致，否则和已烘焙的图片颜色对不上。
 
 ---
 
@@ -214,6 +223,7 @@
 - key 是**驼峰**（`ui.chevronDown`），且要带组名（`ui.` / `nav.` / `app.`）。
 - 箭头类要用 `bold`（实心），其他按钮用默认线框。
 - 组名分不清时，去 `shared/ui-icons.js` 里核对该键在哪一组。
+- **取不到名字不会报错，只会渲染成空白** —— 空白图标先怀疑名字写错（`ui.link` 这种就不存在）。
 - 用 `<Icon>` 时颜色靠 `class="text-danger"` 之类传进去，它会并进根节点的类里（只含尺寸与 `shrink-0`，不会打架）。
 
 ### 字体不生效
@@ -230,18 +240,27 @@
 
 ## 六、待办 / 下一步
 
-**还没搬进 SPA 的 4 个工具**（按建议顺序）：
+### 接下来这三件（已定）
+
+1. **四个 txt 退休，两个仓库都只读字典**
+   本仓库 `videoCover.js` 的 `loadData()` 还在读 `characters.txt` / `character-art.txt` / `namecards.txt`（+ 与本事无关的 `logos.txt`）；编辑器也还在读前两个。改法：封面改成从字典取序号 / 立绘 / 名片，编辑器删掉 `CHARS_SRC` / `PORTRAIT_SRC` 与 `fetchPortraits()`、同步里那段立绘导入——**代码块和 txt 要一起删**，否则每次同步都弹「立绘对照没读到」。同时**白名单取消**（旅行者已经是字典里的独立条目，同步可以直接收 API 的全部角色）。删完 `shared/data/` 只留 `logos.txt`。
+2. **字典改名**
+   它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图），全局变量 `window.ICON_DICT` / `window.ICON_LIB`，虚拟模块 `virtual:gg-icon-lib`，编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**注意跨仓库**：`adventurer-handbook` 是按绝对 URL 读这个文件的，改名会 404，两个仓库必须同一批改完。
+3. **图片处理工具**
+   接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
+
+### 还没搬进 SPA 的 4 个工具（按建议顺序）
 
 | 工具 | 说明 |
 |---|---|
 | 角色一图流 | 最大的一块（`tools/character/`，已有 consts / svg / app 三层） |
-| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好 |
+| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 3 条） |
 | 图表 | 雷达图 / 柱状图 |
 | 角色梯队 | 单页，最简单，可以拿来当收尾 |
 
 搬家法（已验证）：**模板 1:1 搬、纯绘制与导出引擎留在 `src/lib/`、碰 DOM 的那部分换成共享控件**（旧 `app.js` 里 `bindEvents` / `syncInputsFromState` / `renderXxx` / `injectIcons` / `showToast` / `showConfirm` 这一大票全是废代码，直接删）。
 
-其他小事：
+### 其他小事
 
 - `src/lib/` 里 `loadImage` / `urlToDataURL` / `download` 在 `videoCover.js` 和 `collectionCover.js` 各有一份 —— **第三个要用它们的工具出现时**抽到 `src/lib/assets.js`。
 - `Btn.vue` 的 `lg` / `float` 是新加的档位，**记得同步到 `adventurer-handbook`**。
