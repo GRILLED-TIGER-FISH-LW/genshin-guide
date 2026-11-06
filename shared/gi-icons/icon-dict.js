@@ -1,6 +1,6 @@
 window.ICON_DICT = {
   config: {
-    characters: { prefix: "https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/UI_AvatarIcon_", ext: ".png" }, card: { prefix: "https://api.lunaris.moe/data/assets/namecardpic/UI_NameCardPic_", ext: "_P.webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/namecard/UI_NameCardPic_", ext: "_P.png" } } },
+    characters: { prefix: "https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/UI_AvatarIcon_", ext: ".png" }, card: { prefix: "https://api.lunaris.moe/data/assets/namecardpic/UI_NameCardPic_", ext: "_P.png", alt: { prefix: "https://gi.yatta.moe/assets/UI/namecard/UI_NameCardPic_", ext: "_P.png" } } },
     artifacts: { prefix: "https://api.lunaris.moe/data/assets/artifacts/UI_RelicIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/reliquary/UI_RelicIcon_", ext: ".png" } },
     weapons: { prefix: "https://api.lunaris.moe/data/assets/weaponicon/UI_EquipIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/UI_EquipIcon_", ext: ".png" } },
     monsters: { prefix: "https://api.lunaris.moe/data/assets/monstericon/UI_MonsterIcon_", ext: ".png", alt: { prefix: "https://gi.yatta.moe/assets/UI/monster/UI_MonsterIcon_", ext: ".png" } }
@@ -8,7 +8,7 @@ window.ICON_DICT = {
 
   /* ============ 角色 ============ */
   characters: {
-    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/shared/gi-icons/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6", url: "https://api.lunaris.moe/data/assets/namecardpic/UI_NameCardPic_Ysxf6_P.png" }, art: { url: "/genshin-guide/shared/assets/portrait/001.旅行者.webp" } },
+    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/shared/gi-icons/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/shared/assets/portrait/001.旅行者.webp" } },
     "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/shared/gi-icons/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/shared/assets/portrait/001.旅行者·冰.webp" } },
     "Ambor": { name: "安柏", star: 4, order: 2, card: { key: "Ambor" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/6f0ef40157e95b0d59455c12f4d3f270_6966278935690800707.png" } },
     "Kaeya": { name: "凯亚", star: 4, order: 3, card: { key: "Kaeya" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/cbce61ef1ee5586c4e77b2070348685f_2003673786618101140.png" } },
