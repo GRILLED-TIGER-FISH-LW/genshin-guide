@@ -5,8 +5,9 @@
  *      （老格式，新数据不写这个 —— 仓库里的图直接存站点绝对路径，走第 2 条）
  *   2. 覆盖：条目带 url 字段，直接使用该 url
  *   3. URL ：key 以 http 开头，直接用
- *   4. 代号：key 是图标代号（如 Ambor / 10001_4），靠 config[type].prefix 拼 URL
- *      —— prefix 里含图标名常量（如 https://…/avataricon/UI_AvatarIcon_）
+ *   4. 代号：key 是图标代号（如 Ambor / 10001_4），靠 config[type] 里的规则拼 URL。
+ *      prefix 含图标名常量（如 https://…/avataricon/UI_AvatarIcon_）
+ *      条目带 alt: true 时，改用同一个 config 里的备用源规则（config[type].alt）
  * ============================================================ */
 (function () {
   "use strict";
@@ -153,9 +154,12 @@
     if (item.url) return item.url;
     /* 3. 完整 URL：直接用 */
     if (/^https?:\/\//i.test(k)) return k;
-    /* 4. 代号 + 前缀 + 后缀（prefix 已含图标名常量） */
+    /* 4. 代号 + 规则拼地址；带 alt: true 就用 config 里的备用源那组 */
     var cfg = dict.config && dict.config[type];
-    if (cfg && cfg.prefix) return cfg.prefix + k + (cfg.ext || "");
+    if (cfg) {
+      var src = item.alt && cfg.alt ? cfg.alt : cfg;
+      if (src && src.prefix) return src.prefix + k + (src.ext || "");
+    }
     return "";
   }
 
