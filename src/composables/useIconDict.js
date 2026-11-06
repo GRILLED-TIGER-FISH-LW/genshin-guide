@@ -6,72 +6,76 @@ import { loadGlobalScript } from './useData.js'
 /* =========================================================================
  * 图标字典 · 域逻辑
  * -------------------------------------------------------------------------
- * 从 tools/icon-editor/app.js 搬过来，行为逐条对齐。界面全部在
- * views/IconEditor.vue，这里只管数据。
- *
- * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js。
+ * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js，这里是
+ * 编辑器页面的逻辑（载入 / 合并 / 序列化 / 颜色）。
  *
  * 【绝不能动的东西】
- *   · STORAGE_KEY 与存储结构（换了键 = 用户草稿全丢）
  *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
  *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
- *     applyBackground 一致，否则缩略图底色和已烘焙的图片对不上
+ *     applyBackground 一致
  *
- * 【行结构】{ key, name, order, star?, local?, url?, lock?, card?, art? }
- *   key/name/order/star/local/url   头像（原有，格式不动）
- *   lock    true = 这条我手填过，同步整条跳过
- *   card    { key, url, local }  名片大图
- *   art     { key, url, local }  立绘（没有自动源，只手填）
- *   没有 base / 变体：「旅行者」和「旅行者·冰」是两条独立角色，只是序号相同
+ * 【key 只存代号】
+ *   地址 = config[type].prefix + key + ext，prefix 里含图标名常量：
+ *     头像  prefix ".../avataricon/UI_AvatarIcon_"   ext ".webp"   key "Ambor"
+ *     名片  prefix ".../namecardpic/UI_NameCardPic_" ext "_P.webp"  key "Ambor"
+ *     武器  prefix ".../weaponicon/UI_EquipIcon_"    key "Sword_Blunt"
+ *   这样头像和名片共用同一个代号，互推就是「同名代换」。
+ *   变体（旅行者·冰）和仓库里的图不走这套，直接存 url。
  *
- * 【名片从哪来 —— 两个坑】
- *   1. Amber 的「头像列表」接口（/avatar）**没有 nameCard 字段**，那是详情接口才有。
- *      → 名片归属改从名片表（/namecard）取。
- *   2. 归属靠两张表都有的 route（英文名）对，不靠图标代号，也不靠中文名：
- *        头像  {"icon":"UI_AvatarIcon_Momoka","name":"绮良良","route":"Kirara"}
- *        名片  {"icon":"UI_NameCardIcon_Kirara","name":"绮良良·猫箱","route":"Kirara: Neko Box"}
- *      绮良良的头像代号叫 Momoka、名片叫 Kirara，只有英文名对得上。
+ * 【行结构】
+ *   { key, name, order, star?, url?, lock?, card?, art? }
+ *   key    头像代号（或变体的名字，如「旅行者·冰」；或任意唯一身份）
+ *   url    完整链接 / 站点绝对路径（如 /genshin-guide/shared/gi-icons/…）
+ *   card   { key, url }  名片代号（绮良良那种和头像不一样）
+ *   art    { key, url }  立绘（只手填 / 从 character-art.txt 灌）
+ *   lock   true = 这一条我全手维护，同步整条不碰
  *
- * 【名片归属的四级匹配】（实测 122 张 bond 名片：英文名中 118，代号中 2，剩 2 张是 NPC）
- *   ① 条目自带 nameCard（详情接口）
- *   ② 英文名 route 相同        —— 安柏 Amber / 绮良良 Kirara
- *   ③ 中文名相同               —— 兜底
- *   ④ 图标代号相同             —— 救「公子/达达利亚」「一斗/荒泷一斗」这种别名
+ * 【三件事怎么互推】
+ *   ① 中文名：查源（Amber 角色表）→ 头像代号；名片代号再按下面两条取
+ *   ② 代号代换：头像代号和名片代号同名（Ambor → Ambor）—— 覆盖绝大多数，
+ *      连源里没有的未实装角色也能用（URL 里带着代号就行）
+ *   ③ 按英文名查源：代号代换不成立时（绮良良头像 Momoka、名片 Kirara），
+ *      拿角色的 route（Kirara）去名片表对上
+ *   猜出来的地址会先用 <img> 试加载（跨域不影响 onload/onerror），加载不出来
+ *   就当没推出来，留空让你手填。
  *
- * 【只有这三条算「我手填过」】local / url / lock —— 整条不参与更新。
+ * 【「不更新」是按槽位算的】
+ *   头像槽：带 url 就留你的；否则跟源走
+ *   名片槽：带 url 就留你的；否则源补空
+ *   立绘槽：源里没有
+ *   名字 / 星级 / 序号 永远跟源走 —— 只有 lock: true 是整条不动
  *
- * 【链接 → key 的规则】
- *   认得出 key → 只记 key（哪怕它和这一项本来对应的 key 不同，也以你粘的为准）
- *   认不出     → 记完整链接
- *   例外：立绘没有源前缀，只记 key 会显示不出来 → key 和链接都留
+ * 【过渡期】
+ *   立绘靠 shared/data/character-art.txt 灌（「导入一次」）。那份 txt 退休时，
+ *   删掉 PORTRAIT_SRC、fetchPortraits()、syncFromAmber 里那段和这些注释。
  * ========================================================================= */
 
+const BASE = import.meta.env.BASE_URL
 const STORAGE_KEY = 'icon_dict_editor_v4'
 const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
 const MAX_LOG = 10
 const DICT_SRC = 'shared/gi-icons/icon-dict.js'
 const CHARS_SRC = 'shared/data/characters.txt'
+const PORTRAIT_SRC = 'shared/data/character-art.txt' /* 过渡期，见文件头 */
 
+const LU = 'https://api.lunaris.moe/data/assets/'
 const AMBER_UI = 'https://gi.yatta.moe/assets/UI/'
 
-/* config 会随字典一起导出。prefix / ext 是 icon-loader.js 读的字段，
-   一个字都不能改；alt / card 是后加的，loader 不认识、也不受影响。 */
 const DEFAULT_CONFIG = {
   characters: {
-    prefix: 'https://api.lunaris.moe/data/assets/avataricon/',
+    prefix: `${LU}avataricon/UI_AvatarIcon_`,
     ext: '.webp',
-    /* 备用源：主源图挂了，缩略图会换这个地址再试一次。
-       Amber 的目录结构和 lunaris 不一样 —— 头像是扁平的，名片在 namecard/ 下 */
-    alt: { prefix: AMBER_UI, ext: '.png' },
+    /* 备用源：主源图挂了，缩略图换这个地址再试一次 */
+    alt: { prefix: `${AMBER_UI}UI_AvatarIcon_`, ext: '.png' },
     card: {
-      prefix: 'https://api.lunaris.moe/data/assets/namecardpic/',
-      ext: '.webp',
-      alt: { prefix: `${AMBER_UI}namecard/`, ext: '.png' },
+      prefix: `${LU}namecardpic/UI_NameCardPic_`,
+      ext: '_P.webp',
+      alt: { prefix: `${AMBER_UI}namecard/UI_NameCardPic_`, ext: '_P.png' },
     },
   },
-  artifacts: { prefix: 'https://api.lunaris.moe/data/assets/artifacts/', ext: '.webp' },
-  weapons: { prefix: 'https://api.lunaris.moe/data/assets/weaponicon/', ext: '.webp' },
-  monsters: { prefix: 'https://api.lunaris.moe/data/assets/monstericon/', ext: '.png' },
+  artifacts: { prefix: `${LU}artifacts/UI_RelicIcon_`, ext: '.webp' },
+  weapons: { prefix: `${LU}weaponicon/UI_EquipIcon_`, ext: '.webp' },
+  monsters: { prefix: `${LU}monstericon/UI_MonsterIcon_`, ext: '.png' },
 }
 
 const AMBER_ENDPOINTS = {
@@ -79,7 +83,6 @@ const AMBER_ENDPOINTS = {
   weapons: 'https://gi.yatta.moe/api/v2/CHS/weapon',
   artifacts: 'https://gi.yatta.moe/api/v2/CHS/reliquary',
   monsters: 'https://gi.yatta.moe/api/v2/CHS/monster',
-  /* 名片表：41KB。角色列表接口不带 nameCard，名片归属只能从这儿来 */
   namecard: 'https://gi.yatta.moe/api/v2/CHS/namecard',
 }
 
@@ -90,14 +93,87 @@ const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器'
 const SLOTS = ['', 'card', 'art']
 const SLOT_LABELS = { '': '头像', card: '名片', art: '立绘' }
 
+/* 各分类的图标名前缀：key 只留代号，这一截进 config.prefix */
+const ICON_RE = {
+  characters: {
+    '': /^UI_AvatarIcon_/i,
+    card: /^UI_NameCard(?:Pic|Icon)_/i,
+    art: /^UI_Gacha_AvatarImg_/i,
+  },
+  artifacts: { '': /^UI_RelicIcon_/i },
+  weapons: { '': /^UI_EquipIcon_/i },
+  monsters: { '': /^UI_MonsterIcon_/i },
+}
+const ANY_ICON_RE = /^UI_[A-Za-z]+_/
+
 /* 官方把旅行者拆成男女两张官方图，我们要的是仓库里那张自制的。 */
 const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
 
-/* 同步时必须存在的本地条目。本地已有同 key 的条目就保持原样，不覆盖你的改动。 */
+/* 不被源影响、必须存在的条目。本地已有同 key 的行就完全不动它。
+   旅行者·冰 和旅行者共用头像和名片，只有立绘不同 ——
+   字典的 key 不能重复（那是个对象），所以给它一个自己的 key（中文名），
+   头像用 url 指回旅行者那张图。仓库里的图存站点绝对路径（/genshin-guide/…），
+   这样在别的仓库里也能加载。 */
+const TRAVELER_ICON = `${BASE}shared/gi-icons/UI_AvatarIcon_Traveler.webp`
+const TRAVELER_CARD = 'Ysxf6'
 const FORCED_LOCAL = {
   characters: [
-    { key: 'UI_AvatarIcon_Traveler.webp', name: '旅行者', order: 1, star: 5, local: true },
+    {
+      key: 'Traveler',
+      name: '旅行者',
+      order: 1,
+      star: 5,
+      url: TRAVELER_ICON,
+      card: { key: TRAVELER_CARD, url: '' },
+    },
+    {
+      key: '旅行者·冰',
+      name: '旅行者·冰',
+      order: 1,
+      star: 5,
+      url: TRAVELER_ICON,
+      card: { key: TRAVELER_CARD, url: '' },
+    },
   ],
+}
+
+/* =========================================================================
+ * 代号：全名 / 网址 / 仓库路径 → 只剩最后那一截
+ * ========================================================================= */
+
+function codeFrom(input, type = '', slot = '') {
+  let s = String(input || '').trim()
+  if (!s) return ''
+  s = s.split('/').pop().split('?')[0] /* 网址和仓库路径都取最后一段 */
+  const hadExt = /\.[a-z0-9]+$/i.test(s)
+  s = s.replace(/\.[a-z0-9]+$/i, '')
+
+  const re = (ICON_RE[type] || {})[slot] || (ICON_RE[type] || {})[''] || ANY_ICON_RE
+  let hit = false
+  if (re.test(s)) {
+    s = s.replace(re, '')
+    hit = true
+  }
+  if (ANY_ICON_RE.test(s)) {
+    s = s.replace(ANY_ICON_RE, '')
+    hit = true
+  }
+  /* 认不出图标名前缀、又带着扩展名（比如官网那一长串哈希名）→ 不当代号 */
+  if (!hit && hadExt) return ''
+  if (slot === 'card') s = s.replace(/_P$/i, '')
+  return s
+}
+
+/* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段 */
+const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
+
+/* 仓库内路径（shared/… / ../shared/… / /genshin-guide/shared/…）→ 站点绝对路径。
+   http 开头的不动。 */
+function repoUrl(input) {
+  const s = String(input || '').trim()
+  if (!s || /^https?:\/\//i.test(s)) return ''
+  const i = s.indexOf('shared/')
+  return i < 0 ? '' : BASE + s.slice(i)
 }
 
 /* =========================================================================
@@ -168,59 +244,6 @@ function darkenHex(hex, percent) {
 }
 
 /* =========================================================================
- * key ↔ 代号 ↔ 英文名 ↔ 中文名
- * ========================================================================= */
-
-const KEY_PREFIX_RE =
-  /^UI_(?:AvatarIcon|NameCardPic|NameCardIcon|Gacha_AvatarImg|MonsterIcon|WeaponIcon|RelicIcon)_/i
-
-function rawCode(key) {
-  return String(key || '')
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(KEY_PREFIX_RE, '')
-    .replace(/_P$/i, '')
-}
-
-const codeOf = (key) => rawCode(key).toLowerCase()
-
-/* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段。
-   注意有些英文名带空格（'Kamisato Ayaka'），所以只做小写 + 去首尾空格，不删空格。 */
-const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
-
-/* Amber 给的是名片小图标名（UI_NameCardIcon_Hutao），
-   我们要的是大图（UI_NameCardPic_Hutao_P），换前后缀即可。 */
-const cardKeyFrom = (icon) => {
-  const code = rawCode(icon)
-  return code ? `UI_NameCardPic_${code}_P` : ''
-}
-
-/* 从 URL 里认 key。认不出返回空 —— 调用方就存完整链接。 */
-const SLOT_KEY_RE = {
-  '': /^UI_AvatarIcon_(.+?)(?:\.[a-z0-9]+)?$/i,
-  card: /^UI_NameCard(?:Pic|Icon)_(.+?)(?:_P)?(?:\.[a-z0-9]+)?$/i,
-  art: /^UI_Gacha_AvatarImg_(.+?)(?:\.[a-z0-9]+)?$/i,
-}
-
-function extractKey(input, slot = '') {
-  let s = String(input || '').trim()
-  if (!s) return ''
-  if (/^https?:\/\//i.test(s)) s = s.split('/').pop().split('?')[0]
-  const m = s.match(SLOT_KEY_RE[slot] || SLOT_KEY_RE[''])
-  if (!m) return ''
-  const code = m[1]
-  if (slot === 'card') return `UI_NameCardPic_${code}_P`
-  if (slot === 'art') return `UI_Gacha_AvatarImg_${code}`
-  return `UI_AvatarIcon_${code}`
-}
-
-/* 仓库内路径：老 txt 里写的是 ../../shared/xxx，统一成 shared/xxx */
-function repoPath(url) {
-  const s = String(url || '').trim()
-  const m = s.match(/^(?:\.\.\/)+shared\//)
-  return m ? `shared/${s.slice(m[0].length)}` : ''
-}
-
-/* =========================================================================
  * 序列化：导出 icon-dict.js 的逐字格式
  * ========================================================================= */
 
@@ -245,7 +268,6 @@ const litSlot = (o) => {
   const p = []
   if (o.key) p.push(`key: "${escJs(o.key)}"`)
   if (o.url) p.push(`url: "${escJs(o.url)}"`)
-  if (o.local) p.push('local: true')
   return `{ ${p.join(', ')} }`
 }
 
@@ -253,7 +275,6 @@ function litRow(row) {
   const p = [`name: "${escJs(row.name)}"`]
   if (row.star != null) p.push(`star: ${row.star}`)
   p.push(`order: ${row.order || 0}`)
-  if (row.local) p.push('local: true')
   if (row.url) p.push(`url: "${escJs(row.url)}"`)
   if (row.lock) p.push('lock: true')
   if (row.card) p.push(`card: ${litSlot(row.card)}`)
@@ -296,7 +317,6 @@ function serializeDict(config, data) {
 function cloneRow(row) {
   const out = { key: row.key, name: row.name || '', order: row.order || 0 }
   if (row.star != null) out.star = row.star
-  if (row.local) out.local = true
   if (row.url) out.url = row.url
   if (row.lock) out.lock = true
   if (row.card) out.card = { ...row.card }
@@ -304,22 +324,36 @@ function cloneRow(row) {
   return out
 }
 
-/* API 给的槽位与旧行合并：你「粘的完整链接」形态优先，API 不覆盖它 */
-function mergeSlots(oldRow, item) {
-  const out = { ...item }
-  ;['card', 'art'].forEach((s) => {
-    const prev = oldRow?.[s]
-    if (!prev) return
-    if (prev.url && !prev.local) out[s] = { ...prev }
-    else if (!item?.[s]) out[s] = { ...prev }
-  })
-  return out
-}
-
 function readSlot(o) {
   if (!o || typeof o !== 'object') return null
-  const s = { key: o.key || '', url: o.url || '', local: !!o.local }
+  const s = { key: o.key || '', url: o.url || '' }
   return s.key || s.url ? s : null
+}
+
+/* 老数据归一：全名 key → 代号；local:true → 站点绝对路径 */
+function migrateRow(row, type) {
+  if (row.local) {
+    /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
+    if (!row.url) row.url = `${BASE}shared/gi-icons/${row.key}`
+    delete row.local
+  } else if (row.url && !/^https?:\/\//i.test(row.url)) {
+    const r = repoUrl(row.url)
+    if (r) row.url = r
+  }
+  row.key = codeFrom(row.key, type)
+
+  SLOTS.forEach((s) => {
+    if (!s || !row[s]) return
+    const o = row[s]
+    if (o.local) {
+      if (o.url && !/^https?:\/\//i.test(o.url)) o.url = repoUrl(o.url) || o.url
+      delete o.local
+    }
+    o.key = codeFrom(o.key, type, s)
+    if (!o.key && !o.url) delete row[s]
+  })
+
+  return row
 }
 
 function dictToRows(dict, type) {
@@ -335,7 +369,7 @@ function dictToRows(dict, type) {
     const art = readSlot(item.art)
     if (card) row.card = card
     if (art) row.art = art
-    return row
+    return migrateRow(row, type)
   })
 }
 
@@ -346,28 +380,6 @@ function readLog() {
   } catch {
     return []
   }
-}
-
-function mergeSrc(o, def) {
-  const s = o && typeof o === 'object' ? o : {}
-  return {
-    prefix: typeof s.prefix === 'string' && s.prefix ? s.prefix : def?.prefix || '',
-    ext: typeof s.ext === 'string' ? s.ext : def?.ext || '',
-  }
-}
-
-function normConfig(cfg, def) {
-  const c = cfg && typeof cfg === 'object' ? cfg : {}
-  const out = {
-    prefix: typeof c.prefix === 'string' && c.prefix ? c.prefix : def.prefix,
-    ext: typeof c.ext === 'string' ? c.ext : def.ext,
-  }
-  if (def.alt) out.alt = mergeSrc(c.alt, def.alt)
-  if (def.card) {
-    out.card = mergeSrc(c.card, def.card)
-    out.card.alt = mergeSrc(c.card?.alt, def.card.alt)
-  }
-  return out
 }
 
 /* ========================================================================= */
@@ -389,16 +401,18 @@ export function useIconDict() {
 
   const orderToName = {}
   const nameToOrder = {}
-  /* 图标名 / 小写代号 / id / 'n:中文名' / 'r:英文名' / 'c:名片代号' → API 原始条目 */
+  /* 代号 / 小写代号 / id / 'n:中文名' / 'r:英文名' / 'c:名片代号' → API 原始条目 */
   const amberIndex = {}
-  /* { byRoute, byName, byCode } —— 名片表的三张索引，只收 bond 类 */
+  /* { byRoute, byCode } —— 名片表索引，只收 bond 类 */
   let cardMap = null
+  /* shared/data/character-art.txt 解析结果 */
+  let portraitList = null
 
   /* ---------------- 存储 ---------------- */
 
   function writeLocal() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, config, dirty: dirty.value }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, dirty: dirty.value }))
     } catch {
       /* 无痕模式写不进去，忽略 */
     }
@@ -422,15 +436,11 @@ export function useIconDict() {
 
     dirty.value = parsed.dirty !== false
 
-    if (parsed.config && typeof parsed.config === 'object') {
-      TYPES.forEach((t) => {
-        config[t] = normConfig(parsed.config[t], DEFAULT_CONFIG[t])
-      })
-    }
-
     if (parsed.data && typeof parsed.data === 'object') {
       TYPES.forEach((t) => {
-        data[t] = Array.isArray(parsed.data[t]) ? parsed.data[t] : []
+        data[t] = Array.isArray(parsed.data[t])
+          ? parsed.data[t].map((row) => migrateRow(row, t))
+          : []
       })
     }
   }
@@ -447,7 +457,7 @@ export function useIconDict() {
 
   async function loadCharOrder() {
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}${CHARS_SRC}?t=${Date.now()}`)
+      const res = await fetch(`${BASE}${CHARS_SRC}?t=${Date.now()}`)
       if (!res.ok) return
       const text = await res.text()
       for (const k of Object.keys(orderToName)) delete orderToName[k]
@@ -462,8 +472,7 @@ export function useIconDict() {
         const name = parts.slice(1).join(' ').trim()
         if (!order || !name) return
         nameToOrder[name] = order
-        /* 旅行者和旅行者·冰共用序号 1（两条独立角色）：
-           「序号 → 名字」只认第一个登记的，否则反查会串 */
+        /* 旅行者和旅行者·冰共用序号 1：反查只认第一个登记的 */
         if (!orderToName[order]) orderToName[order] = name
       })
     } catch (e) {
@@ -471,23 +480,45 @@ export function useIconDict() {
     }
   }
 
+  /* shared/data/character-art.txt：每行「序号 名字 地址」。
+   仓库内路径 → 站点绝对路径；完整 URL 原样存。 */
+  async function fetchPortraits() {
+    if (portraitList) return portraitList
+
+    const res = await fetch(`${BASE}${PORTRAIT_SRC}?t=${Date.now()}`)
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const text = await res.text()
+
+    const list = []
+    text.split(/\r?\n/).forEach((raw) => {
+      const line = raw.trim()
+      if (!line || line.startsWith('#')) return
+      const m = line.match(/^(\d+)\s+(\S+)\s+(\S+)$/)
+      if (!m) return
+
+      const addr = repoUrl(m[3]) || m[3]
+      list.push({
+        order: parseInt(m[1], 10),
+        name: m[2],
+        art: { key: codeFrom(addr, 'characters', 'art'), url: addr },
+      })
+    })
+
+    portraitList = list
+    return list
+  }
+
   async function fetchDict() {
     delete window.ICON_DICT
     return loadGlobalScript(`${DICT_SRC}?t=${Date.now()}`, 'ICON_DICT')
-  }
-
-  function applyDictConfig(dict) {
-    if (!dict.config || typeof dict.config !== 'object') return
-    TYPES.forEach((t) => {
-      config[t] = normConfig(dict.config[t], DEFAULT_CONFIG[t])
-    })
   }
 
   async function loadDict() {
     busy.value = '正在从仓库载入…'
     try {
       const dict = (await fetchDict()) || {}
-      applyDictConfig(dict)
+      /* config 只导出不读 —— 地址规则由 DEFAULT_CONFIG 说了算，
+         免得载入一份老 prefix 的字典后地址全拼错 */
       TYPES.forEach((t) => {
         data[t] = dictToRows(dict, t)
       })
@@ -559,38 +590,50 @@ export function useIconDict() {
     return { src: null, alt: null } /* 立绘没有自动源 */
   }
 
+  const joinSrc = (src, key) =>
+    src?.prefix && key ? src.prefix + key + (src.ext || '') : ''
+
   function resolveUrl(type, row) {
     const cfg = config[type] || {}
     if (!row || !row.key) return ''
-    if (row.local) return `${import.meta.env.BASE_URL}shared/gi-icons/${row.key}`
     if (row.url) return row.url
-    if (/^https?:\/\//i.test(row.key)) return row.key
-    return cfg.prefix ? cfg.prefix + row.key + (cfg.ext || '') : ''
+    return joinSrc(cfg, row.key)
   }
 
   function slotSrc(type, row, slot = '') {
     if (!row) return { src: '', alt: '' }
     if (!slot) {
-      const src = resolveUrl(type, row)
       const cfg = config[type] || {}
-      const alt =
-        cfg.alt && cfg.alt.prefix && row.key && !row.url && !row.local
-          ? cfg.alt.prefix + row.key + (cfg.alt.ext || '')
-          : ''
-      return { src, alt }
+      const alt = !row.url ? joinSrc(cfg.alt, row.key) : ''
+      return { src: resolveUrl(type, row), alt }
     }
 
     const o = row[slot]
     if (!o) return { src: '', alt: '' }
-    if (o.local) return { src: o.url ? import.meta.env.BASE_URL + o.url : '', alt: '' }
-    if (o.url) return { src: o.url, alt: '' }
-    if (!o.key) return { src: '', alt: '' }
-
+    if (o.url) return { src: o.url, alt: '' } /* 完整链接 / 仓库绝对路径 */
     const { src, alt } = slotCfg(type, slot)
-    return {
-      src: src?.prefix ? src.prefix + o.key + (src.ext || '') : '',
-      alt: alt?.prefix ? alt.prefix + o.key + (alt.ext || '') : '',
-    }
+    return { src: joinSrc(src, o.key), alt: joinSrc(alt, o.key) }
+  }
+
+  /* 猜出来的地址能不能真加载。跨域也能拿到 onload/onerror，不需要 CORS。 */
+  function probe(url) {
+    return new Promise((done) => {
+      if (!url) {
+        done(false)
+        return
+      }
+      const img = new Image()
+      img.onload = () => done(true)
+      img.onerror = () => done(false)
+      img.src = url
+    })
+  }
+
+  /* 名片代号能不能用（主源、备用源各试一次） */
+  async function cardOk(code) {
+    if (!code) return false
+    const { src, alt } = slotCfg('characters', 'card')
+    return (await probe(joinSrc(src, code))) || (await probe(joinSrc(alt, code)))
   }
 
   /* ---------------- 缩略图底色 ---------------- */
@@ -669,75 +712,61 @@ export function useIconDict() {
   /* ---------------- 槽位 ---------------- */
 
   function ensureSlot(row, slot) {
-    if (!row[slot]) row[slot] = { key: '', url: '', local: false }
+    if (!row[slot]) row[slot] = { key: '', url: '' }
     return row[slot]
   }
 
-  /* 落一个 URL：
-     仓库路径（shared/…）→ local + 路径
-     认得出 key 且有源前缀 → 只记 key（以你粘的为准）
-     认得出 key 但没源前缀（立绘）→ key 和链接都留，链接保证显示
-     认不出 key → 只记完整链接 */
+  /* 落一个地址：
+     仓库路径（…/shared/…）→ 站点绝对路径
+     认得出代号 → 只记代号（有源前缀的槽位地址由源拼；立绘没前缀所以代号和链接都留）
+     认不出 → 只记完整链接 */
   function applyUrl(row, slot, raw) {
     const url = String(raw || '').trim()
     if (!url) return ''
 
-    const repo = repoPath(url)
+    const repo = repoUrl(url)
     if (repo) {
       if (slot) {
         const o = ensureSlot(row, slot)
         o.key = ''
         o.url = repo
-        o.local = true
       } else {
         row.url = repo
-        row.local = true
       }
       markDirty()
       return ''
     }
 
-    const key = extractKey(url, slot)
+    const code = codeFrom(url, tab.value, slot)
     const { src } = slotCfg(tab.value, slot)
 
     if (slot) {
       const o = ensureSlot(row, slot)
-      o.local = false
-      o.key = key
-      o.url = key && src?.prefix ? '' : url
+      o.key = code
+      o.url = code && src?.prefix ? '' : url
       markDirty()
-      return key
+      return code
     }
 
-    /* 头像：key 就是这一行的身份 —— 以你粘的为准 */
+    /* 头像：代号就是这一行的身份 —— 以你粘的为准 */
     const oldKey = row.key
-    row.local = false
-    if (key && data[tab.value].some((r) => r !== row && r.key === key)) {
-      toast.error('这个 key 已经被另一条占用了')
+    if (code && data[tab.value].some((r) => r !== row && r.key === code)) {
+      toast.error('这个代号已经被另一条占用了')
       row.url = url
-    } else if (key) {
-      row.key = key
+    } else if (code) {
+      row.key = code
       row.url = ''
-      if (activeKey.value === oldKey) activeKey.value = key
+      if (activeKey.value === oldKey) activeKey.value = code
     } else {
       row.url = url
     }
     markDirty()
-    return key
+    return code
   }
 
   function clearSlot(row, slot) {
     if (slot) delete row[slot]
-    else {
-      row.url = ''
-      row.local = false
-    }
-    markDirty()
-  }
-
-  function setSlotLocal(row, slot, value) {
-    if (slot) ensureSlot(row, slot).local = !!value
-    else row.local = !!value
+    else row.url = ''
     markDirty()
   }
 
@@ -756,50 +785,43 @@ export function useIconDict() {
     }
   }
 
-  /* 名片表 → 三张索引，只收 type === 'bond'（纪行 / 活动 / 成就名片不属于任何角色）。
-     byRoute 英文名（主）· byName 中文名（兜）· byCode 图标代号（救别名） */
+  /* 名片表 → 英文名索引 + 代号索引，只收 type === 'bond'
+     （纪行 / 活动 / 成就名片不属于任何角色） */
   async function fetchCardMap() {
     if (cardMap) return cardMap
     const items = await fetchAmber('namecard')
-    const map = { byRoute: {}, byName: {}, byCode: {} }
+    const map = { byRoute: {}, byCode: {} }
 
     Object.keys(items).forEach((k) => {
       const it = items[k]
       if (!it || it.type !== 'bond' || !it.icon || !it.name) return
-      const key = cardKeyFrom(it.icon)
-      if (!key) return
+      const code = codeFrom(it.icon, 'characters', 'card')
+      if (!code) return
 
       const route = routeKey(it.route)
-      const who = String(it.name).split('·')[0].trim()
-      const code = codeOf(it.icon)
-
-      if (route && !map.byRoute[route]) map.byRoute[route] = key
-      if (who && !map.byName[who]) map.byName[who] = key
-      if (code && !map.byCode[code]) map.byCode[code] = { key, route, who }
+      if (route && !map.byRoute[route]) map.byRoute[route] = code
+      if (!map.byCode[code]) map.byCode[code] = { code, route, who: String(it.name).split('·')[0].trim() }
     })
 
     cardMap = map
     return map
   }
 
-  /* 角色条目 → 它的名片 key，四级匹配（见文件头）。 */
-  function cardKeyFor(item, cards) {
-    if (!cards) return cardKeyFrom(item.nameCard?.icon)
-    return (
-      cardKeyFrom(item.nameCard?.icon) || /* ① 详情接口自带 */
-      cards.byRoute[routeKey(item.route)] || /* ② 英文名 */
-      cards.byName[item.name] || /* ③ 中文名 */
-      cards.byCode[codeOf(item.icon)]?.key || /* ④ 图标代号同名 */
-      ''
-    )
+  /* 角色条目 → 名片代号：
+     ① 源直接给的（详情接口 nameCard）② 按英文名 route 对上 ③ 同名代换（猜） */
+  function cardCodeFor(item, cards = null) {
+    if (item.nameCard?.icon) return codeFrom(item.nameCard.icon, 'characters', 'card')
+    const hit = cards?.byRoute[routeKey(item.route)]
+    if (hit) return hit
+    return codeFrom(item.icon, 'characters', 'card')
   }
 
   /* API 条目 → 字段。**不带任何排除规则**，手动粘贴也用它。 */
   function deriveFields(type, item, cards = null) {
     if (type === 'characters') {
       const out = { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
-      const cardKey = item.cardKey || cardKeyFor(item, cards)
-      if (cardKey) out.card = { key: cardKey, url: '', local: false }
+      const card = item.cardCode || cardCodeFor(item, cards)
+      if (card) out.card = { key: card, url: '' }
       return out
     }
     if (type === 'weapons') {
@@ -822,33 +844,35 @@ export function useIconDict() {
     Object.keys(items).forEach((id) => {
       const item = items[id]
       if (!item || !item.icon || !item.name) return
+      const code = codeFrom(item.icon, type)
+      if (!code) return
 
       if (type === 'characters') {
         if (OFFICIAL_TRAVELER_RE.test(item.icon)) {
-          skipped.add(item.icon)
+          skipped.add(code)
           return
         }
         if (!nameToOrder[item.name]) return /* 软排除：只不加 */
       } else if (type === 'weapons') {
         const order = item.id || 0
         if (order < 10000 || order >= 100000) {
-          skipped.add(item.icon)
+          skipped.add(code)
           return
         }
       } else if (type === 'monsters') {
         if (String(item.id || '').startsWith('28')) {
-          skipped.add(item.icon)
+          skipped.add(code)
           return
         }
       }
 
-      kept[item.icon] = deriveFields(type, item, cards)
+      kept[code] = deriveFields(type, item, cards)
     })
 
     return { kept, skipped }
   }
 
-  /* 一张扁平索引：图标名 / 小写代号 / id 都能查到条目。
+  /* 一张扁平索引：代号 / 小写代号 / id 都能查到条目。
      角色额外登记中文名、英文名、名片代号，供「输入名字」「粘名片 URL」反查。 */
   async function ensureAmberIndex(type) {
     if (amberIndex[type]) return amberIndex[type]
@@ -862,24 +886,23 @@ export function useIconDict() {
     Object.keys(items).forEach((k) => {
       const raw = items[k]
       if (!raw || !raw.icon || !raw.name) return
-      /* 名片 key 一次算好挂上去，后面 hydrate / addCharacter 直接用 */
-      const item = cards ? { ...raw, cardKey: cardKeyFor(raw, cards) } : raw
+      const code = codeFrom(raw.icon, type)
+      if (!code) return
+      /* 名片代号一次算好挂上去，后面 hydrate / addCharacter 直接用 */
+      const item = cards ? { ...raw, cardCode: cardCodeFor(raw, cards) } : raw
 
-      map[item.icon] = item
-      const stripped = String(item.icon).replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
-      if (stripped && !map[stripped]) map[stripped] = item
-      if (item.id != null && !map[String(item.id)]) map[String(item.id)] = item
+      map[code] = item
+      if (!map[code.toLowerCase()]) map[code.toLowerCase()] = item
+      if (raw.id != null && !map[String(raw.id)]) map[String(raw.id)] = item
 
       if (type === 'characters') {
-        if (!map['n:' + item.name]) map['n:' + item.name] = item
-        const rt = routeKey(item.route)
+        if (!map['n:' + raw.name]) map['n:' + raw.name] = item
+        const rt = routeKey(raw.route)
         if (rt && !map['r:' + rt]) map['r:' + rt] = item
-        const cc = codeOf(item.cardKey)
+        const cc = item.cardCode
         if (cc && !map['c:' + cc]) map['c:' + cc] = item
-        /* 名片代号和头像代号同名的情况（公子 Tartaglia / 一斗 Itto）也登记一份，
-           这样粘名片链接能直接对上 */
-        const ac = codeOf(item.icon)
-        if (ac && !map['c:' + ac]) map['c:' + ac] = item
+        /* 名片代号 == 头像代号的情况也登记一份（公子 Tartaglia / 一斗 Itto） */
+        if (!map['c:' + code]) map['c:' + code] = item
       }
     })
 
@@ -898,11 +921,11 @@ export function useIconDict() {
     }
 
     if (from === 'card') {
-      const c = codeOf(row.card?.key || row.card?.url || '')
+      const c = codeFrom(row.card?.key || row.card?.url || '', 'characters', 'card')
       if (!c) return null
       const map = await ensureAmberIndex('characters')
       if (map['c:' + c]) return map['c:' + c]
-      /* 索引里没登记：拿名片表的英文名 / 中文名再对一次 */
+      if (map[c]) return map[c]
       const cards = await fetchCardMap().catch(() => null)
       const hit = cards?.byCode[c]
       if (!hit) return null
@@ -911,35 +934,42 @@ export function useIconDict() {
 
     if (!row.key) return null
     const map = await ensureAmberIndex('characters')
-    return map[row.key] || map[codeOf(row.key)] || null
+    return map[row.key] || map[String(row.key).toLowerCase()] || null
   }
 
-  /* 用源里查到的条目补齐这一条：名字、另一个 key、星级。只补空着的 */
+  /* 补齐这一条：名字、头像代号、星级、名片代号。
+     只有空着的才补 —— 你填过的绝不覆盖。 */
   async function hydrate(row, from) {
     let item = null
     try {
       item = await itemFrom(row, from)
     } catch {
-      return false
+      item = null
     }
-    if (!item) return false
+    if (!item && !row.key) return false
 
     let changed = false
-    if (!row.name && item.name) {
+    if (!row.name && item?.name) {
       row.name = item.name
       changed = true
     }
-    if (!row.key && item.icon) {
-      row.key = item.icon
+    if (!row.key && item) {
+      row.key = codeFrom(item.icon, 'characters')
       changed = true
     }
-    if (item.cardKey && !row.card?.key && !row.card?.url) {
-      row.card = { key: item.cardKey, url: '', local: false }
-      changed = true
-    }
-    if (row.star == null && item.rank) {
+    if (row.star == null && item?.rank) {
       row.star = item.rank
       changed = true
+    }
+
+    /* 名片：源里给了就用源的；源里没有这个角色（未实装）就同名代换，
+       代换出来的地址要真能加载才算数 */
+    if (!row.card?.key && !row.card?.url && row.key) {
+      const code = item?.cardCode || ((await cardOk(row.key)) ? row.key : '')
+      if (code) {
+        row.card = { key: code, url: '' }
+        changed = true
+      }
     }
 
     if (changed) markDirty()
@@ -971,8 +1001,9 @@ export function useIconDict() {
       return false
     }
 
+    const code = codeFrom(item.icon, 'characters')
     const f = deriveFields('characters', item)
-    const row = { key: item.icon, name: f.name || n, order: f.order || 0, star: f.star }
+    const row = { key: code, name: f.name || n, order: f.order || 0, star: f.star }
     if (f.card) row.card = { ...f.card }
     data.characters.push(row)
     markDirty()
@@ -989,7 +1020,7 @@ export function useIconDict() {
     const urls = String(text || '')
       .split(/\r?\n/)
       .map((l) => l.trim())
-      .filter((l) => /^https?:\/\//i.test(l) || repoPath(l))
+      .filter((l) => /^https?:\/\//i.test(l) || repoUrl(l))
 
     if (!urls.length) {
       toast.error('未识别到有效链接')
@@ -1005,22 +1036,21 @@ export function useIconDict() {
 
     const created = []
     urls.forEach((url) => {
-      const repo = repoPath(url)
-      const key = repo ? repo.split('/').pop() : extractKey(url, '')
-      if (!key) return
+      const repo = repoUrl(url)
+      const code = repo ? '' : codeFrom(url, type)
+      if (!code && !repo) return
+      const key = code || repo.split('/').pop()
+
       const existing = byKey[key]
       if (existing) {
         applyUrl(existing, '', url)
-      } else {
-        const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
-        if (repo) {
-          row.url = repo
-          row.local = true
-        }
-        list.push(row)
-        byKey[key] = row
-        created.push(row)
+        return
       }
+      const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
+      if (repo) row.url = repo
+      list.push(row)
+      byKey[key] = row
+      created.push(row)
     })
 
     markDirty()
@@ -1035,29 +1065,35 @@ export function useIconDict() {
       }
 
       let changed = false
-      created.forEach((row) => {
-        const stripped = String(row.key).replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
-        const item = map[row.key] || map[String(row.key).toLowerCase()] || map[stripped]
-        if (!item) return
-
-        const f = deriveFields(type, item)
-        if (f.name && f.name !== row.name) {
-          row.name = f.name
-          changed = true
+      for (const row of created) {
+        const item = map[row.key] || map[String(row.key).toLowerCase()]
+        if (item) {
+          const f = deriveFields(type, item)
+          if (f.name && f.name !== row.name) {
+            row.name = f.name
+            changed = true
+          }
+          if (f.star != null && f.star !== row.star) {
+            row.star = f.star
+            changed = true
+          }
+          if (f.order && f.order !== row.order) {
+            row.order = f.order
+            changed = true
+          }
+          if (f.card && !row.card) {
+            row.card = { ...f.card }
+            changed = true
+          }
         }
-        if (f.star != null && f.star !== row.star) {
-          row.star = f.star
-          changed = true
+        /* 源里没有这个角色（未实装）：名片代号同名代换，验得出来就填 */
+        if (type === 'characters' && !row.card?.key && !row.card?.url && row.key) {
+          if (await cardOk(row.key)) {
+            row.card = { key: row.key, url: '' }
+            changed = true
+          }
         }
-        if (f.order && f.order !== row.order) {
-          row.order = f.order
-          changed = true
-        }
-        if (f.card && !row.card) {
-          row.card = { ...f.card }
-          changed = true
-        }
-      })
+      }
 
       if (changed) markDirty()
       busy.value = ''
@@ -1066,33 +1102,14 @@ export function useIconDict() {
     toast.success('解析完成')
   }
 
-  /* ---------------- 同步（合并规则 v7） ---------------- */
+  /* ---------------- 同步（合并规则 v10） ---------------- */
 
   /* 返回 { entry, conflicts }：
-     conflicts = 源里的 key 与你手填的 key 不一致的项，**先按你的保留**，
-     交给界面弹窗让你逐条选「保留我的 / 用源的」。 */
+     conflicts = 源里的代号与你手填的代号不一致的项，**先按你的保留**，
+     交给界面弹窗让你逐条选。 */
   async function syncFromAmber() {
     const before = JSON.parse(JSON.stringify(data))
     const conflicts = []
-
-    const customByKey = {}
-    const customByName = {}
-    TYPES.forEach((t) => {
-      customByKey[t] = {}
-      customByName[t] = {}
-
-      ;(data[t] || []).forEach((row) => {
-        if (!row.local && !row.url && !row.lock) return
-        if (row.key) customByKey[t][row.key] = row
-        if (row.name) customByName[t][row.name] = row
-      })
-
-      ;(FORCED_LOCAL[t] || []).forEach((row) => {
-        if (row.key && customByKey[t][row.key]) return
-        if (row.key) customByKey[t][row.key] = row
-        if (row.name) customByName[t][row.name] = row
-      })
-    })
 
     /* 角色要额外的名片表：头像列表接口不带 nameCard */
     let cards = null
@@ -1126,42 +1143,62 @@ export function useIconDict() {
 
     TYPES.forEach((type) => {
       const merged = {}
-      const byKey = customByKey[type] || {}
-      const byName = customByName[type] || {}
-      const old = {}
+      const byKey = {}
+      const byName = {}
       ;(data[type] || []).forEach((row) => {
-        if (row.key) old[row.key] = row
+        if (!row.key) return
+        byKey[row.key] = row
+        if (row.name && !byName[row.name]) byName[row.name] = row
       })
 
-      /* 英文名 → API 条目，用来发现「名字对上了但 key 不一样」的冲突 */
-      const apiByRoute = {}
-      Object.keys(amber[type] || {}).forEach((k) => {
-        const it = amber[type][k]
-        if (it?.route) apiByRoute[routeKey(it.route)] = { ...it, icon: k }
+      /* 强制存在的条目（旅行者那两行）：本地已经有同 key 的行就完全不动 */
+      ;(FORCED_LOCAL[type] || []).forEach((row) => {
+        if (!row.key || byKey[row.key]) return
+        byKey[row.key] = row
+        if (row.name && !byName[row.name]) byName[row.name] = row
       })
 
-      /* 1. 手填过的行先落位，整条保留 */
-      Object.keys(byKey).forEach((key) => {
-        merged[key] = cloneRow(byKey[key])
-      })
+      /* 1. 每个源条目：先按代号找本地行，找不到再按名字找（代号被手改过也认得出）。
+            找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
+      Object.keys(amber[type] || {}).forEach((code) => {
+        const item = amber[type][code]
+        const prev = byKey[code] || (item.name ? byName[item.name] : null)
 
-      /* 2. API 条目：共用的 key / 名字命中手填行就跳过；否则以 API 为准 */
-      Object.keys(amber[type] || {}).forEach((key) => {
-        const item = amber[type][key]
-        if (byKey[key] || (item.name && byName[item.name])) return
-
-        const prev = old[key]
         if (!prev) {
-          merged[key] = item
+          merged[code] = item
+          return
+        }
+        if (prev.lock) {
+          merged[prev.key] = cloneRow(prev) /* lock：整条都不碰 */
           return
         }
 
-        const next = { ...cloneRow(prev), ...mergeSlots(prev, item) }
-        /* 名片 key 对不上 → 记冲突、先保留我的 */
-        if (prev.card?.key && item.card?.key && prev.card.key !== item.card.key) {
+        const next = cloneRow(prev)
+        if (item.name) next.name = item.name
+        if (item.star != null) next.star = item.star
+        if (item.order) next.order = item.order
+
+        /* 头像槽：带 url 就留着；代号和源不一样则先留你的并记冲突 */
+        if (prev.key !== code) {
           conflicts.push({
             type,
-            rowKey: key,
+            rowKey: prev.key,
+            name: prev.name || item.name || '',
+            slot: '',
+            mine: prev.key,
+            theirs: code,
+          })
+        } else if (prev.url) {
+          /* 手填的地址：留着 */
+        }
+
+        /* 名片槽：带 url 就留着，其余跟源 */
+        if (prev.card?.url) {
+          next.card = { ...prev.card }
+        } else if (prev.card?.key && item.card?.key && prev.card.key !== item.card.key) {
+          conflicts.push({
+            type,
+            rowKey: prev.key,
             name: prev.name || item.name || '',
             slot: 'card',
             mine: prev.card.key,
@@ -1169,36 +1206,67 @@ export function useIconDict() {
           })
           next.card = { ...prev.card }
         }
-        merged[key] = next
+
+        merged[next.key] = next
       })
 
-      /* 3. 剩下没被 API 提到的旧条目：key 判重保留。
-            硬排除的例外 —— 连本地旧条目一起清掉。
-            顺带发现头像 key 冲突：同一条角色、key 不一样 */
-      ;(data[type] || []).forEach((row) => {
-        if (!row.key || merged[row.key]) return
-        if (excluded[type].has(row.key)) return
-
-        if (type === 'characters' && !byKey[row.key]) {
-          const item = apiByRoute[routeKey(row.route || '')] || null
-          const byNameHit = item || Object.values(amber.characters).find((x) => x.name === row.name)
-          if (byNameHit && byNameHit.icon !== row.key) {
-            conflicts.push({
-              type,
-              rowKey: row.key,
-              name: row.name || byNameHit.name || '',
-              slot: '',
-              mine: row.key,
-              theirs: byNameHit.icon,
-            })
-          }
-        }
-
-        merged[row.key] = cloneRow(row)
+      /* 2. 源里没提到的本地行：原样留着（下架了，或者你手工加的）。
+            硬排除的例外 —— 连本地旧条目一起清掉 */
+      Object.keys(byKey).forEach((k) => {
+        if (merged[k]) return
+        if (excluded[type].has(k)) return
+        merged[k] = cloneRow(byKey[k])
       })
 
       data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
     })
+
+    /* ---- 立绘：从 shared/data/character-art.txt 灌进来（过渡期，见文件头）----
+       「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
+       按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
+    busy.value = '正在导入立绘对照…'
+    let portraitNote = ''
+    try {
+      const list = await fetchPortraits()
+      if (list.length) {
+        const byName = {}
+        const byOrder = {}
+        data.characters.forEach((row) => {
+          if (row.name && !byName[row.name]) byName[row.name] = row
+          if (row.order) (byOrder[row.order] = byOrder[row.order] || []).push(row)
+        })
+
+        let applied = 0
+        const missed = []
+
+        list.forEach((p) => {
+          let row = byName[p.name]
+          if (!row) {
+            const same = byOrder[p.order]
+            if (same && same.length === 1) row = same[0]
+          }
+          if (!row) {
+            missed.push(p.name)
+            return
+          }
+
+          const cur = row.art
+          if (cur && (cur.key || '') === p.art.key && (cur.url || '') === p.art.url) return
+
+          row.art = { ...p.art }
+          applied++
+        })
+
+        const still = data.characters.filter((r) => !r.art?.url && !r.art?.key).length
+        const head = missed.slice(0, 4).join('、')
+        portraitNote =
+          `立绘：写入 ${applied} 项` +
+          (missed.length ? ` · 没对上 ${missed.length}（${head}${missed.length > 4 ? '…' : ''}）` : '') +
+          (still ? ` · 仍缺 ${still} 项` : '')
+      }
+    } catch (e) {
+      portraitNote = '立绘对照没读到：' + e.message
+    }
 
     if (activeKey.value && !data.characters.some((r) => r.key === activeKey.value)) {
       activeKey.value = ''
@@ -1206,6 +1274,7 @@ export function useIconDict() {
 
     markDirty()
     busy.value = ''
+    if (portraitNote) toast.success(portraitNote)
 
     const entry = { at: Date.now(), first: !before.characters.length, kinds: diffTypes(before, data) }
     log.value = [entry, ...log.value].slice(0, MAX_LOG)
@@ -1222,11 +1291,11 @@ export function useIconDict() {
       if (!row) return
 
       if (!c.slot) {
-        if (list.some((r) => r !== row && r.key === c.key)) return /* 目标 key 被占 */
+        if (list.some((r) => r !== row && r.key === c.key)) return /* 目标代号被占 */
         if (activeKey.value === row.key) activeKey.value = c.key
         row.key = c.key
       } else {
-        row[c.slot] = { key: c.key, url: '', local: false }
+        row[c.slot] = { key: c.key, url: '' }
       }
       done++
     })
@@ -1306,7 +1375,6 @@ export function useIconDict() {
     search,
     dirty,
     filter,
-    config,
     data,
     log,
     /* 派生 */
@@ -1331,7 +1399,6 @@ export function useIconDict() {
     /* 槽位与反查 */
     applyUrl,
     clearSlot,
-    setSlotLocal,
     hydrate,
     addCharacter,
     /* 业务 */
