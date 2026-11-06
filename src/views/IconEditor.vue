@@ -20,12 +20,12 @@ import { useIconDict } from '../composables/useIconDict.js'
  *   窄屏的返回按钮放在详情栏最外层，任何状态都能回列表。
  *
  * 【grid 必须声明列，一个都不能漏】
- *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开。
- *   一整条不换行的 URL 就能把它撑破，结果是整页横向溢出、手机上得左右拖。
+ *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开，
+ *   一整条不换行的 URL 就能把整页撑到左右拖。
  *
  * 【缩略图的两个部分别拆开】
  *   starStyle() 只往 style 塞 --star-color / --star-edge；
- *   真正画出渐变的是 <style scoped> 里的 .thumb；圆角是模板上的 rounded-ctl。
+ *   真正画渐变的是 <style scoped> 里的 .thumb。
  * ------------------------------------------------------------------------- */
 
 const {
@@ -53,7 +53,6 @@ const {
   select,
   applyUrl,
   clearSlot,
-  setSlotLocal,
   hydrate,
   addCharacter,
   init,
@@ -73,7 +72,7 @@ const TABS = [
   { value: 'monsters', label: '怪物' },
 ]
 const STAR_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}★` }))
-const FILTER_LABELS = { all: '全部', noCard: '缺名片', noArt: '缺立绘' }
+const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
 
 const reportOpen = ref(false)
 const confirmOpen = ref(false)
@@ -84,7 +83,7 @@ const addName = ref('')
 const syncing = ref(false)
 const fetching = ref(false)
 
-/* 冲突弹窗：勾选 = 用源里的 key，不勾 = 保留我手填的 */
+/* 冲突弹窗：勾选 = 用源里的代号，不勾 = 保留我手填的 */
 const conflictOpen = ref(false)
 const conflicts = ref([])
 const useSource = ref([])
@@ -106,19 +105,28 @@ const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目'
 const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上方按钮开始'))
 
 const filterOptions = computed(() =>
-  FILTERS.map((f) => ({
-    value: f.value,
-    label: `${FILTER_LABELS[f.value] ?? f.label} ${counts.value[f.value] ?? 0}`,
-  })),
+  FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
 )
 
 const SLOT_META = [
-  { slot: '', title: '头像', hint: '粘链接自动识别 key；有 key 就走源地址，主源挂了自动换备用源。' },
-  { slot: 'card', title: '名片', hint: '粘大图链接（NameCardPic），只记 key；仓库图直接粘仓库路径。' },
-  { slot: 'art', title: '立绘', hint: '没有自动源，key 和完整链接都留；仓库图直接粘仓库路径。' },
+  {
+    slot: '',
+    title: '头像',
+    hint: '粘头像链接（或直接填代号）自动认代号；地址由主源拼，主源挂了自动换备用源。',
+  },
+  {
+    slot: 'card',
+    title: '名片',
+    hint: '粘名片大图链接只记代号，地址同样由源拼。代号和头像不一样时（绮良良）会自己查源。',
+  },
+  {
+    slot: 'art',
+    title: '立绘',
+    hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
+  },
 ]
 
-/* 槽位的 URL 草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
+/* 槽位的地址草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
 const urlDraft = ref({ key: '', value: '' })
 const draftOf = (slot) =>
   urlDraft.value.key === `${activeKey.value}|${slot}` ? urlDraft.value.value : ''
@@ -126,14 +134,14 @@ const setDraft = (slot, value) => {
   urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
 }
 
-/* 粘完地址：先落 key，再拿这个 key 去源里反查，把名字 / 另一个 key 补齐 */
+/* 粘完地址：先落代号，再拿这个代号去源里反查，把名字 / 另一个代号补齐 */
 async function commitUrl(row, slot) {
   const value = draftOf(slot)
   setDraft(slot, '')
   if (!value) return
 
-  const key = applyUrl(row, slot, value)
-  if (!key) return
+  const code = applyUrl(row, slot, value)
+  if (!code) return
   await hydrate(row, slot)
 }
 
@@ -167,7 +175,7 @@ async function onSync() {
     const res = await syncFromAmber()
     if (!res) return
     if (res.conflicts.length) {
-      /* 有 key 对不上的项 → 先问你要哪个，报告留给「日志」按钮看 */
+      /* 有代号对不上的项 → 先问你要哪个，报告留给「日志」按钮看 */
       conflicts.value = res.conflicts
       useSource.value = res.conflicts.map(() => false)
       conflictOpen.value = true
@@ -218,8 +226,6 @@ function openAdd() {
   addOpen.value = true
 }
 
-const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
-
 onMounted(init)
 </script>
 
@@ -239,8 +245,8 @@ onMounted(init)
           v-model="search"
           type="search"
           :class="[FIELD, 'w-full pl-9 pr-9']"
-          placeholder="搜索名字或key…"
-          aria-label="搜索名字或key"
+          placeholder="搜索名字或代号…"
+          aria-label="搜索名字或代号"
           autocomplete="off"
           spellcheck="false"
         />
@@ -359,7 +365,7 @@ onMounted(init)
           </button>
         </template>
 
-        <!-- 其它分类：沿用原来的就地编辑 -->
+        <!-- 其它分类：沿用就地编辑 -->
         <template v-else>
           <div
             v-for="row in filtered"
@@ -432,7 +438,7 @@ onMounted(init)
               <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
               返回
             </Btn>
-            <p class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ activeRow.key }}</p>
+            <p class="min-w-0 flex-1 truncate text-[10px] text-muted">代号：{{ activeRow.key }}</p>
           </div>
 
           <!-- 身份行：序号 + 名字 + 星级 -->
@@ -471,22 +477,7 @@ onMounted(init)
             :key="meta.slot || 'avatar'"
             class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
           >
-            <div class="flex min-w-0 items-center gap-2">
-              <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
-
-              <label
-                v-if="meta.slot !== 'art'"
-                class="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-muted"
-              >
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
-                  :checked="meta.slot ? !!activeRow[meta.slot]?.local : !!activeRow.local"
-                  @change="setSlotLocal(activeRow, meta.slot, $event.target.checked)"
-                />
-                用仓库图
-              </label>
-            </div>
+            <p class="text-xs font-medium text-ink">{{ meta.title }}</p>
 
             <div class="flex min-w-0 items-start gap-2">
               <span
@@ -511,9 +502,9 @@ onMounted(init)
                   type="url"
                   :class="[FIELD, 'w-full px-2']"
                   :placeholder="
-                    meta.slot === 'art' ? '粘立绘完整链接，或仓库路径' : '粘链接自动识别 key'
+                    meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'
                   "
-                  :aria-label="`${meta.title} 链接`"
+                  :aria-label="`${meta.title} 地址`"
                   @input="setDraft(meta.slot, $event.target.value)"
                   @change="commitUrl(activeRow, meta.slot)"
                 />
@@ -527,7 +518,7 @@ onMounted(init)
                     }}
                   </span>
                   <button
-                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.local"
+                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url"
                     type="button"
                     class="shrink-0 rounded-ctl px-1 text-danger hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
                     @click="clearSlot(activeRow, meta.slot)"
@@ -579,7 +570,7 @@ onMounted(init)
 
     <Modal v-model="addOpen" title="新增角色" confirm-text="加入" @confirm="onAdd">
       <p class="text-xs leading-relaxed text-muted">
-        填中文名，头像与名片会自动从源取；序号取自 characters.txt（不在里面就是 0）。
+        填中文名，头像与名片代号会自动从源取；序号取自 characters.txt（不在里面就是 0）。
       </p>
       <Field v-model="addName" label="角色名" placeholder="如：枫原万叶" data-autofocus />
     </Modal>
@@ -591,21 +582,21 @@ onMounted(init)
       @confirm="onPasteConfirm"
     >
       <p class="text-xs leading-relaxed text-muted">
-        每行一个完整 URL（也可以用仓库内路径）。能识别出 key 的只记 key，其余存完整链接。
+        每行一个链接（也可以用仓库内路径）。能认出代号的只记代号，其余存完整链接。
       </p>
       <Field
         v-model="pasteText"
         type="textarea"
         :rows="6"
         data-autofocus
-        placeholder="https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_SkirkNew.webp"
+        placeholder="https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp"
       />
     </Modal>
 
     <Modal
       v-model="conflictOpen"
-      title="有 key 和源对不上"
-      :message="`共 ${conflicts.length} 项。勾选 = 用源里的 key，不勾 = 保留你手填的。`"
+      title="有代号和源对不上"
+      :message="`共 ${conflicts.length} 项。勾选 = 用源里的代号，不勾 = 保留你手填的。`"
       confirm-text="应用选择"
       @confirm="confirmConflicts"
     >
@@ -638,7 +629,7 @@ onMounted(init)
 <style scoped>
 /* 星级径向渐变底。
    starStyle() 只负责把 --star-color / --star-edge 塞进 style，
-   真正画出渐变的是这条规则 —— 少了它，变量设了也白设。
+   真正画出渐变的是这条规则。
    几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
    的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
    正方形下正好也是 √2/2 × 边长。
