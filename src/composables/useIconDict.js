@@ -61,7 +61,7 @@ const DEFAULT_CONFIG = {
     alt: { prefix: `${AMBER}UI_AvatarIcon_`, ext: '.png' },
     card: {
       prefix: `${LU}namecardpic/UI_NameCardPic_`,
-      ext: '_P.webp',
+      ext: '_P.png',
       alt: { prefix: `${AMBER}namecard/UI_NameCardPic_`, ext: '_P.png' },
     },
   },
