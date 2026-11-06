@@ -24,7 +24,7 @@ import { loadGlobalScript } from './useData.js'
  *
  * 【行结构】
  *   { key, name, order, star?, url?, lock?, card?, art? }
- *   key    头像代号（或变体的名字，如「旅行者·冰」；或任意唯一身份）
+ *   key    头像代号（或变体的名字，如「旅行者·冰」）
  *   url    完整链接 / 站点绝对路径（如 /genshin-guide/shared/gi-icons/…）
  *   card   { key, url }  名片代号（绮良良那种和头像不一样）
  *   art    { key, url }  立绘（只手填 / 从 character-art.txt 灌）
@@ -40,8 +40,7 @@ import { loadGlobalScript } from './useData.js'
  *   就当没推出来，留空让你手填。
  *
  * 【「不更新」是按槽位算的】
- *   头像槽：带 url 就留你的；否则跟源走
- *   名片槽：带 url 就留你的；否则源补空
+ *   头像槽 / 名片槽：带 url 就留你的，否则跟源走
  *   立绘槽：源里没有
  *   名字 / 星级 / 序号 永远跟源走 —— 只有 lock: true 是整条不动
  *
@@ -590,8 +589,7 @@ export function useIconDict() {
     return { src: null, alt: null } /* 立绘没有自动源 */
   }
 
-  const joinSrc = (src, key) =>
-    src?.prefix && key ? src.prefix + key + (src.ext || '') : ''
+  const joinSrc = (src, key) => (src?.prefix && key ? src.prefix + key + (src.ext || '') : '')
 
   function resolveUrl(type, row) {
     const cfg = config[type] || {}
@@ -604,8 +602,7 @@ export function useIconDict() {
     if (!row) return { src: '', alt: '' }
     if (!slot) {
       const cfg = config[type] || {}
-      const alt = !row.url ? joinSrc(cfg.alt, row.key) : ''
-      return { src: resolveUrl(type, row), alt }
+      return { src: resolveUrl(type, row), alt: row.url ? '' : joinSrc(cfg.alt, row.key) }
     }
 
     const o = row[slot]
@@ -800,7 +797,9 @@ export function useIconDict() {
 
       const route = routeKey(it.route)
       if (route && !map.byRoute[route]) map.byRoute[route] = code
-      if (!map.byCode[code]) map.byCode[code] = { code, route, who: String(it.name).split('·')[0].trim() }
+      if (!map.byCode[code]) {
+        map.byCode[code] = { code, route, who: String(it.name).split('·')[0].trim() }
+      }
     })
 
     cardMap = map
@@ -808,7 +807,7 @@ export function useIconDict() {
   }
 
   /* 角色条目 → 名片代号：
-     ① 源直接给的（详情接口 nameCard）② 按英文名 route 对上 ③ 同名代换（猜） */
+     ① 源直接给的（详情接口 nameCard）② 按英文名 route 对上 ③ 同名代换 */
   function cardCodeFor(item, cards = null) {
     if (item.nameCard?.icon) return codeFrom(item.nameCard.icon, 'characters', 'card')
     const hit = cards?.byRoute[routeKey(item.route)]
@@ -872,8 +871,8 @@ export function useIconDict() {
     return { kept, skipped }
   }
 
-  /* 一张扁平索引：代号 / 小写代号 / id 都能查到条目。
-     角色额外登记中文名、英文名、名片代号，供「输入名字」「粘名片 URL」反查。 */
+  /* 一张扁平索引：代号 / 小写代号 / id / 中文名 都能查到条目。
+     角色额外登记英文名和名片代号，供「粘名片 URL」反查。 */
   async function ensureAmberIndex(type) {
     if (amberIndex[type]) return amberIndex[type]
 
@@ -888,15 +887,15 @@ export function useIconDict() {
       if (!raw || !raw.icon || !raw.name) return
       const code = codeFrom(raw.icon, type)
       if (!code) return
-      /* 名片代号一次算好挂上去，后面 hydrate / addCharacter 直接用 */
+      /* 名片代号一次算好挂上去，后面 hydrate / addByName 直接用 */
       const item = cards ? { ...raw, cardCode: cardCodeFor(raw, cards) } : raw
 
       map[code] = item
       if (!map[code.toLowerCase()]) map[code.toLowerCase()] = item
       if (raw.id != null && !map[String(raw.id)]) map[String(raw.id)] = item
+      if (!map['n:' + raw.name]) map['n:' + raw.name] = item
 
       if (type === 'characters') {
-        if (!map['n:' + raw.name]) map['n:' + raw.name] = item
         const rt = routeKey(raw.route)
         if (rt && !map['r:' + rt]) map['r:' + rt] = item
         const cc = item.cardCode
@@ -910,15 +909,17 @@ export function useIconDict() {
     return map
   }
 
+  /* 源里按中文名找条目（各分类都适用，「n:」是索引里的中文名键） */
+  async function itemByName(name) {
+    const n = String(name || '').trim()
+    if (!n) return null
+    const map = await ensureAmberIndex(tab.value)
+    return map['n:' + n] || map['n:' + n.split('·')[0]] || null
+  }
+
   /* 反查：这一条对应源里的哪个条目。from = 'name' | 'avatar' | 'card' */
   async function itemFrom(row, from) {
-    if (from === 'name') {
-      const n = String(row.name || '').trim()
-      if (!n) return null
-      const map = await ensureAmberIndex('characters')
-      /* 「旅行者·冰」这种名字，先找全名，再退回中点前那段 */
-      return map['n:' + n] || map['n:' + n.split('·')[0]] || null
-    }
+    if (from === 'name') return itemByName(row.name)
 
     if (from === 'card') {
       const c = codeFrom(row.card?.key || row.card?.url || '', 'characters', 'card')
@@ -976,58 +977,89 @@ export function useIconDict() {
     return changed
   }
 
-  /* 按中文名新建一条角色。源里没有就拒绝（那种情况用「粘贴 URL」）。 */
-  async function addCharacter(name) {
+  /* ---------------- 新增（名字 / 链接 一个入口） ---------------- */
+
+  /* 按中文名从源里捞一条出来（四个分类都能用） */
+  async function addByName(name) {
+    const type = tab.value
     const n = String(name || '').trim()
     if (!n) {
-      toast.error('先填角色名')
+      toast.error('先填名字')
       return false
     }
-    if (data.characters.some((r) => r.name === n)) {
+    if (data[type].some((r) => r.name === n)) {
       toast.error(`「${n}」已经在列表里了`)
       return false
     }
 
     let item = null
     try {
-      const map = await ensureAmberIndex('characters')
-      item = map['n:' + n] || map['n:' + n.split('·')[0]] || null
+      item = await itemByName(n)
     } catch (e) {
       toast.error('取源失败：' + e.message)
       return false
     }
     if (!item) {
-      toast.error(`源里没有「${n}」——可以用「粘贴 URL」加它`)
+      toast.error(`源里没有「${n}」——可以粘它的图标链接`)
+      return false
+    }
+    if (type === 'characters' && OFFICIAL_TRAVELER_RE.test(item.icon)) {
+      toast.error('旅行者是特殊条目（字典里已经占位），不用新增')
       return false
     }
 
-    const code = codeFrom(item.icon, 'characters')
-    const f = deriveFields('characters', item)
-    const row = { key: code, name: f.name || n, order: f.order || 0, star: f.star }
+    const f = deriveFields(type, item)
+    const row = { key: codeFrom(item.icon, type), name: f.name || n, order: f.order || 0, star: f.star }
     if (f.card) row.card = { ...f.card }
-    data.characters.push(row)
+    data[type].push(row)
     markDirty()
-    activeKey.value = row.key
+    if (type === 'characters') activeKey.value = row.key
     toast.success(
-      f.order ? `已加入「${row.name}」` : `已加入「${row.name}」（不在 characters.txt，序号 0）`,
+      type === 'characters' && !f.order
+        ? `已加入「${row.name}」（不在 characters.txt，序号 0）`
+        : `已加入「${row.name}」`,
     )
     return true
   }
 
-  /* ---------------- 粘贴 URL（批量） ---------------- */
+  /* 一个输入框干两件事：
+     单行、又不像链接也不像代号 → 当名字，去源里查
+     其余（一行链接 / 多行 / 一个代号）→ 走批量解析 */
+  async function addFromInput(text) {
+    const lines = String(text || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+
+    if (!lines.length) {
+      toast.error('先填点什么')
+      return false
+    }
+
+    const one = lines.length === 1 ? lines[0] : ''
+    const looksLikeIcon =
+      !!one && (/^https?:\/\//i.test(one) || !!repoUrl(one) || !!codeFrom(one, tab.value))
+
+    if (one && !looksLikeIcon) return addByName(one)
+
+    await parsePastedUrls(lines.join('\n'))
+    return true
+  }
+
+  /* ---------------- 粘贴链接（批量） ---------------- */
 
   async function parsePastedUrls(text) {
+    const type = tab.value
     const urls = String(text || '')
       .split(/\r?\n/)
       .map((l) => l.trim())
-      .filter((l) => /^https?:\/\//i.test(l) || repoUrl(l))
+      .filter((l) => l && (/^https?:\/\//i.test(l) || !!repoUrl(l) || !!codeFrom(l, type)))
 
     if (!urls.length) {
-      toast.error('未识别到有效链接')
+      toast.error('没认出链接或代号')
       return
     }
 
-    const type = tab.value
     const list = data[type]
     const byKey = {}
     list.forEach((row) => {
@@ -1102,7 +1134,7 @@ export function useIconDict() {
     toast.success('解析完成')
   }
 
-  /* ---------------- 同步（合并规则 v10） ---------------- */
+  /* ---------------- 同步（合并规则 v11） ---------------- */
 
   /* 返回 { entry, conflicts }：
      conflicts = 源里的代号与你手填的代号不一致的项，**先按你的保留**，
@@ -1178,7 +1210,7 @@ export function useIconDict() {
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
 
-        /* 头像槽：带 url 就留着；代号和源不一样则先留你的并记冲突 */
+        /* 头像槽：带 url 就留你的；代号和源不一样则先留你的并记冲突 */
         if (prev.key !== code) {
           conflicts.push({
             type,
@@ -1188,11 +1220,10 @@ export function useIconDict() {
             mine: prev.key,
             theirs: code,
           })
-        } else if (prev.url) {
-          /* 手填的地址：留着 */
         }
 
-        /* 名片槽：带 url 就留着，其余跟源 */
+        /* 名片槽：带 url 就留你的；代号和源不一样就记冲突、先留你的；
+           其余情况以源为准 —— 这一条以前漏了，导致名片永远填不进去 */
         if (prev.card?.url) {
           next.card = { ...prev.card }
         } else if (prev.card?.key && item.card?.key && prev.card.key !== item.card.key) {
@@ -1205,6 +1236,8 @@ export function useIconDict() {
             theirs: item.card.key,
           })
           next.card = { ...prev.card }
+        } else if (item.card) {
+          next.card = { ...item.card }
         }
 
         merged[next.key] = next
@@ -1400,11 +1433,12 @@ export function useIconDict() {
     applyUrl,
     clearSlot,
     hydrate,
-    addCharacter,
+    /* 新增 */
+    addFromInput,
+    addByName,
     /* 业务 */
     init,
     loadDict,
-    parsePastedUrls,
     syncFromAmber,
     applyConflicts,
     exportDict,
