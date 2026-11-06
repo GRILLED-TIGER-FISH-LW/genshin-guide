@@ -24,12 +24,19 @@ import { loadGlobalScript } from './useData.js'
  *   art     { key, url, local }  立绘（没有自动源，只手填）
  *   没有 base / 变体：「旅行者」和「旅行者·冰」是两条独立角色，只是序号相同
  *
- * 【名片从哪来 —— 这里是踩过的坑】
- *   Amber 的「头像列表」接口（/avatar）**没有 nameCard 字段**，那是详情接口才有的。
- *   所以名片归属改从名片表（/namecard）取：type === 'bond' 的那批，
- *   名字形如「安柏·兔兔」，取中点前那段就是角色名。
- *   → 顺带解决「头像叫 Momoka、名片叫 Kirara」这种 key 不同名的情况，
- *     因为它认的是中文名，不是 key。
+ * 【名片从哪来 —— 两个坑】
+ *   1. Amber 的「头像列表」接口（/avatar）**没有 nameCard 字段**，那是详情接口才有。
+ *      → 名片归属改从名片表（/namecard）取。
+ *   2. 归属靠两张表都有的 route（英文名）对，不靠图标代号，也不靠中文名：
+ *        头像  {"icon":"UI_AvatarIcon_Momoka","name":"绮良良","route":"Kirara"}
+ *        名片  {"icon":"UI_NameCardIcon_Kirara","name":"绮良良·猫箱","route":"Kirara: Neko Box"}
+ *      绮良良的头像代号叫 Momoka、名片叫 Kirara，只有英文名对得上。
+ *
+ * 【名片归属的四级匹配】（实测 122 张 bond 名片：英文名中 118，代号中 2，剩 2 张是 NPC）
+ *   ① 条目自带 nameCard（详情接口）
+ *   ② 英文名 route 相同        —— 安柏 Amber / 绮良良 Kirara
+ *   ③ 中文名相同               —— 兜底
+ *   ④ 图标代号相同             —— 救「公子/达达利亚」「一斗/荒泷一斗」这种别名
  *
  * 【只有这三条算「我手填过」】local / url / lock —— 整条不参与更新。
  *
@@ -161,7 +168,7 @@ function darkenHex(hex, percent) {
 }
 
 /* =========================================================================
- * key ↔ 代号 ↔ 中文名
+ * key ↔ 代号 ↔ 英文名 ↔ 中文名
  * ========================================================================= */
 
 const KEY_PREFIX_RE =
@@ -175,6 +182,10 @@ function rawCode(key) {
 }
 
 const codeOf = (key) => rawCode(key).toLowerCase()
+
+/* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段。
+   注意有些英文名带空格（'Kamisato Ayaka'），所以只做小写 + 去首尾空格，不删空格。 */
+const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
 
 /* Amber 给的是名片小图标名（UI_NameCardIcon_Hutao），
    我们要的是大图（UI_NameCardPic_Hutao_P），换前后缀即可。 */
@@ -378,10 +389,10 @@ export function useIconDict() {
 
   const orderToName = {}
   const nameToOrder = {}
-  /* 图标名 / 剥前缀小写 / id / 'n:中文名' / 'c:名片代号' → API 原始条目 */
+  /* 图标名 / 小写代号 / id / 'n:中文名' / 'r:英文名' / 'c:名片代号' → API 原始条目 */
   const amberIndex = {}
-  /* 角色名 → 名片 key（来自名片表，只有 bond 类） */
-  let cardByName = null
+  /* { byRoute, byName, byCode } —— 名片表的三张索引，只收 bond 类 */
+  let cardMap = null
 
   /* ---------------- 存储 ---------------- */
 
@@ -745,33 +756,49 @@ export function useIconDict() {
     }
   }
 
-  /* 角色名 → 名片 key。只认 type === 'bond' 的那批：
-   名字形如「安柏·兔兔」，中点前那段就是角色名。
-   （名片表里还有纪行 / 活动 / 成就名片，它们不属于任何角色，跳过。）
-   同一角色有多张 bond 名片时取第一张。 */
+  /* 名片表 → 三张索引，只收 type === 'bond'（纪行 / 活动 / 成就名片不属于任何角色）。
+     byRoute 英文名（主）· byName 中文名（兜）· byCode 图标代号（救别名） */
   async function fetchCardMap() {
-    if (cardByName) return cardByName
+    if (cardMap) return cardMap
     const items = await fetchAmber('namecard')
-    const map = {}
+    const map = { byRoute: {}, byName: {}, byCode: {} }
+
     Object.keys(items).forEach((k) => {
       const it = items[k]
       if (!it || it.type !== 'bond' || !it.icon || !it.name) return
-      const who = String(it.name).split('·')[0].trim()
       const key = cardKeyFrom(it.icon)
-      if (who && key && !map[who]) map[who] = key
+      if (!key) return
+
+      const route = routeKey(it.route)
+      const who = String(it.name).split('·')[0].trim()
+      const code = codeOf(it.icon)
+
+      if (route && !map.byRoute[route]) map.byRoute[route] = key
+      if (who && !map.byName[who]) map.byName[who] = key
+      if (code && !map.byCode[code]) map.byCode[code] = { key, route, who }
     })
-    cardByName = map
+
+    cardMap = map
     return map
   }
 
-  /* API 条目 → 字段。**不带任何排除规则**，手动粘贴也用它。
-     名片来源按优先级：条目自带的 nameCard（详情接口才有）→ 索引上挂的 cardKey
-     → 名片表按中文名对上（列表接口走这条）。 */
+  /* 角色条目 → 它的名片 key，四级匹配（见文件头）。 */
+  function cardKeyFor(item, cards) {
+    if (!cards) return cardKeyFrom(item.nameCard?.icon)
+    return (
+      cardKeyFrom(item.nameCard?.icon) || /* ① 详情接口自带 */
+      cards.byRoute[routeKey(item.route)] || /* ② 英文名 */
+      cards.byName[item.name] || /* ③ 中文名 */
+      cards.byCode[codeOf(item.icon)]?.key || /* ④ 图标代号同名 */
+      ''
+    )
+  }
+
+  /* API 条目 → 字段。**不带任何排除规则**，手动粘贴也用它。 */
   function deriveFields(type, item, cards = null) {
     if (type === 'characters') {
       const out = { name: item.name, star: item.rank || 5, order: nameToOrder[item.name] || 0 }
-      const cardKey =
-        cardKeyFrom(item.nameCard?.icon) || item.cardKey || (cards ? cards[item.name] || '' : '')
+      const cardKey = item.cardKey || cardKeyFor(item, cards)
       if (cardKey) out.card = { key: cardKey, url: '', local: false }
       return out
     }
@@ -821,33 +848,38 @@ export function useIconDict() {
     return { kept, skipped }
   }
 
-  /* 一张扁平索引：图标名 / 小写代号 / id 都能查到条目；
-     角色额外登记 'n:中文名' 与 'c:名片代号'，供「输入名字」「粘名片 URL」反查。 */
+  /* 一张扁平索引：图标名 / 小写代号 / id 都能查到条目。
+     角色额外登记中文名、英文名、名片代号，供「输入名字」「粘名片 URL」反查。 */
   async function ensureAmberIndex(type) {
     if (amberIndex[type]) return amberIndex[type]
 
     const [items, cards] = await Promise.all([
       fetchAmber(type),
-      type === 'characters' ? fetchCardMap().catch(() => ({})) : Promise.resolve(null),
+      type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
     ])
 
     const map = {}
     Object.keys(items).forEach((k) => {
       const raw = items[k]
       if (!raw || !raw.icon || !raw.name) return
-      /* 把名片 key 挂到条目上，后面 hydrate 直接用 */
-      const item = cards
-        ? { ...raw, cardKey: cardKeyFrom(raw.nameCard?.icon) || cards[raw.name] || '' }
-        : raw
+      /* 名片 key 一次算好挂上去，后面 hydrate / addCharacter 直接用 */
+      const item = cards ? { ...raw, cardKey: cardKeyFor(raw, cards) } : raw
 
       map[item.icon] = item
       const stripped = String(item.icon).replace(/^UI_[A-Za-z]+_/i, '').toLowerCase()
       if (stripped && !map[stripped]) map[stripped] = item
       if (item.id != null && !map[String(item.id)]) map[String(item.id)] = item
+
       if (type === 'characters') {
         if (!map['n:' + item.name]) map['n:' + item.name] = item
+        const rt = routeKey(item.route)
+        if (rt && !map['r:' + rt]) map['r:' + rt] = item
         const cc = codeOf(item.cardKey)
         if (cc && !map['c:' + cc]) map['c:' + cc] = item
+        /* 名片代号和头像代号同名的情况（公子 Tartaglia / 一斗 Itto）也登记一份，
+           这样粘名片链接能直接对上 */
+        const ac = codeOf(item.icon)
+        if (ac && !map['c:' + ac]) map['c:' + ac] = item
       }
     })
 
@@ -861,14 +893,22 @@ export function useIconDict() {
       const n = String(row.name || '').trim()
       if (!n) return null
       const map = await ensureAmberIndex('characters')
+      /* 「旅行者·冰」这种名字，先找全名，再退回中点前那段 */
       return map['n:' + n] || map['n:' + n.split('·')[0]] || null
     }
+
     if (from === 'card') {
       const c = codeOf(row.card?.key || row.card?.url || '')
       if (!c) return null
       const map = await ensureAmberIndex('characters')
-      return map['c:' + c] || null
+      if (map['c:' + c]) return map['c:' + c]
+      /* 索引里没登记：拿名片表的英文名 / 中文名再对一次 */
+      const cards = await fetchCardMap().catch(() => null)
+      const hit = cards?.byCode[c]
+      if (!hit) return null
+      return map['r:' + hit.route] || map['n:' + hit.who] || null
     }
+
     if (!row.key) return null
     const map = await ensureAmberIndex('characters')
     return map[row.key] || map[codeOf(row.key)] || null
@@ -1054,13 +1094,13 @@ export function useIconDict() {
       })
     })
 
-    /* 角色要额外拉一份名片表：列表接口不带 nameCard */
+    /* 角色要额外的名片表：头像列表接口不带 nameCard */
     let cards = null
     busy.value = '正在拉取名片表…'
     try {
       cards = await fetchCardMap()
     } catch {
-      cards = {}
+      cards = null
     }
 
     const amber = {}
@@ -1093,10 +1133,11 @@ export function useIconDict() {
         if (row.key) old[row.key] = row
       })
 
-      const apiByName = {}
+      /* 英文名 → API 条目，用来发现「名字对上了但 key 不一样」的冲突 */
+      const apiByRoute = {}
       Object.keys(amber[type] || {}).forEach((k) => {
         const it = amber[type][k]
-        if (it?.name) apiByName[it.name] = { ...it, icon: k }
+        if (it?.route) apiByRoute[routeKey(it.route)] = { ...it, icon: k }
       })
 
       /* 1. 手填过的行先落位，整条保留 */
@@ -1133,21 +1174,22 @@ export function useIconDict() {
 
       /* 3. 剩下没被 API 提到的旧条目：key 判重保留。
             硬排除的例外 —— 连本地旧条目一起清掉。
-            顺带发现头像 key 冲突：名字对得上、key 不一样 */
+            顺带发现头像 key 冲突：同一条角色、key 不一样 */
       ;(data[type] || []).forEach((row) => {
         if (!row.key || merged[row.key]) return
         if (excluded[type].has(row.key)) return
 
-        if (type === 'characters' && row.name && !byKey[row.key]) {
-          const item = apiByName[row.name]
-          if (item && item.icon && item.icon !== row.key) {
+        if (type === 'characters' && !byKey[row.key]) {
+          const item = apiByRoute[routeKey(row.route || '')] || null
+          const byNameHit = item || Object.values(amber.characters).find((x) => x.name === row.name)
+          if (byNameHit && byNameHit.icon !== row.key) {
             conflicts.push({
               type,
               rowKey: row.key,
-              name: row.name,
+              name: row.name || byNameHit.name || '',
               slot: '',
               mine: row.key,
-              theirs: item.icon,
+              theirs: byNameHit.icon,
             })
           }
         }
