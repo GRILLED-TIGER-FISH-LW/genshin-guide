@@ -2,9 +2,11 @@
  * 图标加载器 · 全站共享
  * 四种模式（按优先级从高到低）：
  *   1. 本地：条目带 local: true，key 是文件名（如 UI_AvatarIcon_Traveler.webp），从 icons/ 根目录加载
+ *      （老格式，新数据不写这个 —— 仓库里的图直接存站点绝对路径，走第 2 条）
  *   2. 覆盖：条目带 url 字段，直接使用该 url
  *   3. URL ：key 以 http 开头，直接用
- *   4. ID  ：key 是图标全名（如 UI_AvatarIcon_HuTao），靠 config[type].prefix 拼 URL
+ *   4. 代号：key 是图标代号（如 Ambor / 10001_4），靠 config[type].prefix 拼 URL
+ *      —— prefix 里含图标名常量（如 https://…/avataricon/UI_AvatarIcon_）
  * ============================================================ */
 (function () {
   "use strict";
@@ -105,8 +107,9 @@
       .replace(/[—–\-].*$/, "")
       .trim();
   }
+  function stripPrefix(s) { return String(s || "").replace(/^UI_[A-Za-z]+_/i, ""); }
 
-  /* ============ 提取英文 ID（剥掉 UI_AvatarIcon_ 等前缀） ============ */
+  /* ============ 提取英文 ID（剥掉历史遗留的 UI_AvatarIcon_ 这类前缀） ============ */
   function extractId(type, key) {
     if (!key) return "";
     var raw = "";
@@ -121,25 +124,38 @@
         raw = key;
       }
     }
-    /* 剥掉 UI_AvatarIcon_ / UI_EquipIcon_ / UI_RelicIcon_ / UI_MonsterIcon_ 前缀 */
-    return raw.replace(/^UI_[A-Za-z]+_/i, "");
+    return stripPrefix(raw);
+  }
+
+  /* ============ 把传进来的 key 归一成字典里真实存在的那个 ============
+     字典里存的是代号（Ambor）。老调用方 / 老草稿里可能还存着全名
+     （UI_AvatarIcon_Ambor），那就剥掉前缀再查一次。 */
+  function resolveKey(type, key) {
+    var dict = window.ICON_DICT;
+    if (!dict || !dict[type]) return "";
+    var k = String(key == null ? "" : key);
+    if (dict[type][k]) return k;
+    var bare = stripPrefix(stripExt(k));
+    if (bare && dict[type][bare]) return bare;
+    return "";
   }
 
   /* ============ 解析最终 URL ============ */
   function getPath(type, key) {
     var dict = window.ICON_DICT;
-    if (!dict || !dict[type] || !dict[type][key]) return "";
-    var item = dict[type][key];
+    var k = resolveKey(type, key);
+    if (!k) return "";
+    var item = dict[type][k];
 
-    /* 1. 本地：从 icons/ 根目录加载（优先级最高） */
-    if (item.local) return ICON_BASE + key;
-    /* 2. 单条目 URL 覆盖 */
+    /* 1. 本地：从 icons/ 根目录加载（老格式，优先级最高） */
+    if (item.local) return ICON_BASE + k;
+    /* 2. 单条目 URL 覆盖（也包含仓库内图片的站点绝对路径） */
     if (item.url) return item.url;
     /* 3. 完整 URL：直接用 */
-    if (/^https?:\/\//i.test(key)) return key;
-    /* 4. 全名 + 前缀（prefix 已缩短，如 https://.../avataricon/） */
+    if (/^https?:\/\//i.test(k)) return k;
+    /* 4. 代号 + 前缀 + 后缀（prefix 已含图标名常量） */
     var cfg = dict.config && dict.config[type];
-    if (cfg && cfg.prefix) return cfg.prefix + key + (cfg.ext || "");
+    if (cfg && cfg.prefix) return cfg.prefix + k + (cfg.ext || "");
     return "";
   }
 
@@ -151,13 +167,26 @@
     if (!q) return null;
     var qLower = q.toLowerCase();
     var qNoSuffix = stripSuffix(q).toLowerCase();
-    var qStripped = qNoSuffix.replace(/^ui_[a-z]+_/i, "");
+    var qStripped = stripPrefix(qNoSuffix);
 
     var items = dict[type];
-    for (var key in items) {
-      var item = items[key] || {};
-      var id = extractId(type, key);
-      var idLower = id.toLowerCase();
+    var key, item, idLower;
+
+    /* 第一遍：一模一样的那种。
+       必须先跑这遍 —— 「旅行者·冰」在第二遍会被 stripSuffix 削成「旅行者」，
+       抢在它自己前面命中基础旅行者。 */
+    for (key in items) {
+      item = items[key] || {};
+      idLower = extractId(type, key).toLowerCase();
+      if (q === item.name || qLower === idLower || qLower === String(key).toLowerCase()) {
+        return { key: key, name: item.name, star: item.star };
+      }
+    }
+
+    /* 第二遍：宽松匹配（去括号、去 · 后面、剥 UI_ 前缀） */
+    for (key in items) {
+      item = items[key] || {};
+      idLower = extractId(type, key).toLowerCase();
 
       /* 中文名匹配 */
       if (q === item.name || qNoSuffix === (item.name || "").toLowerCase()) {
@@ -168,7 +197,7 @@
         return { key: key, name: item.name, star: item.star };
       }
       /* 完整 key 匹配 */
-      if (qLower === key.toLowerCase() || qStripped === key.toLowerCase()) {
+      if (qLower === String(key).toLowerCase() || qStripped === String(key).toLowerCase()) {
         return { key: key, name: item.name, star: item.star };
       }
     }
@@ -180,13 +209,14 @@
 
   async function load(type, key, opts) {
     var dict = window.ICON_DICT;
-    if (!dict || !dict[type] || !dict[type][key]) throw new Error("未知图标：" + type + "/" + key);
-    var c = ck(type, key);
+    var k = resolveKey(type, key);
+    if (!k) throw new Error("未知图标：" + type + "/" + key);
+    var c = ck(type, k);
     if (cache[c]) return cache[c];
-    var path = getPath(type, key);
+    var path = getPath(type, k);
     if (!path) throw new Error("无法解析路径：" + type + "/" + key);
     var img = await loadImage(path);
-    var dataURL = applyBackground(img, dict[type][key].star, opts);
+    var dataURL = applyBackground(img, dict[type][k].star, opts);
     cache[c] = dataURL;
     return dataURL;
   }
@@ -198,7 +228,10 @@
     return { key: m.key, name: m.name, star: m.star, dataURL: dataURL };
   }
 
-  function getCached(type, key) { return cache[ck(type, key)] || null; }
+  function getCached(type, key) {
+    var k = resolveKey(type, key) || key;
+    return cache[ck(type, k)] || null;
+  }
 
   /* ============ 选择器 ============ */
   var pickerCSS = [
@@ -301,6 +334,7 @@
     applyBackground: applyBackground,
     getPath: getPath,
     extractId: extractId,
+    resolveKey: resolveKey,
     openPicker: openPicker,
     applyBackgroundToFile: function (file, star, opts) {
       return new Promise(function (resolve, reject) {
