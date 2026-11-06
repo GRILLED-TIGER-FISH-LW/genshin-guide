@@ -21,11 +21,7 @@ import { useIconDict } from '../composables/useIconDict.js'
  *
  * 【grid 必须声明列，一个都不能漏】
  *   没写 grid-cols-* 的 grid，隐式轨道是 auto —— 会被内容的 max-content 撑开。
- *   「flex-wrap 的按钮行」和「一整条不换行的 URL」都会把它撑破，
- *   结果是整页横向溢出、手机上得左右拖。
- *   所以本文件里**每个 grid 都写了列**：固定尺寸的写 place-items-center，
- *   装内容的写 grid-cols-1（= repeat(1, minmax(0,1fr))，那个 minmax(0,…)
- *   才真正把轨道锁在容器宽度内）。
+ *   一整条不换行的 URL 就能把它撑破，结果是整页横向溢出、手机上得左右拖。
  *
  * 【缩略图的两个部分别拆开】
  *   starStyle() 只往 style 塞 --star-color / --star-edge；
@@ -45,7 +41,6 @@ const {
   counts,
   activeRow,
   activeKey,
-  isVariant,
   missingCard,
   missingArt,
   slotSrc,
@@ -59,12 +54,13 @@ const {
   applyUrl,
   clearSlot,
   setSlotLocal,
-  setBase,
-  lookupName,
+  hydrate,
+  addCharacter,
   init,
   loadDict,
   parsePastedUrls,
   syncFromAmber,
+  applyConflicts,
   exportDict,
   LABELS,
   FILTERS,
@@ -77,22 +73,27 @@ const TABS = [
   { value: 'monsters', label: '怪物' },
 ]
 const STAR_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}★` }))
-
-const FILTER_LABELS = { all: '全部', noCard: '缺名片', noArt: '缺立绘', variant: '变体' }
+const FILTER_LABELS = { all: '全部', noCard: '缺名片', noArt: '缺立绘' }
 
 const reportOpen = ref(false)
 const confirmOpen = ref(false)
 const pasteOpen = ref(false)
 const pasteText = ref('')
+const addOpen = ref(false)
+const addName = ref('')
 const syncing = ref(false)
 const fetching = ref(false)
+
+/* 冲突弹窗：勾选 = 用源里的 key，不勾 = 保留我手填的 */
+const conflictOpen = ref(false)
+const conflicts = ref([])
+const useSource = ref([])
 
 const FIELD =
   'h-9 min-w-0 rounded-ctl border border-line-2 bg-surface text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 
 const isCharTab = computed(() => tab.value === 'characters')
 
-/* 切分类：清搜索、清筛选、清选中 —— 免得切过去还停在上一条的详情里 */
 watch(tab, () => {
   search.value = ''
   filter.value = 'all'
@@ -111,11 +112,10 @@ const filterOptions = computed(() =>
   })),
 )
 
-/* 三个槽位的说明写在一处，免得模板里到处散文字 */
 const SLOT_META = [
-  { slot: '', title: '头像', hint: '有 key 就走源地址，主源挂了自动换备用源；仓库图勾「用仓库图」。' },
-  { slot: 'card', title: '名片', hint: '粘大图链接（NameCardPic），能认出 key 就只存 key。' },
-  { slot: 'art', title: '立绘', hint: '没有自动源，永远手填链接；仓库图直接粘仓库路径。' },
+  { slot: '', title: '头像', hint: '粘链接自动识别 key；有 key 就走源地址，主源挂了自动换备用源。' },
+  { slot: 'card', title: '名片', hint: '粘大图链接（NameCardPic），只记 key；仓库图直接粘仓库路径。' },
+  { slot: 'art', title: '立绘', hint: '没有自动源，key 和完整链接都留；仓库图直接粘仓库路径。' },
 ]
 
 /* 槽位的 URL 草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
@@ -126,17 +126,15 @@ const setDraft = (slot, value) => {
   urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
 }
 
+/* 粘完地址：先落 key，再拿这个 key 去源里反查，把名字 / 另一个 key 补齐 */
 async function commitUrl(row, slot) {
   const value = draftOf(slot)
   setDraft(slot, '')
   if (!value) return
 
   const key = applyUrl(row, slot, value)
-  /* 认出了 key 而这条还没名字 → 顺便反查中文名；查不到保持原样，不报错 */
-  if (key && !(row.name || '').trim()) {
-    const name = await lookupName(slot, key)
-    if (name) setName(row, name)
-  }
+  if (!key) return
+  await hydrate(row, slot)
 }
 
 function onSelect(row) {
@@ -144,8 +142,14 @@ function onSelect(row) {
   select(row)
 }
 
-/* 缩略图备用源：主源挂了就用 data-alt 再试一次，只试一次。
-   data-alt 用完即删，避免备用源也挂时来回弹。 */
+/* 改完名字：如果这条还没名片，顺手从源补上 */
+async function commitName(row) {
+  setName(row, row.name)
+  if (tab.value === 'characters' && !row.card?.key && !row.card?.url) {
+    await hydrate(row, 'name')
+  }
+}
+
 function onThumbError(e) {
   const img = e.target
   const alt = img.dataset.alt
@@ -160,11 +164,33 @@ function onThumbError(e) {
 async function onSync() {
   syncing.value = true
   try {
-    const entry = await syncFromAmber()
-    if (entry) reportOpen.value = true
+    const res = await syncFromAmber()
+    if (!res) return
+    if (res.conflicts.length) {
+      /* 有 key 对不上的项 → 先问你要哪个，报告留给「日志」按钮看 */
+      conflicts.value = res.conflicts
+      useSource.value = res.conflicts.map(() => false)
+      conflictOpen.value = true
+    } else {
+      reportOpen.value = true
+    }
   } finally {
     syncing.value = false
   }
+}
+
+function confirmConflicts() {
+  const picked = conflicts.value.filter((_, i) => useSource.value[i])
+  conflictOpen.value = false
+  applyConflicts(picked)
+  conflicts.value = []
+}
+
+async function onAdd() {
+  const name = addName.value
+  addName.value = ''
+  const ok = await addCharacter(name)
+  if (ok) addOpen.value = false
 }
 
 async function onLoad() {
@@ -186,6 +212,13 @@ function openPaste() {
   pasteText.value = ''
   pasteOpen.value = true
 }
+
+function openAdd() {
+  addName.value = ''
+  addOpen.value = true
+}
+
+const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
 
 onMounted(init)
 </script>
@@ -233,13 +266,18 @@ onMounted(init)
           从源匹配
         </Btn>
 
+        <Btn v-if="isCharTab" size="sm" @click="openAdd">
+          <template #icon><Icon name="ui.plus" size="sm" /></template>
+          新增角色
+        </Btn>
+
         <Btn size="sm" @click="reportOpen = true">
           <template #icon><Icon name="ui.file" size="sm" /></template>
           日志
         </Btn>
 
         <Btn size="sm" :disabled="syncing" @click="openPaste">
-          <template #icon><Icon name="ui.plus" size="sm" /></template>
+          <template #icon><Icon name="ui.link" size="sm" /></template>
           粘贴 URL
         </Btn>
 
@@ -314,12 +352,6 @@ onMounted(init)
               <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
                 <span>No.{{ row.order || 0 }}</span>
                 <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
-                <span
-                  v-if="isVariant(row)"
-                  class="rounded-ctl bg-accent-soft px-1 text-accent-strong"
-                >
-                  变体
-                </span>
                 <span v-if="missingCard(row)" class="text-faint">缺名片</span>
                 <span v-if="missingArt(row)" class="text-faint">缺立绘</span>
               </span>
@@ -403,7 +435,7 @@ onMounted(init)
             <p class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ activeRow.key }}</p>
           </div>
 
-          <!-- 身份行：序号 + 名字 + 星级 + 变体基名 -->
+          <!-- 身份行：序号 + 名字 + 星级 -->
           <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
             <div class="flex min-w-0 items-center gap-2">
               <input
@@ -420,7 +452,7 @@ onMounted(init)
                 placeholder="中文名"
                 aria-label="中文名"
                 @input="activeRow.name = $event.target.value"
-                @blur="setName(activeRow, activeRow.name)"
+                @blur="commitName(activeRow)"
               />
               <span class="w-[72px] shrink-0">
                 <Dropdown
@@ -431,19 +463,6 @@ onMounted(init)
                 />
               </span>
             </div>
-
-            <label class="grid grid-cols-1 gap-1">
-              <span class="text-[10px] text-muted">
-                变体基名（留空 = 它就是主体；填了表示这条挂在谁下面）
-              </span>
-              <input
-                :value="activeRow.base || ''"
-                type="text"
-                :class="[FIELD, 'w-full px-2']"
-                placeholder="旅行者"
-                @change="setBase(activeRow, $event.target.value)"
-              />
-            </label>
           </div>
 
           <!-- 三个槽位 -->
@@ -470,7 +489,6 @@ onMounted(init)
             </div>
 
             <div class="flex min-w-0 items-start gap-2">
-              <!-- 预览：头像带星级底，名片/立绘给一块定宽的画板 -->
               <span
                 class="thumb grid shrink-0 place-items-center rounded-ctl border border-line-2"
                 :class="meta.slot ? 'h-16 w-28' : 'size-12'"
@@ -487,7 +505,6 @@ onMounted(init)
                 />
               </span>
 
-              <!-- 地址输入 + 当前 key -->
               <div class="grid min-w-0 flex-1 grid-cols-1 gap-1">
                 <input
                   :value="draftOf(meta.slot)"
@@ -502,11 +519,7 @@ onMounted(init)
                 />
 
                 <div class="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-muted">
-                  <!-- 立绘那条 URL 很长：换行显示，别让它把整页顶宽 -->
-                  <span
-                    class="min-w-0"
-                    :class="meta.slot === 'art' ? 'break-all' : 'truncate'"
-                  >
+                  <span class="min-w-0" :class="meta.slot === 'art' ? 'break-all' : 'truncate'">
                     {{
                       meta.slot
                         ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
@@ -564,6 +577,13 @@ onMounted(init)
       @confirm="clearTab"
     />
 
+    <Modal v-model="addOpen" title="新增角色" confirm-text="加入" @confirm="onAdd">
+      <p class="text-xs leading-relaxed text-muted">
+        填中文名，头像与名片会自动从源取；序号取自 characters.txt（不在里面就是 0）。
+      </p>
+      <Field v-model="addName" label="角色名" placeholder="如：枫原万叶" data-autofocus />
+    </Modal>
+
     <Modal
       v-model="pasteOpen"
       title="粘贴图标链接"
@@ -571,7 +591,7 @@ onMounted(init)
       @confirm="onPasteConfirm"
     >
       <p class="text-xs leading-relaxed text-muted">
-        每行一个完整 URL（也可以用仓库内路径），程序自动提取图标名并查询 Amber 中文名。
+        每行一个完整 URL（也可以用仓库内路径）。能识别出 key 的只记 key，其余存完整链接。
       </p>
       <Field
         v-model="pasteText"
@@ -580,6 +600,35 @@ onMounted(init)
         data-autofocus
         placeholder="https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_SkirkNew.webp"
       />
+    </Modal>
+
+    <Modal
+      v-model="conflictOpen"
+      title="有 key 和源对不上"
+      :message="`共 ${conflicts.length} 项。勾选 = 用源里的 key，不勾 = 保留你手填的。`"
+      confirm-text="应用选择"
+      @confirm="confirmConflicts"
+    >
+      <div class="grid grid-cols-1 gap-2">
+        <label
+          v-for="(c, i) in conflicts"
+          :key="`${c.rowKey}-${c.slot}`"
+          class="flex min-w-0 cursor-pointer items-start gap-2 rounded-ctl border border-line-2 p-2"
+        >
+          <input v-model="useSource[i]" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-accent" />
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5 text-[10px]">
+            <span class="text-xs text-ink">
+              {{ c.name || c.rowKey }} · {{ SLOT_LABEL[c.slot] }}
+            </span>
+            <span class="min-w-0 text-muted">
+              我的：<b class="break-all font-normal text-body">{{ c.mine }}</b>
+            </span>
+            <span class="min-w-0 text-muted">
+              源的：<b class="break-all font-normal text-body">{{ c.theirs }}</b>
+            </span>
+          </span>
+        </label>
+      </div>
     </Modal>
 
     <SyncReport v-model="reportOpen" :log="log" />
@@ -593,7 +642,6 @@ onMounted(init)
    几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
    的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
    正方形下正好也是 √2/2 × 边长。
-   无星级（怪物）时两个变量都不存在，回落到 transparent = 不加底色。
    圆角不在这里写，在模板的 rounded-ctl 上。 */
 .thumb {
   background: radial-gradient(
