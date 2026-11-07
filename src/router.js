@@ -14,11 +14,13 @@ import Home from './views/Home.vue'
  *              带 component 的已搬进 SPA
  * ========================================================================= */
 export const TOOLS = [
-  {
+    {
     key: 'character',
     label: '角色一图流',
     icon: 'nav.character',
-    frame: 'tools/character/index.html',
+    /* 已搬进 SPA：用真组件，不再走 iframe。
+       故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
+    component: () => import('./views/CharacterGuide.vue'),
   },
   {
     key: 'icon-editor',
