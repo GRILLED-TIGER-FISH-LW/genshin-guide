@@ -152,14 +152,14 @@
     │   ├── composables/          主题 / 提示队列 / 数据加载
     │   ├── lib/                  绘制与导出引擎
     │   └── views/                页面
-    ├── tools/                    还没搬进新界面的旧工具页
-    └── shared/                   共享资源
-        ├── css/                  旧工具仍在用的样式
-        ├── gi-icons/             游戏图标：加载器 + 图标字典
+    └── public/                   整个目录原样搬到网站根
+        ├── shared/               共享资源（UI 图标库 + 图片字典 / 加载器）
+        ├── tools/                还没搬进新界面的旧工具页
+        │   └── character/        角色一图流（含它自己的 css/）
         ├── data/                 纯文本数据字典
         ├── fonts/                字体库
-        ├── assets/               本地素材
-        └── ui-icons.js           共享 UI 图标库
+        ├── images/               本地素材
+        └── saves/characters/     角色一图流的存档
 
 > 想改代码的话，先看 [AGENTS.md](./AGENTS.md)（协作流程、实现约定、诊断套路）和 [CHANGELOG](./CHANGELOG.md)（里程碑）。
 
