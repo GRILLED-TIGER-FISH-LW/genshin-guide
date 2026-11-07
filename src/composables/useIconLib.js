@@ -49,6 +49,30 @@ export async function matchIcon(type, name) {
   }
 }
 
+/* 名字 → 字典条目原样（要 order 推存档文件名、要 art 取立绘、要 card 取名片时才用）。
+   找不到回 null */
+export async function dictEntry(type, name) {
+  const query = String(name || '').trim()
+  if (!query) return null
+  try {
+    const hit = (await iconLib()).match(type, query)
+    return hit ? window.ICON_DICT?.[type]?.[hit.key] || null : null
+  } catch {
+    return null
+  }
+}
+
+/* 某组的地址规则（config[type]）：prefix / ext 是主源，alt 是备用源，
+   card / art 各有一组。字典条目只记代号，地址按这套规则拼 */
+export async function dictConfig(type) {
+  try {
+    await iconLib()
+    return window.ICON_DICT?.config?.[type] || null
+  } catch {
+    return null
+  }
+}
+
 /* shared/ui-icons.js 整份（含 ui / element / artifact / nav / card 各组的路径数据）。
    取不到就给空对象，卡片少画几个小图标，其余照画 */
 export function loadUiIcons() {
@@ -61,5 +85,5 @@ export function loadUiIcons() {
   return uiTask
 }
 
-/* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 5 合并完删掉 */
+/* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 6 合并完删掉 */
 export const loadArtifactIcons = async () => (await loadUiIcons())?.artifact || {}
