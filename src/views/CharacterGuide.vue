@@ -30,6 +30,27 @@ const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PA
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
 /* =========================================================================
+ * 分区：预览常驻上方，下面一次只显示一个区块 —— 十来个区块一路往下滚太费劲
+ * ========================================================================= */
+const SECTIONS = [
+  { key: 'style', label: '外观样式' },
+  { key: 'portrait', label: '立绘' },
+  { key: 'weapon', label: '武器' },
+  { key: 'artifact', label: '圣遗物' },
+  { key: 'talent', label: '天赋' },
+  { key: 'stat', label: '词条' },
+  { key: 'panel', label: '面板' },
+  { key: 'constellation', label: '命座' },
+  { key: 'team', label: '配队' },
+  { key: 'save', label: '存档' },
+]
+const tab = ref('style')
+const contentEl = ref(null)
+
+/* 换区回到顶部，跟旧版一致 */
+watch(tab, () => contentEl.value?.scrollTo({ top: 0 }))
+
+/* =========================================================================
  * 草稿：自动存本机，下次打开接着上次
  * ========================================================================= */
 const saveState = ref('')
@@ -311,7 +332,7 @@ function clearTeamCore() {
 </script>
 
 <template>
-  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]">
     <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
       <PreviewFrame>
         <!-- 预览就是导出用的同一段 SVG，整段塞进来 -->
@@ -319,36 +340,53 @@ function clearTeamCore() {
       </PreviewFrame>
     </div>
 
-    <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
-      <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">文字</h2>
-        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Field v-model="s.charName" label="角色名称" placeholder="如：芙宁娜" />
-          <Field v-model="s.version" label="适用版本" placeholder="如：5.4" />
-          <Field v-model="s.date" label="制作日期" placeholder="如：2026-11-07" />
-          <Field v-model="s.author" label="攻略作者" />
+    <!-- 换区按钮：一行横向滚动，选中的压在 sunken 底色上 -->
+    <div class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2" role="group" aria-label="编辑区域切换">
+      <button
+        v-for="sec in SECTIONS"
+        :key="sec.key"
+        type="button"
+        class="h-8 shrink-0 rounded-ctl px-3 text-xs transition-colors"
+        :class="tab === sec.key ? 'bg-sunken font-medium text-ink' : 'text-muted hover:bg-hover'"
+        :aria-pressed="tab === sec.key"
+        @click="tab = sec.key"
+      >
+        {{ sec.label }}
+      </button>
+    </div>
+
+    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
+      <section v-show="tab === 'style'" class="grid grid-cols-1 gap-4">
+        <div class="grid grid-cols-1 gap-2">
+          <h2 class="px-1 text-xs font-medium text-muted">文字</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field v-model="s.charName" label="角色名称" placeholder="如：芙宁娜" />
+            <Field v-model="s.version" label="适用版本" placeholder="如：5.4" />
+            <Field v-model="s.date" label="制作日期" placeholder="如：2026-11-07" />
+            <Field v-model="s.author" label="攻略作者" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-2">
+          <h2 class="px-1 text-xs font-medium text-muted">元素配色</h2>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="[name, color] in elementColors"
+              :key="color"
+              type="button"
+              class="flex h-9 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-colors"
+              :class="isTheme(color) ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
+              :aria-pressed="isTheme(color)"
+              @click="s.theme = color"
+            >
+              <span class="size-3 shrink-0 rounded-full" :style="{ backgroundColor: color }" aria-hidden="true" />
+              {{ name }}
+            </button>
+          </div>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">元素配色</h2>
-        <div class="grid grid-cols-4 gap-2">
-          <button
-            v-for="[name, color] in elementColors"
-            :key="color"
-            type="button"
-            class="flex h-9 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-colors"
-            :class="isTheme(color) ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
-            :aria-pressed="isTheme(color)"
-            @click="s.theme = color"
-          >
-            <span class="size-3 shrink-0 rounded-full" :style="{ backgroundColor: color }" aria-hidden="true" />
-            {{ name }}
-          </button>
-        </div>
-      </section>
-
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">素材</h2>
         <div
           v-for="slot in IMG_SLOTS"
@@ -378,12 +416,10 @@ function clearTeamCore() {
         <Slider v-if="s.charImg" v-model="s.imgX" label="立绘左右偏移" :min="-400" :max="400" unit="px" />
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">武器推荐</h2>
-
+      <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-4">
         <div v-for="type in WEAPON_ORDER" :key="type" class="grid grid-cols-1 gap-2">
           <div class="flex items-center justify-between gap-2 px-1">
-            <h3 class="text-xs text-body">{{ WEAPON_LABELS[type] }}（{{ s.weaponData[type].length }}/{{ WEAPON_MAX }}）</h3>
+            <h2 class="text-xs font-medium text-muted">{{ WEAPON_LABELS[type] }}武器（{{ s.weaponData[type].length }}/{{ WEAPON_MAX }}）</h2>
             <Btn size="sm" @click="addWeapon(type)">添加</Btn>
           </div>
           <p v-if="!s.weaponData[type].length" class="px-1 text-xs text-faint">暂无配置</p>
@@ -394,7 +430,7 @@ function clearTeamCore() {
             class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs font-medium text-ink">#{{ i + 1 }} {{ WEAPON_LABELS[type] }}武器</span>
+              <span class="text-xs font-medium text-ink">#{{ i + 1 }}</span>
               <div class="flex gap-1">
                 <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
                   <Icon name="ui.arrowUp" />
@@ -437,7 +473,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-2">
         <div class="flex items-center justify-between gap-2 px-1">
           <h2 class="text-xs font-medium text-muted">圣遗物推荐（{{ s.artifactData.length }}）</h2>
           <div class="flex gap-2">
@@ -526,7 +562,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">天赋加点</h2>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field v-model="s.talentA" label="普通攻击" placeholder="如：10" />
@@ -535,7 +571,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">词条推荐</h2>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field v-model="s.sandMain" label="时之沙" placeholder="如：元素精通" />
@@ -545,35 +581,37 @@ function clearTeamCore() {
         <Field v-model="s.subStats" label="副词条优先顺序" placeholder="如：暴击率 > 暴击伤害 > 元素精通" />
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">面板参考 · 主属性</h2>
-        <div class="grid grid-cols-3 gap-2">
-          <button
-            v-for="opt in PRIMARY_OPTIONS"
-            :key="opt.value"
-            type="button"
-            class="h-9 rounded-ctl border text-xs transition-colors"
-            :class="s.panel.primaryKey === opt.value ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
-            :aria-pressed="s.panel.primaryKey === opt.value"
-            @click="s.panel.primaryKey = opt.value"
-          >
-            {{ opt.label }}
-          </button>
+      <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-4">
+        <div class="grid grid-cols-1 gap-2">
+          <h2 class="px-1 text-xs font-medium text-muted">主属性</h2>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              v-for="opt in PRIMARY_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="h-9 rounded-ctl border text-xs transition-colors"
+              :class="s.panel.primaryKey === opt.value ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
+              :aria-pressed="s.panel.primaryKey === opt.value"
+              @click="s.panel.primaryKey = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <Field v-model="s.panel.primaryValue" label="主属性数值" placeholder="留空显示「任意」" />
         </div>
-        <Field v-model="s.panel.primaryValue" label="主属性数值" placeholder="留空显示「任意」" />
+
+        <div class="grid grid-cols-1 gap-2">
+          <h2 class="px-1 text-xs font-medium text-muted">副属性</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field v-model="s.panel.cr" label="暴击率" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.em" label="元素精通" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.er" label="充能效率" placeholder="留空显示「任意」" />
+          </div>
+        </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">面板参考 · 副属性</h2>
-        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Field v-model="s.panel.cr" label="暴击率" placeholder="留空显示「任意」" />
-          <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
-          <Field v-model="s.panel.em" label="元素精通" placeholder="留空显示「任意」" />
-          <Field v-model="s.panel.er" label="充能效率" placeholder="留空显示「任意」" />
-        </div>
-      </section>
-
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">核心命座</h2>
         <div
           v-for="(c, i) in s.constellationData"
@@ -595,7 +633,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'team'" class="grid grid-cols-1 gap-2">
         <div class="flex items-center justify-between gap-2 px-1">
           <h2 class="text-xs font-medium text-muted">配队参考（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
           <Btn size="sm" @click="addTeam">添加队伍</Btn>
@@ -740,7 +778,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'save'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">存档</h2>
         <p class="px-1 text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
         <p class="px-1 text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
@@ -749,7 +787,7 @@ function clearTeamCore() {
           <Btn variant="danger" @click="askClear">清空全部数据</Btn>
         </div>
         <p class="px-1 text-xs text-faint">
-          在线存档按角色名去找（编号取自图标字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
+          在线存档按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
         </p>
       </section>
     </main>
