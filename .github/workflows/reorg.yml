@@ -17,8 +17,8 @@ name: Reorg
 #                 >>>>
 #   ③ DELETES  一行一个路径（文件或目录都行）
 #   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
-#   注意：多行块必须用 python 解析。bash 的 while read 是按行读的，
-#         会把多行块拆成一堆假清单（v1 栽过一次）。
+#   经验：自检要查「实际读取」（grep "text('data/…')"），别查名字 ——
+#         新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
 
 on:
   workflow_dispatch:
@@ -81,7 +81,7 @@ env:
     >>>>
     <<<<
     /* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
-       characters.txt / character-art.txt / namecards.txt 从这一版起退休。
+       原来那三张数据表从这一版起退休，本文件不再读 data/ 下的表（只剩 logos）。
        字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
     export async function loadData() {
       const [logoTxt] = await Promise.all([text('data/logos.txt')])
@@ -141,15 +141,16 @@ env:
     public/data/namecards.txt
     public/tools/character
 
-  # ---------- ④ 自检：非 0 即中止 ----------
+  # ---------- ④ 自检 ----------
   CHECKS: |
-    ! grep -q 'characters\.txt' src/lib/videoCover.js
-    ! grep -q 'character-art\.txt' src/lib/videoCover.js
-    ! grep -q 'namecards\.txt' src/lib/videoCover.js
-    grep -q '图标字典里的序号 / 立绘 / 名片' src/lib/videoCover.js
-    grep -q "text('data/logos.txt')" src/lib/videoCover.js
+    ! grep -n "text('data/characters.txt')" src/lib/videoCover.js
+    ! grep -n "text('data/character-art.txt')" src/lib/videoCover.js
+    ! grep -n "text('data/namecards.txt')" src/lib/videoCover.js
+    grep -n '图标字典里的序号 / 立绘 / 名片' src/lib/videoCover.js
+    grep -n "text('data/logos.txt')" src/lib/videoCover.js
     test ! -e public/data/namecards.txt
     test ! -d public/tools/character
+    grep -n "text('data/" src/lib/videoCover.js || true
 
 jobs:
   reorg:
@@ -224,7 +225,7 @@ jobs:
               subprocess.run(['git', 'rm', '-r', '-q', '--ignore-unmatch', path], check=True)
               print('rm ' + path)
 
-          # ④ 自检：失败时把命令的输出也打出来，日志里能直接看到原因
+          # ④ 自检：失败时把命令输出也打出来
           for check in pick(os.environ.get('CHECKS', '')):
               print('check: ' + check)
               r = subprocess.run(['bash', '-c', check], capture_output=True, text=True)
