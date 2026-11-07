@@ -16,10 +16,11 @@ export const SVG_H = 720
 
 export const FONT_FAMILY_DEFAULT = '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
 
-/* 元素配色：色板按钮与卡片里各面板标题前的小圆点同源 */
+/* 元素配色：色板按钮、卡片里各面板标题前的小圆点同源。
+   第三位是 shared/ui-icons.js 的 element 组键（构建期模块里按 element.fire 取） */
 export const elementColors = [
-  ['火', '#EC4923'], ['水', '#498FCC'], ['风', '#359697'], ['雷', '#6957C2'],
-  ['草', '#66AD16'], ['冰', '#35AACC'], ['岩', '#CC9046'], ['无', '#939393'],
+  ['火', '#EC4923', 'fire'], ['水', '#498FCC', 'water'], ['风', '#359697', 'wind'], ['雷', '#6957C2', 'thunder'],
+  ['草', '#66AD16', 'grass'], ['冰', '#35AACC', 'ice'], ['岩', '#CC9046', 'rock'], ['无', '#939393', 'none'],
 ]
 
 export const LAYOUT = {
