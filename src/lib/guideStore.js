@@ -24,6 +24,9 @@ const IMG_KEYS = ['charImg', 'nameBgImg', 'bgImg']
 const TEXT_KEYS = [
   'charName', 'version', 'date', 'author', 'theme',
   'sandMain', 'gobMain', 'cirMain', 'subStats', 'talentA', 'talentE', 'talentQ',
+  /* 字体：name / fileName 跟着存档走；data 是几兆的 base64，草稿里会被剔掉，
+     重新打开时按 fileName 从 public/fonts/ 取回来（见页面上的 applyFontFromState） */
+  'fontName', 'fontFileName', 'fontData',
 ]
 
 const str = (v) => String(v ?? '')
