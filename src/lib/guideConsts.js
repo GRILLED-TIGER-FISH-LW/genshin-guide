@@ -70,3 +70,14 @@ export const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY
 
 /* 天赋没填时占位（面板那边用的是「任意」，两处不一样是旧版原样） */
 export const TALENT_EMPTY_TEXT = '—'
+
+/* 配队最多三支（卡片也只画得下三支） */
+export const TEAM_MAX = 3
+
+/* 元素色 → 元素名。用于按元素色取 images/element/元素名.png；
+   「无」没有对应的元素图，配色没选也是空，两种情况都回 '' */
+export const themeToElementName = (color) => {
+  const key = String(color || '').toLowerCase()
+  const hit = elementColors.find(([, c]) => c.toLowerCase() === key)
+  return hit && hit[0] !== '无' ? hit[0] : ''
+}
