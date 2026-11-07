@@ -1,42 +1,125 @@
 name: Reorg
 
-# 临时搬家小工：只干手机上 GitHub 网页端做不到的事 —— 一次把一堆文件 git mv 走、
-# 一批字符串精确替换、删几个文件。改完跑一次构建，构建通过才推分支。
-#
-# 用法：① 填下面的「清单区」→ 提交   ② Actions → 左侧「Reorg」→ Run workflow（从 main 跑）
-#      ③ 用 https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg/<分支名> 开 PR
-#      ④ 用完清空清单区；哪天不搬东西了就把这个文件删掉
-#
-# 铁律：只推 reorg/<分支名>，永远不碰 main；清单里的原文找不到就报错停下（宁可失败，不可误删）。
+# 机械改动 + 大删除的通用机器人。
+#   改下面四段清单 → Actions 里选 Reorg → Run workflow（用默认的清单名即可）
+#   → 它在 reorg-<清单名> 分支上做完、跑一次 npm run build → 你去 compare 页面合并。
+# 只适合机械改动：搬文件、按原文逐字替换、删文件/目录。
+# 不适用：重写逻辑（那种活儿得人看 diff）。
 
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: '分支名后缀（推到 reorg/<这个名字>）'
+      batch:
+        description: 清单名（会建 reorg-<名字> 分支）
         required: true
-        default: 'batch-1'
+        default: txt-retire
 
 permissions:
   contents: write
 
 env:
-  # ── 清单区① 改名 / 挪位置：每行「旧路径 -> 新路径」 ──
+  # ---------- ① 搬文件：旧路径 -> 新路径 ----------
   MOVES: |
-    # 例：public/old/a.css -> public/new/a.css
-  # ── 清单区② 精确替换：每行「文件 ||| 原文 ||| 新文」 ──
+    # 例：src/old.js -> src/new.js
+
+  # ---------- ② 替换：文件 ||| 原文 ||| 新文（原文可以多行，逐字查找，找不到就中止） ----------
   EDITS: |
-    # 例：public/x/index.html ||| old/a.js ||| new/a.js
-  # ── 清单区③ 删文件：每行一个路径 ──
+    src/lib/videoCover.js ||| /* character-art.txt / 旧配置里的路径是工具页时代的相对路径（../../shared/…）。
+       SPA 里相对路径按仓库根算，会跑到域名外面 —— 统一改成站点基址。
+       http(s) / data: 原样放行。 */
+    export function artUrl(raw) {
+      const m = String(raw || '').match(/^(?:\.\.\/)+/)
+      return m ? `${BASE}${String(raw).slice(m[0].length)}` : raw || ''
+    }
+
+    export async function loadData() {
+      const [characterTxt, artTxt, namecardTxt, logoTxt] = await Promise.all([
+        text('data/characters.txt'),
+        text('data/character-art.txt'),
+        text('data/namecards.txt'),
+        text('data/logos.txt'),
+      ])
+
+      const orders = {}
+      for (const line of lines(characterTxt)) {
+        const parts = line.split(/[\s,，\t]+/)
+        if (parts.length < 2) continue
+        const order = parseInt(parts[0], 10)
+        const name = parts.slice(1).join(' ').trim()
+        if (order && name) orders[name] = order
+      }
+
+      const art = {}
+      for (const line of lines(artTxt)) {
+        const m = line.match(/^(\d+)\s+(\S+)\s*(.*)$/)
+        if (m) art[m[2]] = artUrl((m[3] || '').trim())
+      }
+
+      const namecards = {}
+      for (const line of lines(namecardTxt)) {
+        const m = line.match(/^(\d+)\s+(\S+)\s+(https?:\/\/\S+)$/)
+        if (m) namecards[m[2]] = m[3]
+      }
+
+      const logos = []
+      for (const line of lines(logoTxt)) {
+        const parts = line.split(/\s+/)
+        if (parts.length >= 2) logos.push({ name: parts[0], file: parts[1] })
+      }
+      if (!logos.length) logos.push({ name: '原神', file: DEFAULT_LOGO_FILE })
+
+      return { orders, art, namecards, logos }
+    } ||| /* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
+       characters.txt / character-art.txt / namecards.txt 从这一版起 retired。
+       字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
+    export async function loadData() {
+      const [logoTxt] = await Promise.all([text('data/logos.txt')])
+      await iconLib()
+
+      const dict = window.ICON_DICT || {}
+      const cardCfg = dict.config?.characters?.card
+
+      const orders = {}
+      const art = {}
+      const namecards = {}
+      for (const [key, item] of Object.entries(dict.characters || {})) {
+        const name = item.name || key
+        if (item.order) orders[name] = item.order
+        if (item.art?.url) art[name] = item.art.url
+
+        const cardKey = item.card?.key
+        if (!cardKey || !cardCfg) continue
+        const src = item.card?.alt && cardCfg.alt ? cardCfg.alt : cardCfg
+        if (src.prefix) namecards[name] = src.prefix + cardKey + (src.ext || '')
+      }
+
+      const logos = []
+      for (const line of lines(logoTxt)) {
+        const parts = line.split(/\s+/)
+        if (parts.length >= 2) logos.push({ name: parts[0], file: parts[1] })
+      }
+      if (!logos.length) logos.push({ name: '原神', file: DEFAULT_LOGO_FILE })
+
+      return { orders, art, namecards, logos }
+    }
+
+  # ---------- ③ 删文件 / 目录：一行一个路径 ----------
   DELETES: |
-    # 例：public/old/gone.css
-  # （整行以 # 开头的是注释，空行不算；三条清单都留空 = 什么都没做，会直接报错停下）
+    public/data/namecards.txt
+    public/tools/character
+
+  # ---------- ④ 自检：一行一条命令，非 0 即中止（失败就不推分支） ----------
+  CHECKS: |
+    ! grep -q 'data/characters.txt' src/lib/videoCover.js
+    ! grep -q 'data/character-art.txt' src/lib/videoCover.js
+    ! grep -q 'data/namecards.txt' src/lib/videoCover.js
+    ! grep -q 'artUrl' src/lib/videoCover.js
+    test ! -e public/data/namecards.txt
+    test ! -d public/tools/character
 
 jobs:
   reorg:
     runs-on: ubuntu-latest
-    env:
-      B: ${{ inputs.branch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,69 +127,63 @@ jobs:
         with:
           node-version: 20
 
-      - name: 按清单搬家
+      - name: 按清单区改
         run: |
           set -euo pipefail
-          git config user.name "reorg-bot"
-          git config user.email "reorg-bot@users.noreply.github.com"
+          B="${{ inputs.batch }}"
+          echo "清单：$B"
 
-          # 去掉首尾空白；空行与整行注释返回非零
-          pick() {
-            local t
-            t="$(printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-            case "$t" in '' | '#'*) return 1 ;; esac
-            printf '%s' "$t"
-          }
+          # 去首尾空白，跳过空行与 # 注释
+          pick() { sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$' | grep -v '^#' || true; }
 
-          # 精确替换：原文一处都找不到就报错退出
+          # 逐字替换（多行也行）：整串查找，一次都没换上就报错中止
           sub() {
-            if ! grep -qF -- "$2" "$1"; then
-              echo "::error file=$1::没找到要替换的字符串：$2"
-              exit 1
-            fi
-            FROM="$2" TO="$3" perl -0777 -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/g' "$1"
-            echo "edit: $1"
+            local f="$1" from="$2" to="$3"
+            [ -f "$f" ] || { echo "缺文件：$f"; exit 1; }
+            FROM="$from" TO="$to" perl -0777 -pi -e '$n = s/\Q$ENV{FROM}\E/$ENV{TO}/g; $n or die "没找到原文：$ARGV\n"' "$f"
+            echo "改了 $f"
           }
 
-          echo "分支：reorg/$B"
+          # ① 搬
+          printf '%s\n' "$MOVES" | pick | while IFS= read -r line; do
+            from="${line%% -> *}"; to="${line##* -> }"
+            git mv "$from" "$to"
+            echo "mv $from -> $to"
+          done
 
-          # ① 改名 / 挪位置
-          while IFS= read -r line; do
-            line="$(pick "$line")" || continue
-            case "$line" in
-              *' -> '*) from="${line%% -> *}"; to="${line##* -> }" ;;
-              *) echo "::error::清单①格式不对（要「旧路径 -> 新路径」）：$line"; exit 1 ;;
-            esac
-            mkdir -p "$(dirname "$to")"
-            git mv -f "$from" "$to"
-            echo "move: $from -> $to"
-          done <<< "$MOVES"
+          # ② 替换
+          printf '%s\n' "$EDITS" | pick | while IFS= read -r line; do
+            file="${line%% ||| *}"
+            rest="${line#* ||| }"
+            sub "$file" "${rest%% ||| *}" "${rest#* ||| }"
+          done
 
-          # ② 精确替换
-          while IFS= read -r line; do
-            line="$(pick "$line")" || continue
-            f="${line%%|||*}"; rest="${line#*|||}"
-            case "$rest" in
-              *'|||'*) ;;
-              *) echo "::error::清单②格式不对（要「文件 ||| 原文 ||| 新文」）：$line"; exit 1 ;;
-            esac
-            sub "$(printf '%s' "$f" | sed -e 's/[[:space:]]*$//')" "${rest%%|||*}" "${rest#*|||}"
-          done <<< "$EDITS"
+          # ③ 删
+          printf '%s\n' "$DELETES" | pick | while IFS= read -r path; do
+            git rm -r -q --ignore-unmatch "$path" || true
+            echo "rm $path"
+          done
 
-          # ③ 删文件
-          while IFS= read -r line; do
-            line="$(pick "$line")" || continue
-            git rm -q "$line"
-            echo "rm: $line"
-          done <<< "$DELETES"
+          # ④ 自检
+          printf '%s\n' "$CHECKS" | pick | while IFS= read -r check; do
+            echo "check: $check"
+            bash -c "$check"
+          done
 
           git add -A
-          echo "---- 动了这些文件 ----"
+          git diff --cached --quiet && { echo "清单没有产生任何改动，中止"; exit 1; }
           git status --short
-          git diff --cached --quiet && { echo "::error::清单没产生任何改动，先检查路径 / 字符串"; exit 1; }
 
+      - name: 构建验证
+        run: |
           npm install --no-audit --no-fund
           npm run build
 
+      - name: 推到分支
+        run: |
+          set -euo pipefail
+          B="${{ inputs.batch }}"
+          git config user.name "reorg-bot"
+          git config user.email "reorg-bot@users.noreply.github.com"
           git commit -m "reorg: $B"
-          git push -f origin "HEAD:refs/heads/reorg/$B"
+          git push -f origin "HEAD:refs/heads/reorg-$B"
