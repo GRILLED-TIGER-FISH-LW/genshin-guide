@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import Btn from '../components/Btn.vue'
+import Dropdown from '../components/Dropdown.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
@@ -8,7 +9,8 @@ import PreviewFrame from '../components/PreviewFrame.vue'
 import Slider from '../components/Slider.vue'
 import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
 import { useToast } from '../composables/useToast.js'
-import { loadImageMeta } from '../lib/assets.js'
+import { download, loadImageMeta } from '../lib/assets.js'
+import * as fonts from '../lib/fonts.js'
 import {
   elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS,
   TEAM_MAX, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
@@ -16,13 +18,10 @@ import {
 import * as guide from '../lib/guideChart.js'
 import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
-/* 编辑区按旧版一图流的骨架复刻（v2~v5 那些修正都是在修它，不自己发挥）：
-   组 = 头部（标题 + 添加 + 收起展开）+ 内容；条目 = 头部（名字 + 上移/下移/删除）+ 一行
-   缩略图 + 输入框；散搭两个并排；备选左缩进挂一条竖线。
-   控件换成通用件，尺寸按规范：缩略图 40px（旧版 --thumb-size，= h-10）、备选 32px、
-   控件高交给 Btn / Field；颜色属性的 transition 全站禁用，要过渡只用 shadow。 */
+/* 编辑区按旧版一图流的骨架：组 = 头部（标题 + 添加 + 收起展开）+ 内容；
+   条目 = 头部（名字 + 上移/下移/删除）+ 一行「缩略图 + 输入框」；散搭两个并排；
+   备选左缩进挂一条竖线。控件用通用件，尺寸按规范：缩略图 40px（= h-10）、备选 32px。 */
 
-/* 整份状态就一个对象：字段名与旧版一图流逐字一致 */
 const s = reactive(guide.fresh())
 const toast = useToast()
 
@@ -33,16 +32,14 @@ const PLACEHOLDER = guide.placeholder()
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
-/* 缩略图外壳：40px 见方（备选 32px 用 THUMB_SM）；图一律 object-cover —— 非正方形按短边铺满裁切 */
 const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
-/* 面板 / 条目卡片 / 一行 */
 const PANEL = 'grid gap-2 rounded-panel border border-line bg-surface p-2'
 const CARD = 'grid gap-2 rounded-ctl border border-line-2 p-2'
 const HEAD = 'flex items-center justify-between gap-2'
 
 /* =========================================================================
- * 分区：预览常驻上方，下面一次只显示一个区块（旧版就是 Tab 切换）
+ * 分区
  * ========================================================================= */
 const SECTIONS = [
   { key: 'style', label: '外观样式' },
@@ -58,16 +55,78 @@ const SECTIONS = [
 const tab = ref('style')
 const contentEl = ref(null)
 
-/* 换区回到顶部，跟旧版一致 */
 watch(tab, () => contentEl.value?.scrollTo({ top: 0 }))
 
-/* 收起 / 展开：与旧版一致，默认全展开；新增一条时把所在组展开 */
+/* 收起 / 展开：默认全展开；新增条目时展开所在组 */
 const collapsed = reactive({})
 const isCollapsed = (key) => !!collapsed[key]
 const toggleCollapse = (key) => { collapsed[key] = !collapsed[key] }
 
 /* =========================================================================
- * 草稿：自动存本机，下次打开接着上次
+ * 字体（复用视频封面那套共享设施）
+ * ========================================================================= */
+const fontList = ref([])
+const fontFile = ref('')
+const fontStatus = ref('') /* '' | 'loading' | 'error' */
+
+const fontOptions = computed(() => [
+  { value: '', label: '默认系统字体' },
+  ...fontList.value.map((f) => ({ value: f.file, label: f.name })),
+])
+
+const fontLabel = computed(() => {
+  if (fontStatus.value === 'loading') return '正在加载…'
+  if (fontStatus.value === 'error') return '字体加载失败，重新选一个即可'
+  return s.fontName ? `当前：${s.fontName}` : '默认系统字体'
+})
+
+async function onFontChange(file) {
+  if (!file) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = ''
+    return
+  }
+
+  const item = fontList.value.find((f) => f.file === file)
+  if (!item) return
+
+  fontStatus.value = 'loading'
+  try {
+    const data = await fonts.fetchFontData(file)
+    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    s.fontData = data
+    s.fontName = item.name
+    s.fontFileName = file
+    fontStatus.value = ''
+  } catch (err) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = 'error'
+    toast.error(`字体加载失败：${err.message}`)
+  }
+}
+
+/* 载入草稿 / 存档 / 配置之后把字体装回来：有 data 直接用，
+   没有就按文件名重新取（草稿里只存名字，见 saveDraft 那行） */
+async function applyFontFromState() {
+  fonts.dropFont()
+  if (s.fontName && s.fontData) {
+    if (await fonts.installFont({ name: s.fontName, data: s.fontData })) return
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    return
+  }
+  if (s.fontFileName && fontList.value.length) fontFile.value = s.fontFileName
+}
+
+/* =========================================================================
+ * 草稿
  * ========================================================================= */
 const saveState = ref('')
 let saveTimer = 0
@@ -76,7 +135,8 @@ function touchDraft() {
   saveState.value = '保存中…'
   clearTimeout(saveTimer)
   saveTimer = setTimeout(async () => {
-    saveState.value = (await saveDraft(s)) ? '已保存' : '保存失败'
+    /* 字体 data 是几兆的 base64，草稿里不存 —— 只留名字，打开时按名字重取 */
+    saveState.value = (await saveDraft({ ...toRaw(s), fontData: '' })) ? '已保存' : '保存失败'
   }, 600)
 }
 
@@ -86,6 +146,11 @@ onMounted(async () => {
   } catch {
     /* 没图标也能用 */
   }
+  try {
+    fontList.value = await fonts.fetchFontList()
+  } catch {
+    /* 清单读不到就没有可选字体，不影响其他 */
+  }
 
   const draft = await loadDraft()
   if (draft) {
@@ -93,15 +158,17 @@ onMounted(async () => {
     saveState.value = '已恢复上次的草稿'
   }
 
-  /* 挂在读取之后：恢复草稿这一步不该再触发一次保存 */
   watch(s, touchDraft, { deep: true })
+  watch(fontFile, onFontChange)
+  await applyFontFromState()
 })
 
 /* =========================================================================
- * 在线存档 / 清空全部
+ * 存档 / 配置
  * ========================================================================= */
 const confirmBox = ref(false)
 const confirmKind = ref('repo')
+const importInput = ref(null)
 
 const confirmTitle = computed(() => (confirmKind.value === 'clear' ? '清空全部数据' : '载入在线存档'))
 const confirmText = computed(() => (confirmKind.value === 'clear' ? '清空' : '载入'))
@@ -132,19 +199,48 @@ async function loadRepo() {
   saveState.value = '正在补齐图标…'
   await rematchMissing(s)
   saveState.value = `已载入存档 ${res.file}`
+  await applyFontFromState()
 }
 
 async function clearAll() {
   const author = s.author
   Object.assign(s, normalizeGuide({ author }))
   await clearDraft()
+  fonts.dropFont()
+  fontFile.value = ''
   saveState.value = '已清空'
 }
 
 const runConfirm = () => (confirmKind.value === 'clear' ? clearAll() : loadRepo())
 
+const dayStamp = () => {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/* 导出的配置不带字体字节（和视频封面一致），导入时按 fontFileName 重新取 */
+async function exportConfig() {
+  const text = JSON.stringify({ ...toRaw(s), fontData: '' }, null, 2)
+  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
+  toast.success('配置已导出')
+}
+
+async function importConfig(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  try {
+    Object.assign(s, normalizeGuide(JSON.parse(await file.text())))
+    await applyFontFromState()
+    toast.success('配置已导入')
+  } catch {
+    toast.error('这个文件不是本工具的配置')
+  }
+}
+
 /* =========================================================================
- * 大图槽：立绘 / 元素图 / 大背景
+ * 大图槽
  * ========================================================================= */
 const IMG_SLOTS = [
   { key: 'charImg', label: '立绘', hint: '点击图片上传' },
@@ -152,7 +248,6 @@ const IMG_SLOTS = [
   { key: 'bgImg', label: '大背景', hint: '留空为深色底' },
 ]
 
-/* 隐藏的 file input 按 key 存一份，点缩略图 / 按钮时由它触发 */
 const fileInputs = {}
 const pickFile = (key) => fileInputs[key]?.click()
 
@@ -163,7 +258,6 @@ const readAsDataURL = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file)
 })
 
-/* 取文件 → dataURL；没选文件回 ''。顺手清空 input，同一个文件才能再选一次 */
 async function fileToDataURL(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
@@ -185,7 +279,7 @@ function clearImg(key) {
 }
 
 /* =========================================================================
- * 武器：毕业 / 可选 / 新手，组内最多 4 个，上移下移可以跨组
+ * 武器
  * ========================================================================= */
 const canMoveWeapon = (type, i, dir) => {
   const list = s.weaponData[type]
@@ -223,7 +317,6 @@ function moveWeapon(type, i, dir) {
   else s.weaponData[adj].push(item)
 }
 
-/* 名字失焦时去字典取图；取不到就退回灰底占位，不报错 */
 async function matchWeapon(type, i) {
   const cell = s.weaponData[type][i]
   cell.img = await matchIcon('weapons', cell.name)
@@ -239,7 +332,7 @@ async function onWeaponFile(type, i, e) {
 }
 
 /* =========================================================================
- * 圣遗物：整套（一个槽）与散搭（两个槽，左右并排）
+ * 圣遗物
  * ========================================================================= */
 const moveItem = (arr, i, dir) => {
   const to = i + dir
@@ -278,7 +371,7 @@ async function onArtifactFile(i, imgKey, e) {
 }
 
 /* =========================================================================
- * 配队：每队 4 格，第 1 格是卡片主角（编辑器不碰），2~4 号位可编辑 + 备选
+ * 配队
  * ========================================================================= */
 function addTeam() {
   if (s.teamData.length >= TEAM_MAX) return toast.error(`最多 ${TEAM_MAX} 支队伍`)
@@ -288,7 +381,6 @@ function addTeam() {
 const removeTeam = (ti) => s.teamData.splice(ti, 1)
 const moveTeam = (ti, dir) => moveItem(s.teamData, ti, dir)
 
-/* 2~4 号位之间换位，不碰第 1 格 */
 function moveTeamChar(ti, ci, dir) {
   const to = ci + dir
   if (to < 1 || to > 3) return
@@ -307,7 +399,6 @@ function addAlt(ti, ci) {
 
 const removeAlt = (ti, ci, ai) => s.teamData[ti].chars[ci].alts.splice(ai, 1)
 
-/* 角色名直接问字典 —— 名字里带「·冰」这种后缀也认（loader 会先精确匹配） */
 async function matchTeamChar(ti, ci) {
   const cell = s.teamData[ti].chars[ci]
   cell.img = await matchIcon('characters', cell.name)
@@ -355,11 +446,37 @@ function clearTeamCore() {
       <PreviewFrame>
         <!-- 预览就是导出用的同一段 SVG，整段塞进来 -->
         <div class="grid size-full [&>svg]:size-full" v-html="svg" />
+
+        <!-- 右上角浮动按钮：点预览空白处收起（PreviewFrame 内置） -->
+        <template #toolbar>
+          <Btn variant="float" square aria-label="导出配置" @click="exportConfig">
+            <Icon name="ui.export" />
+          </Btn>
+          <Btn variant="float" square aria-label="导入配置" @click="importInput?.click()">
+            <Icon name="ui.import" />
+          </Btn>
+          <Btn variant="float" square aria-label="清空全部数据" @click="askClear">
+            <Icon name="ui.trash" />
+          </Btn>
+          <input
+            ref="importInput"
+            type="file"
+            accept=".json,application/json"
+            class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="importConfig"
+          />
+        </template>
       </PreviewFrame>
     </div>
 
-    <!-- 换区按钮：筛选条那条尺寸线（窄屏 h-10、宽屏 h-9） -->
-    <div class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2" role="group" aria-label="编辑区域切换">
+    <!-- 换区按钮：筛选条那条尺寸线；横向滚动但不显示滚动条 -->
+    <div
+      class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+      aria-label="编辑区域切换"
+    >
       <button
         v-for="sec in SECTIONS"
         :key="sec.key"
@@ -390,7 +507,7 @@ function clearTeamCore() {
           <h2 class="text-xs font-medium text-muted">元素配色</h2>
           <div class="grid grid-cols-4 gap-2">
             <button
-              v-for="[name, color] in elementColors"
+              v-for="[name, color, iconKey] in elementColors"
               :key="color"
               type="button"
               class="flex h-10 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-shadow duration-150"
@@ -398,22 +515,33 @@ function clearTeamCore() {
               :aria-pressed="isTheme(color)"
               @click="s.theme = color"
             >
-              <span class="size-3 shrink-0 rounded-full" :style="{ backgroundColor: color }" aria-hidden="true" />
+              <span class="shrink-0" :style="{ color }" aria-hidden="true">
+                <Icon :name="`element.${iconKey}`" size="sm" />
+              </span>
               {{ name }}
             </button>
           </div>
         </div>
 
         <div :class="PANEL">
-          <h2 class="text-xs font-medium text-muted">存档</h2>
+          <h2 class="text-xs font-medium text-muted">字体</h2>
+          <div class="flex items-center gap-2">
+            <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
+            <div class="w-32 shrink-0">
+              <Dropdown v-model="fontFile" :options="fontOptions" label="选择字体" placeholder="选择字体" />
+            </div>
+          </div>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">在线存档</h2>
           <p class="text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
           <p class="text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
           <div class="flex flex-wrap gap-2">
             <Btn @click="askRepoSave">载入在线存档</Btn>
-            <Btn variant="danger" @click="askClear">清空全部数据</Btn>
           </div>
           <p class="text-xs text-faint">
-            在线存档按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
+            按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
           </p>
         </div>
       </section>
@@ -458,7 +586,6 @@ function clearTeamCore() {
               />
             </div>
 
-            <!-- 立绘偏移：紧跟立绘那一行，带数值框 -->
             <Slider
               v-if="slot.key === 'charImg' && s.charImg"
               v-model="s.imgX"
@@ -471,7 +598,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <!-- ③ 武器区：三组，每组可收起 -->
+      <!-- ③ 武器区 -->
       <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-3">
         <div v-for="type in WEAPON_ORDER" :key="type" :class="PANEL">
           <div :class="HEAD">
@@ -479,8 +606,8 @@ function clearTeamCore() {
             <div class="flex shrink-0 gap-1">
               <Btn size="sm" @click="addWeapon(type)">添加</Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed(`weapon_${type}`)" @click="toggleCollapse(`weapon_${type}`)">
-                <Icon :name="isCollapsed(`weapon_${type}`) ? 'ui.chevronDown' : 'ui.chevronUp'" />
                 {{ isCollapsed(`weapon_${type}`) ? '展开' : '收起' }}
+                <Icon :name="isCollapsed(`weapon_${type}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
               </Btn>
             </div>
           </div>
@@ -537,7 +664,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <!-- ④ 圣遗物区：一套一段，整段可收起；散搭两个左右并排 -->
+      <!-- ④ 圣遗物区 -->
       <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <div :class="HEAD">
@@ -546,8 +673,8 @@ function clearTeamCore() {
               <Btn size="sm" @click="addArtifact('single')">整套</Btn>
               <Btn size="sm" @click="addArtifact('double')">散搭</Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed('artifact_section')" @click="toggleCollapse('artifact_section')">
-                <Icon :name="isCollapsed('artifact_section') ? 'ui.chevronDown' : 'ui.chevronUp'" />
                 {{ isCollapsed('artifact_section') ? '展开' : '收起' }}
+                <Icon :name="isCollapsed('artifact_section') ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
               </Btn>
             </div>
           </div>
@@ -700,7 +827,7 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <!-- ⑧ 命座区：两列（窄屏一列），左圆圈数字，点亮填元素色 -->
+      <!-- ⑧ 命座区 -->
       <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">核心命座说明（点击圆圈点亮）</h2>
@@ -773,8 +900,8 @@ function clearTeamCore() {
                 <Icon name="ui.arrowDown" />
               </Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}`)" @click="toggleCollapse(`team_${ti}`)">
-                <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" />
                 {{ isCollapsed(`team_${ti}`) ? '展开' : '收起' }}
+                <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
               </Btn>
               <Btn size="sm" square variant="danger" aria-label="删除队伍" @click="removeTeam(ti)">
                 <Icon name="ui.trash" />
@@ -796,8 +923,8 @@ function clearTeamCore() {
                     <Icon name="ui.arrowDown" />
                   </Btn>
                   <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}_char_${ci}`)" @click="toggleCollapse(`team_${ti}_char_${ci}`)">
-                    <Icon :name="isCollapsed(`team_${ti}_char_${ci}`) ? 'ui.chevronDown' : 'ui.chevronUp'" />
                     {{ isCollapsed(`team_${ti}_char_${ci}`) ? '展开' : '收起' }}
+                    <Icon :name="isCollapsed(`team_${ti}_char_${ci}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
                   </Btn>
                 </div>
               </div>
