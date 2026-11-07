@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, toRaw, watch } from 'vue'
+import { ICONS } from 'virtual:gg-icons'
 import Btn from '../components/Btn.vue'
 import Dropdown from '../components/Dropdown.vue'
 import Field from '../components/Field.vue'
@@ -20,7 +21,10 @@ import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, s
 
 /* 编辑区按旧版一图流的骨架：组 = 头部（标题 + 添加 + 收起展开）+ 内容；
    条目 = 头部（名字 + 上移/下移/删除）+ 一行「缩略图 + 输入框」；散搭两个并排；
-   备选左缩进挂一条竖线。控件用通用件，尺寸按规范：缩略图 40px（= h-10）、备选 32px。 */
+   备选左缩进挂一条竖线。控件一律走通用件、写法对齐仓库里已有的用法：
+   · 按钮里的图标走 #icon 具名插槽（Btn 会给它按档位定尺寸）
+   · 只有「收起 / 展开」是文字在前、实心三角在后（这是特意要的）
+   尺寸按规范：缩略图 40px（旧版 --thumb-size，= h-10）、备选 32px。 */
 
 const s = reactive(guide.fresh())
 const toast = useToast()
@@ -31,6 +35,11 @@ const PLACEHOLDER = guide.placeholder()
 
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
+
+/* 元素图标的几何是 1024 视框（和词条的花杯冠同一套），而 Icon.vue 的外框写死 24 视框，
+   直接套会把路径放大 43 倍画出画面外 —— 构建期模块收的又正好是「剥掉外层 svg」的内容，
+   拿不到原 viewBox，所以这里自己套一个 1024 视框，颜色强制跟随文字色 */
+const elementIcon = (key) => `<svg viewBox="0 0 1024 1024" class="size-4 shrink-0 [&_path]:fill-current" aria-hidden="true">${ICONS[`element.${key}`] || ''}</svg>`
 
 const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
@@ -63,7 +72,7 @@ const isCollapsed = (key) => !!collapsed[key]
 const toggleCollapse = (key) => { collapsed[key] = !collapsed[key] }
 
 /* =========================================================================
- * 字体（复用视频封面那套共享设施）
+ * 字体
  * ========================================================================= */
 const fontList = ref([])
 const fontFile = ref('')
@@ -111,8 +120,6 @@ async function onFontChange(file) {
   }
 }
 
-/* 载入草稿 / 存档 / 配置之后把字体装回来：有 data 直接用，
-   没有就按文件名重新取（草稿里只存名字，见 saveDraft 那行） */
 async function applyFontFromState() {
   fonts.dropFont()
   if (s.fontName && s.fontData) {
@@ -135,7 +142,6 @@ function touchDraft() {
   saveState.value = '保存中…'
   clearTimeout(saveTimer)
   saveTimer = setTimeout(async () => {
-    /* 字体 data 是几兆的 base64，草稿里不存 —— 只留名字，打开时按名字重取 */
     saveState.value = (await saveDraft({ ...toRaw(s), fontData: '' })) ? '已保存' : '保存失败'
   }, 600)
 }
@@ -444,19 +450,17 @@ function clearTeamCore() {
   <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]">
     <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
       <PreviewFrame>
-        <!-- 预览就是导出用的同一段 SVG，整段塞进来 -->
         <div class="grid size-full [&>svg]:size-full" v-html="svg" />
 
-        <!-- 右上角浮动按钮：点预览空白处收起（PreviewFrame 内置） -->
         <template #toolbar>
           <Btn variant="float" square aria-label="导出配置" @click="exportConfig">
-            <Icon name="ui.export" />
+            <template #icon><Icon name="ui.export" size="sm" /></template>
           </Btn>
           <Btn variant="float" square aria-label="导入配置" @click="importInput?.click()">
-            <Icon name="ui.import" />
+            <template #icon><Icon name="ui.import" size="sm" /></template>
           </Btn>
           <Btn variant="float" square aria-label="清空全部数据" @click="askClear">
-            <Icon name="ui.trash" />
+            <template #icon><Icon name="ui.trash" size="sm" /></template>
           </Btn>
           <input
             ref="importInput"
@@ -471,7 +475,6 @@ function clearTeamCore() {
       </PreviewFrame>
     </div>
 
-    <!-- 换区按钮：筛选条那条尺寸线；横向滚动但不显示滚动条 -->
     <div
       class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
@@ -515,9 +518,7 @@ function clearTeamCore() {
               :aria-pressed="isTheme(color)"
               @click="s.theme = color"
             >
-              <span class="shrink-0" :style="{ color }" aria-hidden="true">
-                <Icon :name="`element.${iconKey}`" size="sm" />
-              </span>
+              <span :style="{ color }" v-html="elementIcon(iconKey)" />
               {{ name }}
             </button>
           </div>
@@ -568,12 +569,12 @@ function clearTeamCore() {
               <Btn
                 v-if="s[slot.key]"
                 size="sm"
-                square
                 variant="danger"
+                square
                 :aria-label="`删除${slot.label}`"
                 @click="clearImg(slot.key)"
               >
-                <Icon name="ui.trash" />
+                <template #icon><Icon name="ui.trash" size="sm" /></template>
               </Btn>
               <input
                 :ref="(el) => (fileInputs[slot.key] = el)"
@@ -607,7 +608,7 @@ function clearTeamCore() {
               <Btn size="sm" @click="addWeapon(type)">添加</Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed(`weapon_${type}`)" @click="toggleCollapse(`weapon_${type}`)">
                 {{ isCollapsed(`weapon_${type}`) ? '展开' : '收起' }}
-                <Icon :name="isCollapsed(`weapon_${type}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
+                <Icon :name="isCollapsed(`weapon_${type}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
               </Btn>
             </div>
           </div>
@@ -620,13 +621,13 @@ function clearTeamCore() {
                 <span class="text-xs font-medium text-ink">#{{ i + 1 }}</span>
                 <div class="flex shrink-0 gap-1">
                   <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
-                    <Icon name="ui.arrowUp" />
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
                   </Btn>
                   <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
-                    <Icon name="ui.arrowDown" />
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                   </Btn>
-                  <Btn size="sm" square variant="danger" aria-label="删除武器" @click="removeWeapon(type, i)">
-                    <Icon name="ui.trash" />
+                  <Btn size="sm" variant="danger" square aria-label="删除武器" @click="removeWeapon(type, i)">
+                    <template #icon><Icon name="ui.trash" size="sm" /></template>
                   </Btn>
                 </div>
               </div>
@@ -674,7 +675,7 @@ function clearTeamCore() {
               <Btn size="sm" @click="addArtifact('double')">散搭</Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed('artifact_section')" @click="toggleCollapse('artifact_section')">
                 {{ isCollapsed('artifact_section') ? '展开' : '收起' }}
-                <Icon :name="isCollapsed('artifact_section') ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
+                <Icon :name="isCollapsed('artifact_section') ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
               </Btn>
             </div>
           </div>
@@ -689,13 +690,13 @@ function clearTeamCore() {
                 </span>
                 <div class="flex shrink-0 gap-1">
                   <Btn size="sm" square aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
-                    <Icon name="ui.arrowUp" />
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
                   </Btn>
                   <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
-                    <Icon name="ui.arrowDown" />
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                   </Btn>
-                  <Btn size="sm" square variant="danger" aria-label="删除圣遗物" @click="removeArtifact(i)">
-                    <Icon name="ui.trash" />
+                  <Btn size="sm" variant="danger" square aria-label="删除圣遗物" @click="removeArtifact(i)">
+                    <template #icon><Icon name="ui.trash" size="sm" /></template>
                   </Btn>
                 </div>
               </div>
@@ -707,7 +708,6 @@ function clearTeamCore() {
                   aria-label="卡片显示文本"
                   placeholder="卡片显示文本（留空则显示两个名字）"
                 />
-                <!-- 两个并排，各占一半；窄到放不下才换行（旧版 flex:1 / min-width:140px） -->
                 <div class="flex flex-wrap gap-2">
                   <div v-for="n in 2" :key="n" class="flex min-w-[140px] flex-1 items-center gap-2">
                     <button
@@ -868,8 +868,8 @@ function clearTeamCore() {
               <div class="text-xs font-medium text-ink">1 号位头像</div>
               <div class="truncate text-xs text-muted">{{ s.teamCoreImg ? '已载入，点图更换' : '留空就用角色自己的头像' }}</div>
             </div>
-            <Btn v-if="s.teamCoreImg" size="sm" square variant="danger" aria-label="删除 1 号位头像" @click="clearTeamCore">
-              <Icon name="ui.trash" />
+            <Btn v-if="s.teamCoreImg" size="sm" variant="danger" square aria-label="删除 1 号位头像" @click="clearTeamCore">
+              <template #icon><Icon name="ui.trash" size="sm" /></template>
             </Btn>
             <input
               :ref="(el) => (fileInputs.teamCore = el)"
@@ -894,17 +894,17 @@ function clearTeamCore() {
             <span class="text-xs font-medium text-muted">队伍 {{ ti + 1 }}</span>
             <div class="flex shrink-0 gap-1">
               <Btn size="sm" square aria-label="上移" :disabled="ti === 0" @click="moveTeam(ti, -1)">
-                <Icon name="ui.arrowUp" />
+                <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
               </Btn>
               <Btn size="sm" square aria-label="下移" :disabled="ti === s.teamData.length - 1" @click="moveTeam(ti, 1)">
-                <Icon name="ui.arrowDown" />
+                <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
               </Btn>
               <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}`)" @click="toggleCollapse(`team_${ti}`)">
                 {{ isCollapsed(`team_${ti}`) ? '展开' : '收起' }}
-                <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
+                <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
               </Btn>
-              <Btn size="sm" square variant="danger" aria-label="删除队伍" @click="removeTeam(ti)">
-                <Icon name="ui.trash" />
+              <Btn size="sm" variant="danger" square aria-label="删除队伍" @click="removeTeam(ti)">
+                <template #icon><Icon name="ui.trash" size="sm" /></template>
               </Btn>
             </div>
           </div>
@@ -917,14 +917,14 @@ function clearTeamCore() {
                 <span class="text-xs font-medium text-accent-strong">{{ ci + 1 }} 号位主角色</span>
                 <div class="flex shrink-0 gap-1">
                   <Btn size="sm" square aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
-                    <Icon name="ui.arrowUp" />
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
                   </Btn>
                   <Btn size="sm" square aria-label="下移" :disabled="ci === 3" @click="moveTeamChar(ti, ci, 1)">
-                    <Icon name="ui.arrowDown" />
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                   </Btn>
                   <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}_char_${ci}`)" @click="toggleCollapse(`team_${ti}_char_${ci}`)">
                     {{ isCollapsed(`team_${ti}_char_${ci}`) ? '展开' : '收起' }}
-                    <Icon :name="isCollapsed(`team_${ti}_char_${ci}`) ? 'ui.chevronDown' : 'ui.chevronUp'" bold />
+                    <Icon :name="isCollapsed(`team_${ti}_char_${ci}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
                   </Btn>
                 </div>
               </div>
@@ -958,7 +958,6 @@ function clearTeamCore() {
                   />
                 </div>
 
-                <!-- 备选：左缩进 + 一条竖线（旧版 .alt-list-wrap） -->
                 <div class="grid grid-cols-1 gap-2 border-l border-line-2 pl-3">
                   <div :class="HEAD">
                     <span class="text-xs text-muted">备选角色（{{ team.chars[ci].alts.length }}/4）</span>
@@ -984,13 +983,13 @@ function clearTeamCore() {
                     />
                     <div class="flex shrink-0 gap-1">
                       <Btn size="sm" square aria-label="上移" :disabled="ai === 0" @click="moveAlt(ti, ci, ai, -1)">
-                        <Icon name="ui.arrowUp" />
+                        <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
                       </Btn>
                       <Btn size="sm" square aria-label="下移" :disabled="ai === team.chars[ci].alts.length - 1" @click="moveAlt(ti, ci, ai, 1)">
-                        <Icon name="ui.arrowDown" />
+                        <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                       </Btn>
-                      <Btn size="sm" square variant="danger" aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
-                        <Icon name="ui.trash" />
+                      <Btn size="sm" variant="danger" square aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
+                        <template #icon><Icon name="ui.trash" size="sm" /></template>
                       </Btn>
                     </div>
                     <input
