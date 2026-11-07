@@ -16,6 +16,10 @@ import {
 import * as guide from '../lib/guideChart.js'
 import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
+/* 尺寸与旧版对齐：缩略图一律 40px（旧版 --thumb-size，正好是规范里的 h-10），
+   备选缩略图 32px（旧版 .alt-row .thumb）；控件高度交给 Btn / Field 自己管。
+   颜色属性的 transition 全局禁用（见 AGENTS 禁用清单），要过渡只用 shadow。 */
+
 /* 整份状态就一个对象：字段名与旧版一图流逐字一致 */
 const s = reactive(guide.fresh())
 const toast = useToast()
@@ -28,6 +32,9 @@ const PLACEHOLDER = guide.placeholder()
 
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
+
+/* 可点缩略图 / 图片按钮的公共样式：圆角、衬底、焦点环 */
+const THUMB = 'shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 
 /* =========================================================================
  * 分区：预览常驻上方，下面一次只显示一个区块 —— 十来个区块一路往下滚太费劲
@@ -340,13 +347,13 @@ function clearTeamCore() {
       </PreviewFrame>
     </div>
 
-    <!-- 换区按钮：一行横向滚动，选中的压在 sunken 底色上 -->
+    <!-- 换区按钮：筛选条高度，窄屏 h-10、宽屏 h-9，跟 Btn 的中号同一条尺寸线 -->
     <div class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2" role="group" aria-label="编辑区域切换">
       <button
         v-for="sec in SECTIONS"
         :key="sec.key"
         type="button"
-        class="h-8 shrink-0 rounded-ctl px-3 text-xs transition-colors"
+        class="h-10 shrink-0 rounded-ctl px-3 text-xs transition-shadow duration-150 sm:h-9"
         :class="tab === sec.key ? 'bg-sunken font-medium text-ink' : 'text-muted hover:bg-hover'"
         :aria-pressed="tab === sec.key"
         @click="tab = sec.key"
@@ -374,7 +381,7 @@ function clearTeamCore() {
               v-for="[name, color] in elementColors"
               :key="color"
               type="button"
-              class="flex h-9 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-colors"
+              class="flex h-10 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-shadow duration-150"
               :class="isTheme(color) ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
               :aria-pressed="isTheme(color)"
               @click="s.theme = color"
@@ -388,32 +395,45 @@ function clearTeamCore() {
 
       <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">素材</h2>
-        <div
-          v-for="slot in IMG_SLOTS"
-          :key="slot.key"
-          class="flex items-center gap-3 rounded-panel border border-line bg-surface p-3"
-        >
-          <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb">
-            <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-contain" />
-          </div>
-          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
-            <span class="text-xs font-medium text-ink">{{ slot.label }}</span>
-            <div class="flex gap-2">
-              <Btn @click="pickFile(slot.key)">{{ s[slot.key] ? '更换' : '上传' }}{{ slot.label }}</Btn>
-              <Btn v-if="s[slot.key]" variant="danger" @click="clearImg(slot.key)">删除</Btn>
+
+        <template v-for="slot in IMG_SLOTS" :key="slot.key">
+          <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-2">
+            <button
+              type="button"
+              class="size-10 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :aria-label="`上传${slot.label}`"
+              @click="pickFile(slot.key)"
+            >
+              <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-contain" />
+            </button>
+            <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
+              <span class="text-xs font-medium text-ink">{{ slot.label }}</span>
+              <div class="flex gap-2">
+                <Btn size="sm" @click="pickFile(slot.key)">{{ s[slot.key] ? '更换' : '上传' }}{{ slot.label }}</Btn>
+                <Btn v-if="s[slot.key]" size="sm" variant="danger" @click="clearImg(slot.key)">删除</Btn>
+              </div>
             </div>
+            <input
+              :ref="(el) => (fileInputs[slot.key] = el)"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="onSlotFile(slot.key, $event)"
+            />
           </div>
-          <input
-            :ref="(el) => (fileInputs[slot.key] = el)"
-            type="file"
-            accept="image/*"
-            class="sr-only"
-            tabindex="-1"
-            aria-hidden="true"
-            @change="onSlotFile(slot.key, $event)"
+
+          <!-- 立绘偏移：紧跟立绘那一行 -->
+          <Slider
+            v-if="slot.key === 'charImg' && s.charImg"
+            v-model="s.imgX"
+            label="立绘左右偏移"
+            :min="-400"
+            :max="400"
+            unit="px"
           />
-        </div>
-        <Slider v-if="s.charImg" v-model="s.imgX" label="立绘左右偏移" :min="-400" :max="400" unit="px" />
+        </template>
       </section>
 
       <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-4">
@@ -446,7 +466,8 @@ function clearTeamCore() {
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="size-14 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :class="THUMB"
+                class="size-10"
                 :aria-label="`上传第 ${i + 1} 个武器的图标`"
                 @click="pickFile(`w:${type}:${i}`)"
               >
@@ -508,7 +529,8 @@ function clearTeamCore() {
             <div v-for="n in 2" :key="n" class="flex items-center gap-2">
               <button
                 type="button"
-                class="size-14 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :class="THUMB"
+                class="size-10"
                 :aria-label="`上传散搭第 ${n} 个圣遗物的图标`"
                 @click="pickFile(`a:${i}:${n}`)"
               >
@@ -536,7 +558,8 @@ function clearTeamCore() {
           <div v-else class="flex items-center gap-2">
             <button
               type="button"
-              class="size-14 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+              :class="THUMB"
+              class="size-10"
               :aria-label="`上传第 ${i + 1} 个圣遗物的图标`"
               @click="pickFile(`a:${i}`)"
             >
@@ -589,7 +612,7 @@ function clearTeamCore() {
               v-for="opt in PRIMARY_OPTIONS"
               :key="opt.value"
               type="button"
-              class="h-9 rounded-ctl border text-xs transition-colors"
+              class="h-10 rounded-ctl border text-xs transition-shadow duration-150"
               :class="s.panel.primaryKey === opt.value ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
               :aria-pressed="s.panel.primaryKey === opt.value"
               @click="s.panel.primaryKey = opt.value"
@@ -616,14 +639,20 @@ function clearTeamCore() {
         <div
           v-for="(c, i) in s.constellationData"
           :key="i"
-          class="flex items-start gap-2 rounded-panel border border-line bg-surface p-2"
+          class="flex items-center gap-2 rounded-panel border border-line bg-surface p-2"
         >
-          <Btn
-            size="sm"
-            :variant="c.active ? 'primary' : 'secondary'"
+          <!-- 左圆圈数字，点亮时填元素色（和卡片上的序号圆点一致） -->
+          <button
+            type="button"
+            class="grid size-10 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
+            :class="c.active ? 'border-transparent text-white' : 'border-line text-muted hover:bg-hover'"
+            :style="c.active ? { backgroundColor: s.theme } : {}"
             :aria-pressed="c.active"
+            :aria-label="`第 ${i + 1} 命`"
             @click="c.active = !c.active"
-          >{{ i + 1 }} 命</Btn>
+          >
+            {{ i + 1 }}
+          </button>
           <Field
             v-model="c.desc"
             label="核心效果描述"
@@ -639,12 +668,18 @@ function clearTeamCore() {
           <Btn size="sm" @click="addTeam">添加队伍</Btn>
         </div>
 
-        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-3">
-          <div class="grid size-14 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb">
+        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-2">
+          <button
+            type="button"
+            :class="THUMB"
+            class="size-10"
+            aria-label="上传 1 号位头像"
+            @click="pickFile('teamCore')"
+          >
             <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-contain" />
-          </div>
+          </button>
           <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
-            <span class="text-xs font-medium text-ink">1 号位头像（留空就用角色自己的图）</span>
+            <span class="text-xs font-medium text-ink">1 号位头像</span>
             <div class="flex gap-2">
               <Btn size="sm" @click="pickFile('teamCore')">{{ s.teamCoreImg ? '更换' : '上传' }}1 号位头像</Btn>
               <Btn v-if="s.teamCoreImg" size="sm" variant="danger" @click="clearTeamCore">删除</Btn>
@@ -701,7 +736,8 @@ function clearTeamCore() {
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="size-12 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :class="THUMB"
+                class="size-10"
                 :aria-label="`上传 ${ci + 1} 号位角色头像`"
                 @click="pickFile(`t:${ti}:${ci}`)"
               >
@@ -733,7 +769,8 @@ function clearTeamCore() {
             <div v-for="(alt, ai) in team.chars[ci].alts" :key="ai" class="flex items-center gap-2">
               <button
                 type="button"
-                class="size-10 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :class="THUMB"
+                class="size-8"
                 :aria-label="`上传 ${ci + 1} 号位第 ${ai + 1} 个备选的头像`"
                 @click="pickFile(`ta:${ti}:${ci}:${ai}`)"
               >
