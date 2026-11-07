@@ -86,7 +86,7 @@ function sharedModules() {
 
     load(id) {
       if (id === ICONS_RESOLVED) {
-        const file = path('shared/ui-icons.js')
+        const file = path('public/shared/ui-icons.js')
         this.addWatchFile(file)
 
         const win = runSharedScript(file)
@@ -102,7 +102,7 @@ function sharedModules() {
       }
 
       if (id === LIB_RESOLVED) {
-        const file = path('shared/gi-icons/icon-loader.js')
+        const file = path('public/shared/gi-icons/icon-loader.js')
         this.addWatchFile(file)
 
         const win = runSharedScript(file)

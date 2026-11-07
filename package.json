@@ -6,7 +6,7 @@
   "description": "原神攻略工具集",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp -r shared dist/shared && cp -r tools dist/tools && cp favicon.ico dist/favicon.ico",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
