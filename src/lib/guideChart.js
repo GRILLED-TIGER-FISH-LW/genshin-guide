@@ -5,27 +5,28 @@
  * 输出一整段 <svg> 字符串。预览和导出共用这一个入口 —— 预览把它塞进 v-html，
  * 导出时把同一段字符串喂给 canvas（批 5 接上视频封面那条 svgToPng 链）。
  *
- * 已搬：左栏角色区、武器推荐、圣遗物推荐（含散搭）、词条推荐、面板参考
- *       + 七个面板底与标题。
- * 待搬：天赋 / 命座 / 配队的内容（批 4）。
+ * 到这一批为止，卡片的七个区块全部画齐：左栏、武器、圣遗物、天赋、词条、面板、
+ * 命座、配队。
  *
- * icons 参数是 ui-icons.js 的 artifact 组（花 / 杯 / 冠 路径），由界面取好传进来；
- * 没有就少画三个小图标，不影响别的。
+ * icons 参数是 shared/ui-icons.js 整份（界面取好传进来）：
+ *   icons.artifact  花 / 杯 / 冠 三个词条图标（路径数据）
+ *   icons.card.plusPath  配队里主角色之间的加号
+ * 缺哪个就少画哪个，不影响别的。
  *
  * 相对旧版的删除：text() 里 data-field / data-fit-* 那组属性是给旧版「按 DOM 节点
  * 局部改字」用的，Vue 里整份重画，不需要；slot()/doubleArtifact() 的 field 参数
- * （同一个用途）、图片上 id="charImgEl" 同理。
+ * （同一个用途）、图片上 id="charImgEl" 同理。配队里「角色名是否在白名单里」那道
+ * 校验也没了 —— 名字直接问字典，查不到就是没有。
  *
  * shortcut: 每次输入整份重拼字符串（1280×720、无滤镜），量小，不值得做局部更新；
  *           等出现大图模糊或几十个 text 一起量宽时再改成只重画变的块。
  * ========================================================================= */
 import {
   EMPTY_FILL, FONT_FAMILY_DEFAULT, LAYOUT, MID_CONTENT_Y, PANEL_EMPTY_TEXT, PANEL_PRIMARY_LABELS,
-  SVG_H, SVG_W, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
+  SVG_H, SVG_W, TALENT_EMPTY_TEXT, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
 } from './guideConsts.js'
 
-/* 字段名与旧版一图流、IDB 里的草稿逐字一致，旧档才读得进来。
-   批 4 再往里加天赋 / 命座 / 配队字段。 */
+/* 字段名与旧版一图流、IDB 里的草稿逐字一致，旧档才读得进来 */
 export const DEFAULTS = {
   charName: '', version: '', date: '', author: '烤吃虎鱼LW',
   theme: '#939393',
@@ -34,12 +35,25 @@ export const DEFAULTS = {
   nameBgImg: '', nameBgImgMeta: null, nameBgImgDeleted: false, nameBgImgManual: false,
   bgImg: '', bgImgDeleted: false, bgImgManual: false,
   sandMain: '', gobMain: '', cirMain: '', subStats: '',
+  talentA: '', talentE: '', talentQ: '',
   panel: { primaryKey: 'hp', primaryValue: '', cr: '', cd: '', em: '', er: '' },
   weaponData: { graduate: [], optional: [], newbie: [] },
   artifactData: [],
+  constellationData: Array.from({ length: 6 }, () => ({ active: false, desc: '' })),
+  teamCoreImg: '', teamCoreImgManual: false,
+  teamData: [],
 }
 
 export const fresh = () => structuredClone(DEFAULTS)
+
+/* 一支队伍固定四格：0 号是卡片主角（由角色名称 / 1 号位头像决定，编辑器不碰），
+   1~3 号可编辑，各自带最多 4 个备选 */
+export const makeTeam = () => ({
+  name: '',
+  chars: Array.from({ length: 4 }, () => ({
+    name: '', img: '', imgManual: false, emptyAltText: '暂无备选', alts: [],
+  })),
+})
 
 /* =========================================================================
  * 文本测量与自动排版：字号自适应靠 canvas 量宽，同一个文本要反复量
@@ -79,7 +93,7 @@ const wrapTextLines = (content, maxW, size, maxLines) => {
   return lines
 }
 
-/* 整块居中折行（词条盒子里的值） */
+/* 整块居中折行（词条盒子里的值、备选为空时的提示） */
 const wrappedCenteredText = (x, areaTop, areaW, areaH, content, maxW, base, min, fill = '#ddd') => {
   const centerX = x + areaW / 2
   for (let size = base; size >= min; size -= 1) {
@@ -93,7 +107,7 @@ const wrappedCenteredText = (x, areaTop, areaW, areaH, content, maxW, base, min,
   return text(centerX, areaTop + areaH / 2, content, min, { fill, anchor: 'middle' })
 }
 
-/* 左对齐折行（副词条那一行），放不下就一路降到 min，再放不下就硬排 */
+/* 左对齐折行（副词条、命座描述），放不下就一路降到 min，再放不下就硬排 */
 const wrappedLeftText = (x, areaTop, areaW, areaH, content, maxW, base, min, fill = '#ddd', padY = 0) => {
   const fitH = areaH - padY * 2
   for (let size = base; size >= min; size -= 1) {
@@ -273,8 +287,36 @@ const buildArtifacts = (d) => {
   return out
 }
 
+/* 天赋：三列，空值画破折号 */
+const buildTalents = (d) => {
+  const layer = LAYOUT.layers.talent
+  const contentX = layer.x + LAYOUT.padX
+  const contentY = LAYOUT.layers.row2.y + LAYOUT.contentOffsetY
+  const { boxH, colGap, labelFs, valueFs } = LAYOUT.talent
+  const colW = (layer.w - LAYOUT.padX * 2 - colGap * 2) / 3
+  const rx = LAYOUT.radius.inner
+  const maxW = colW - 16
+
+  const items = [
+    ['普通攻击', d.talentA],
+    ['元素战技', d.talentE],
+    ['元素爆发', d.talentQ],
+  ]
+
+  return items.map(([label, value], i) => {
+    const x = contentX + i * (colW + colGap)
+    const empty = !value
+    const shown = empty ? TALENT_EMPTY_TEXT : value
+
+    return `
+      ${rect(x, contentY, colW, boxH, LAYOUT.innerBoxFill, '', 0, rx)}
+      ${text(x + colW / 2, contentY + 17, label, labelFs, { fill: LAYOUT.labelColor, anchor: 'middle', weight: 500 })}
+      ${text(x + colW / 2, contentY + 44, shown, fitSize(shown, maxW, valueFs, 10), { fill: empty ? EMPTY_FILL : '#fff', anchor: 'middle', weight: 600 })}`
+  }).join('')
+}
+
 /* 词条：三个主词条盒（图标 + 标题 + 值），下面一条副词条 */
-const statBox = (d, icons, x, y, w, h, iconKey, title, value) => {
+const statBox = (d, artIcons, x, y, w, h, iconKey, title, value) => {
   const boxRx = LAYOUT.radius.inner
   const iconSize = LAYOUT.stat.iconSize
   const labelFs = LAYOUT.stat.labelFs
@@ -288,12 +330,12 @@ const statBox = (d, icons, x, y, w, h, iconKey, title, value) => {
 
   return `
     ${rect(x, y, w, h, LAYOUT.innerBoxFill, '', 0, boxRx)}
-    ${pathIcon(icons[iconKey], startX + iconSize / 2, centerY, iconSize, d.theme)}
+    ${pathIcon(artIcons[iconKey], startX + iconSize / 2, centerY, iconSize, d.theme)}
     ${text(startX + iconSize + gap, centerY, title, labelFs, { fill: LAYOUT.labelColor, weight: 500 })}
     ${value ? wrappedCenteredText(x + boxRx, valueAreaTop, maxW, valueAreaH, value, maxW, 12, 6, '#fff') : ''}`
 }
 
-const buildStats = (d, icons) => {
+const buildStats = (d, artIcons) => {
   const layer = LAYOUT.layers.mid.stat
   const contentX = layer.x + LAYOUT.padX
   const contentW = layer.w - LAYOUT.padX * 2
@@ -306,9 +348,9 @@ const buildStats = (d, icons) => {
   const subTextW = offsetX + totalW - 10 - subTextX
 
   return `
-    ${statBox(d, icons, offsetX, MID_CONTENT_Y, boxW, boxH, 'flower', '时之沙', d.sandMain)}
-    ${statBox(d, icons, offsetX + boxW + gap, MID_CONTENT_Y, boxW, boxH, 'cup', '空之杯', d.gobMain)}
-    ${statBox(d, icons, offsetX + (boxW + gap) * 2, MID_CONTENT_Y, boxW, boxH, 'crown', '理之冠', d.cirMain)}
+    ${statBox(d, artIcons, offsetX, MID_CONTENT_Y, boxW, boxH, 'flower', '时之沙', d.sandMain)}
+    ${statBox(d, artIcons, offsetX + boxW + gap, MID_CONTENT_Y, boxW, boxH, 'cup', '空之杯', d.gobMain)}
+    ${statBox(d, artIcons, offsetX + (boxW + gap) * 2, MID_CONTENT_Y, boxW, boxH, 'crown', '理之冠', d.cirMain)}
     ${rect(offsetX, subY, totalW, subH, LAYOUT.innerBoxFill, '', 0, LAYOUT.radius.inner)}
     ${text(subLabelX, subY + subH / 2, '副词条：', subLabelFs, { fill: LAYOUT.labelColor, weight: 500 })}
     ${wrappedLeftText(subTextX, subY, subTextW, subH, d.subStats, subTextW, 12, 6, '#fff', 4)}`
@@ -339,6 +381,105 @@ const buildPanel = (d) => {
       ${rect(cx, cy, cellW, cellH, LAYOUT.innerBoxFill, '', 0, rx)}
       ${text(cx + innerPadX, midY, it.label, labelFs, { fill: LAYOUT.labelColor, weight: 500 })}
       ${text(cx + cellW - innerPadX, midY, empty ? PANEL_EMPTY_TEXT : it.value, valueFs, { fill: empty ? EMPTY_FILL : '#fff', anchor: 'end' })}`
+  }).join('')
+}
+
+/* 命座：两列六格，点亮的那格用元素色 + 序号圆点加深 */
+const buildConstellations = (d) => {
+  const layer = LAYOUT.layers.mid.cons
+  const colX = layer.x + LAYOUT.padX
+  const { boxW, boxH, gapX, gapY, seqFs, descFs } = LAYOUT.cons
+  const theme = d.theme
+  const rx = LAYOUT.radius.inner
+
+  return d.constellationData.map((c, i) => {
+    const x = colX + (i % 2) * (boxW + gapX)
+    const y = MID_CONTENT_Y + Math.floor(i / 2) * (boxH + gapY)
+    const badgeCx = x + 15
+    const badgeCy = y + boxH / 2
+    const descX = x + 30
+    const descAreaW = x + boxW - 5 - descX
+    const active = !!c.active
+
+    const desc = c.desc
+      ? wrappedLeftText(descX, y + 2, descAreaW, boxH - 4, c.desc, descAreaW, descFs, 6, '#fff')
+      : ''
+
+    const box = active
+      ? `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${theme}" fill-opacity="0.25" stroke="${theme}" stroke-opacity="0.5" stroke-width="1"/>`
+      : rect(x, y, boxW, boxH, LAYOUT.innerBoxFill, '', 0, rx)
+
+    const badge = `<circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${active ? theme : 'rgba(0,0,0,.4)'}"/>` +
+      text(badgeCx, badgeCy + 0.5, i + 1, seqFs, { fill: '#fff', anchor: 'middle', weight: active ? 600 : 500 })
+
+    return `
+    ${box}
+    ${badge}
+    ${desc}`
+  }).join('')
+}
+
+/* 配队：最多三支队伍横排，每支一个白底框，里面 4 个主角色 + 3 行备选 */
+const buildTeams = (d, plusPath) => {
+  if (!d.teamData.length) return ''
+
+  const T = LAYOUT.team
+  const whiteBoxY = LAYOUT.layers.team.y + LAYOUT.contentOffsetY
+  const whiteBoxH = LAYOUT.layers.team.h - LAYOUT.contentOffsetY - LAYOUT.bottomPad
+
+  return d.teamData.slice(0, 3).map((team, ti) => {
+    const x = LAYOUT.right.x + LAYOUT.padX + ti * (T.w + T.gap)
+    let out = rect(x, whiteBoxY, T.w, whiteBoxH, LAYOUT.innerBoxFill, '', 0, LAYOUT.radius.inner)
+
+    if (team.name) {
+      out += text(x + T.w / 2, whiteBoxY + T.nameOffsetY, team.name, fitSize(team.name, 240, T.nameFs, 8),
+        { fill: LAYOUT.labelColor, anchor: 'middle', weight: 500 })
+    }
+
+    /* 第一格是卡片主角：用左栏那份立绘对应的头像，没单独传 1 号位头像就用角色自己的图 */
+    const first = team.chars?.[0] || {}
+    const mainChars = [
+      { name: d.charName || first.name || '', img: d.teamCoreImg || first.img || '' },
+      ...(team.chars || []).slice(1, 4),
+    ]
+    const mainSize = T.mainSize
+    const mainStep = mainSize + T.mainGap
+    const mainY = whiteBoxY + T.mainOffsetY
+    const mainStartX = x + (T.w - (mainSize * 4 + T.mainGap * 3)) / 2
+
+    mainChars.forEach((c, ci) => {
+      const cx = mainStartX + ci * mainStep
+      out += slot(cx, mainY, mainSize, c.img, c.name, `t_${ti}_${ci}`)
+
+      if (ci < 3 && plusPath) {
+        const plusScale = LAYOUT.plusSize / 16
+        out += `<g transform="translate(${cx + mainSize + T.mainGap / 2 - LAYOUT.plusSize / 2}, ${mainY + mainSize / 2 - LAYOUT.plusSize / 2}) scale(${plusScale})"><path d="${plusPath}" fill="${LAYOUT.labelColor}" stroke="${LAYOUT.labelColor}" stroke-width="${LAYOUT.plusStrokeW}" stroke-linejoin="round"/></g>`
+      }
+    })
+
+    const altStartY = whiteBoxY + T.altOffsetY
+    ;(team.chars || []).slice(1, 4).forEach((c, ci) => {
+      const rowY = altStartY + ci * (T.altSize + T.altRowGap)
+      const alts = (c.alts || []).filter((a) => a.name || a.img).slice(0, 4)
+      const label = `${ci + 2}号位备选`
+      const labelFs = 10
+      const rangeL = x + T.altLabelPadL + measureTextWidth(label, labelFs)
+      const rangeW = x + T.w - T.altRangePadR - rangeL
+      const centerX = rangeL + rangeW / 2
+      const clusterW = alts.length ? alts.length * T.altSize + (alts.length - 1) * T.altGap : 0
+      const startX = centerX - clusterW / 2
+
+      out += text(x + T.altLabelPadL, rowY + T.altSize / 2, label, labelFs, { fill: LAYOUT.labelColor, weight: 500 })
+      if (!alts.length) {
+        out += wrappedCenteredText(rangeL, rowY, rangeW, T.altSize, c.emptyAltText || '暂无备选', rangeW, 10, 5, EMPTY_FILL)
+      }
+
+      alts.forEach((a, ai) => {
+        out += slot(startX + ai * (T.altSize + T.altGap), rowY, T.altSize, a.img, a.name, `ta_${ti}_${ci + 1}_${ai}`)
+      })
+    })
+
+    return out
   }).join('')
 }
 
@@ -387,7 +528,7 @@ export function buildGuideSVG(d, icons = {}) {
     info += text(left.x + CI.padL, y, `${label} ${value}`, 12, { fill: '#ffffff', stroke: '#000000', strokeWidth: 1.2 })
   })
 
-  /* 一块面板 = 底 + 标题。天赋 / 命座 / 配队的内容按批 4 往里填 */
+  /* 一块面板 = 底 + 标题 */
   const layers = L.layers
   const mid = layers.mid
   const panel = (x, y, w, h, title) =>
@@ -422,11 +563,14 @@ export function buildGuideSVG(d, icons = {}) {
     ${panel(layers.artifact.x, layers.row2.y, layers.artifact.w, layers.row2.h, '圣遗物推荐')}
     ${buildArtifacts(d)}
     ${panel(layers.talent.x, layers.row2.y, layers.talent.w, layers.row2.h, '天赋加点')}
+    ${buildTalents(d)}
     ${panel(mid.stat.x, mid.y, mid.stat.w, mid.h, '词条推荐')}
-    ${buildStats(d, icons)}
+    ${buildStats(d, icons.artifact || {})}
     ${panel(mid.panel.x, mid.y, mid.panel.w, mid.h, '面板参考')}
     ${buildPanel(d)}
     ${panel(mid.cons.x, mid.y, mid.cons.w, mid.h, '核心命座')}
+    ${buildConstellations(d)}
     ${panel(L.right.x, layers.team.y, L.right.w, layers.team.h, '配队参考')}
+    ${buildTeams(d, icons.card?.plusPath)}
   </svg>`
 }
