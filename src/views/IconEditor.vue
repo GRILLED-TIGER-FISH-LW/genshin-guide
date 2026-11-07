@@ -17,6 +17,10 @@ import { useIconDict } from '../composables/useIconDict.js'
  *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
  *   一行一个批量解析。四个分类都吃这一套。
  *
+ * 【补齐不用人工踢】
+ *   选中一行会自动补它缺的（名片最常见）；地址框停手 700ms 自动落；
+ *   名字框失焦时补；同步末尾会把源里没有的角色也再试一次。
+ *
  * 【槽位的「用备用源」勾】
  *   主源（lunaris）图不对时（夏洛蒂那种）勾上，或用备用源那一组的链接
  *   粘一遍（会自动勾上）。这一格从此走 config 里的备用源规则，
@@ -45,6 +49,7 @@ const {
   activeKey,
   missingCard,
   missingArt,
+  needFill,
   slotSrc,
   starStyle,
   setOrder,
@@ -136,15 +141,26 @@ const setDraft = (slot, value) => {
   urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
 }
 
-/* 粘完地址：先落代号 / 标记，再拿代号去源里反查，把名字、另一个代号补齐 */
+/* 地址框：粘完 / 停手就自己落，不用再点别处去触发失焦 */
+let urlTimer = 0
+function onUrlInput(slot, value) {
+  setDraft(slot, value)
+  clearTimeout(urlTimer)
+  urlTimer = setTimeout(() => {
+    if (draftOf(slot)) commitUrl(activeRow.value, slot)
+  }, 700)
+}
+
+/* 粘完地址：先落代号 / 标记，再拿代号去源里反查，把缺的字段补齐 */
 async function commitUrl(row, slot) {
+  clearTimeout(urlTimer)
   const value = draftOf(slot)
   setDraft(slot, '')
-  if (!value) return
+  if (!value || !row) return
 
   const code = applyUrl(row, slot, value)
   if (!code) return
-  await hydrate(row, slot)
+  if (needFill(row)) await hydrate(row, slot)
 }
 
 function onSelect(row) {
@@ -152,12 +168,10 @@ function onSelect(row) {
   select(row)
 }
 
-/* 改完名字：如果这条还没名片，顺手从源补上 */
+/* 改完名字：这条还缺什么就顺手从源补上 */
 async function commitName(row) {
   setName(row, row.name)
-  if (tab.value === 'characters' && !row.card?.key && !row.card?.url) {
-    await hydrate(row, 'name')
-  }
+  if (tab.value === 'characters' && needFill(row)) await hydrate(row, 'name')
 }
 
 function onThumbError(e) {
@@ -502,7 +516,7 @@ onMounted(init)
                     meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'
                   "
                   :aria-label="`${meta.title} 地址`"
-                  @input="setDraft(meta.slot, $event.target.value)"
+                  @input="onUrlInput(meta.slot, $event.target.value)"
                   @change="commitUrl(activeRow, meta.slot)"
                 />
 
