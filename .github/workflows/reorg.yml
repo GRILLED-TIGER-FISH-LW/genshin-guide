@@ -1,10 +1,24 @@
 name: Reorg
 
-# 机械改动 + 大删除的通用机器人。
-#   改下面四段清单 → Actions 里选 Reorg → Run workflow（用默认的清单名即可）
+# 机械改动 + 大删除的通用机器人（清单区就在下面 env 里）。
+#   改清单 → Actions 里选 Reorg → Run workflow（清单名用默认的即可）
 #   → 它在 reorg-<清单名> 分支上做完、跑一次 npm run build → 你去 compare 页面合并。
-# 只适合机械改动：搬文件、按原文逐字替换、删文件/目录。
-# 不适用：重写逻辑（那种活儿得人看 diff）。
+#   任一步失败都不会推分支、不会动 main。
+#
+# 清单格式
+#   ① MOVES    一行一条：旧路径 -> 新路径
+#   ② EDITS    一条一个块，格式固定四段：
+#                 ### 文件路径
+#                 <<<<
+#                 原文（可多行，逐字查找；找不到就中止）
+#                 >>>>
+#                 <<<<
+#                 新文
+#                 >>>>
+#   ③ DELETES  一行一个路径（文件或目录都行）
+#   ④ CHECKS   一行一条命令，非 0 即中止
+#   注意：多行块必须用 python 解析。bash 的 while read 是按行读的，
+#         会把多行块拆成一堆假清单（v1 就栽在这儿）。
 
 on:
   workflow_dispatch:
@@ -22,9 +36,11 @@ env:
   MOVES: |
     # 例：src/old.js -> src/new.js
 
-  # ---------- ② 替换：文件 ||| 原文 ||| 新文（原文可以多行，逐字查找，找不到就中止） ----------
+  # ---------- ② 替换 ----------
   EDITS: |
-    src/lib/videoCover.js ||| /* character-art.txt / 旧配置里的路径是工具页时代的相对路径（../../shared/…）。
+    ### src/lib/videoCover.js
+    <<<<
+    /* character-art.txt / 旧配置里的路径是工具页时代的相对路径（../../shared/…）。
        SPA 里相对路径按仓库根算，会跑到域名外面 —— 统一改成站点基址。
        http(s) / data: 原样放行。 */
     export function artUrl(raw) {
@@ -69,8 +85,11 @@ env:
       if (!logos.length) logos.push({ name: '原神', file: DEFAULT_LOGO_FILE })
 
       return { orders, art, namecards, logos }
-    } ||| /* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
-       characters.txt / character-art.txt / namecards.txt 从这一版起 retired。
+    }
+    >>>>
+    <<<<
+    /* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
+       characters.txt / character-art.txt / namecards.txt 从这一版起退休。
        字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
     export async function loadData() {
       const [logoTxt] = await Promise.all([text('data/logos.txt')])
@@ -102,13 +121,14 @@ env:
 
       return { orders, art, namecards, logos }
     }
+    >>>>
 
-  # ---------- ③ 删文件 / 目录：一行一个路径 ----------
+  # ---------- ③ 删文件 / 目录 ----------
   DELETES: |
     public/data/namecards.txt
     public/tools/character
 
-  # ---------- ④ 自检：一行一条命令，非 0 即中止（失败就不推分支） ----------
+  # ---------- ④ 自检：非 0 即中止 ----------
   CHECKS: |
     ! grep -q 'data/characters.txt' src/lib/videoCover.js
     ! grep -q 'data/character-art.txt' src/lib/videoCover.js
@@ -129,50 +149,77 @@ jobs:
 
       - name: 按清单区改
         run: |
-          set -euo pipefail
-          B="${{ inputs.batch }}"
-          echo "清单：$B"
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          from pathlib import Path
 
-          # 去首尾空白，跳过空行与 # 注释
-          pick() { sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$' | grep -v '^#' || true; }
+          def pick(text):
+              return [l.strip() for l in text.split('\n') if l.strip() and not l.strip().startswith('#')]
 
-          # 逐字替换（多行也行）：整串查找，一次都没换上就报错中止
-          sub() {
-            local f="$1" from="$2" to="$3"
-            [ -f "$f" ] || { echo "缺文件：$f"; exit 1; }
-            FROM="$from" TO="$to" perl -0777 -pi -e '$n = s/\Q$ENV{FROM}\E/$ENV{TO}/g; $n or die "没找到原文：$ARGV\n"' "$f"
-            echo "改了 $f"
-          }
+          def blocks(text):
+              out, cur, inside = [], None, False
+              for line in text.split('\n'):
+                  s = line.strip()
+                  if s == '<<<<':
+                      inside, cur = True, []
+                      continue
+                  if s == '>>>>':
+                      inside = False
+                      out.append('\n'.join(cur))
+                      cur = None
+                      continue
+                  if inside:
+                      cur.append(line)
+              return out
+
+          def die(msg):
+              print('中止：' + msg)
+              sys.exit(1)
 
           # ① 搬
-          printf '%s\n' "$MOVES" | pick | while IFS= read -r line; do
-            from="${line%% -> *}"; to="${line##* -> }"
-            git mv "$from" "$to"
-            echo "mv $from -> $to"
-          done
+          for entry in pick(os.environ.get('MOVES', '')):
+              from_, sep, to = entry.partition(' -> ')
+              if not sep:
+                  die('MOVES 这行没有 -> ：' + entry)
+              subprocess.run(['git', 'mv', from_, to], check=True)
+              print('mv %s -> %s' % (from_, to))
 
           # ② 替换
-          printf '%s\n' "$EDITS" | pick | while IFS= read -r line; do
-            file="${line%% ||| *}"
-            rest="${line#* ||| }"
-            sub "$file" "${rest%% ||| *}" "${rest#* ||| }"
-          done
+          edits = os.environ.get('EDITS', '')
+          records = re.split(r'(?m)^###[ \t]*', edits)[1:]
+          if edits.strip() and not records:
+              die('EDITS 里没有 ### 头')
+          for rec in records:
+              lines = rec.split('\n')
+              path = lines[0].strip()
+              got = blocks('\n'.join(lines[1:]))
+              if len(got) != 2:
+                  die('%s：应有原文/新文两段 <<<< … >>>>，实际 %d 段' % (path, len(got)))
+              src, dst = got
+              p = Path(path)
+              if not p.is_file():
+                  die('缺文件：' + path)
+              text = p.read_text(encoding='utf-8')
+              if src not in text:
+                  die('没找到原文：' + path)
+              p.write_text(text.replace(src, dst), encoding='utf-8')
+              print('改了 ' + path)
 
           # ③ 删
-          printf '%s\n' "$DELETES" | pick | while IFS= read -r path; do
-            git rm -r -q --ignore-unmatch "$path" || true
-            echo "rm $path"
-          done
+          for path in pick(os.environ.get('DELETES', '')):
+              subprocess.run(['git', 'rm', '-r', '-q', '--ignore-unmatch', path], check=True)
+              print('rm ' + path)
 
           # ④ 自检
-          printf '%s\n' "$CHECKS" | pick | while IFS= read -r check; do
-            echo "check: $check"
-            bash -c "$check"
-          done
+          for check in pick(os.environ.get('CHECKS', '')):
+              print('check: ' + check)
+              subprocess.run(['bash', '-c', check], check=True)
 
-          git add -A
-          git diff --cached --quiet && { echo "清单没有产生任何改动，中止"; exit 1; }
-          git status --short
+          subprocess.run(['git', 'add', '-A'], check=True)
+          if subprocess.run(['git', 'diff', '--cached', '--quiet']).returncode == 0:
+              die('清单没有产生任何改动')
+          print(subprocess.run(['git', 'status', '--short'], capture_output=True, text=True).stdout)
+          PY
 
       - name: 构建验证
         run: |
