@@ -1,30 +1,42 @@
-name: Reorg (temp)
+name: Reorg
 
-# 临时搬家小工：只干手机上 GitHub 网页做不到的事 —— 一次把一堆文件 git mv 走。
-# 批 4 合并后连这个文件一起删掉。
-# 规矩：按写死的清单 mv；精确字符串替换，原串一处都找不到就报错停下；
-# 永远推到 reorg/batch-4 分支，不碰 main；构建不通过就不推。
+# 临时搬家小工：只干手机上 GitHub 网页端做不到的事 —— 一次把一堆文件 git mv 走、
+# 一批字符串精确替换、删几个文件。改完跑一次构建，构建通过才推分支。
 #
-# 用法：Actions → 左侧「Reorg (temp)」→ Run workflow → 批次选 4。
+# 用法：① 填下面的「清单区」→ 提交   ② Actions → 左侧「Reorg」→ Run workflow（从 main 跑）
+#      ③ 用 https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg/<分支名> 开 PR
+#      ④ 用完清空清单区；哪天不搬东西了就把这个文件删掉
+#
+# 铁律：只推 reorg/<分支名>，永远不碰 main；清单里的原文找不到就报错停下（宁可失败，不可误删）。
 
 on:
   workflow_dispatch:
     inputs:
-      batch:
-        description: '批次：4 = 一图流自己的样式归位 + 删两个死组件'
+      branch:
+        description: '分支名后缀（推到 reorg/<这个名字>）'
         required: true
-        default: '4'
-        type: choice
-        options: ['4']
+        default: 'batch-1'
 
 permissions:
   contents: write
+
+env:
+  # ── 清单区① 改名 / 挪位置：每行「旧路径 -> 新路径」 ──
+  MOVES: |
+    # 例：public/old/a.css -> public/new/a.css
+  # ── 清单区② 精确替换：每行「文件 ||| 原文 ||| 新文」 ──
+  EDITS: |
+    # 例：public/x/index.html ||| old/a.js ||| new/a.js
+  # ── 清单区③ 删文件：每行一个路径 ──
+  DELETES: |
+    # 例：public/old/gone.css
+  # （整行以 # 开头的是注释，空行不算；三条清单都留空 = 什么都没做，会直接报错停下）
 
 jobs:
   reorg:
     runs-on: ubuntu-latest
     env:
-      BATCH: ${{ inputs.batch }}
+      B: ${{ inputs.branch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,57 +44,69 @@ jobs:
         with:
           node-version: 20
 
-      - name: 搬家并改引用
+      - name: 按清单搬家
         run: |
           set -euo pipefail
           git config user.name "reorg-bot"
           git config user.email "reorg-bot@users.noreply.github.com"
 
-          # 精确替换：文件 原串 新串。原串一处都找不到就报错退出。
+          # 去掉首尾空白；空行与整行注释返回非零
+          pick() {
+            local t
+            t="$(printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            case "$t" in '' | '#'*) return 1 ;; esac
+            printf '%s' "$t"
+          }
+
+          # 精确替换：原文一处都找不到就报错退出
           sub() {
             if ! grep -qF -- "$2" "$1"; then
               echo "::error file=$1::没找到要替换的字符串：$2"
               exit 1
             fi
             FROM="$2" TO="$3" perl -0777 -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/g' "$1"
+            echo "edit: $1"
           }
 
-          echo "批次：$BATCH"
+          echo "分支：reorg/$B"
 
-          # ---------- 批 4：一图流的样式归位 + 删死组件 ----------
-          # public/shared/css 那 10 个文件全站只有「角色一图流」一个页面在用
-          # （theme.css @import 了另外 7 个），不该挂在 shared 名下 —— 整个
-          # 目录跟着它的唯一使用者走，shared/ 就只剩真共享的两样。
-          if [ "$BATCH" = "4" ]; then
+          # ① 改名 / 挪位置
+          while IFS= read -r line; do
+            line="$(pick "$line")" || continue
+            case "$line" in
+              *' -> '*) from="${line%% -> *}"; to="${line##* -> }" ;;
+              *) echo "::error::清单①格式不对（要「旧路径 -> 新路径」）：$line"; exit 1 ;;
+            esac
+            mkdir -p "$(dirname "$to")"
+            git mv -f "$from" "$to"
+            echo "move: $from -> $to"
+          done <<< "$MOVES"
 
-            # 别的文件还在引用这两个组件就报错停下：宁可任务失败，不可误删
-            if grep -rl "Tabs\.vue\|Combobox\.vue\|<Tabs\|<Combobox" src --include='*.vue' \
-               | grep -qv "^src/components/Tabs\.vue$\|^src/components/Combobox\.vue$"; then
-              echo "::error::Tabs / Combobox 还有引用，先查清楚再删"
-              exit 1
-            fi
+          # ② 精确替换
+          while IFS= read -r line; do
+            line="$(pick "$line")" || continue
+            f="${line%%|||*}"; rest="${line#*|||}"
+            case "$rest" in
+              *'|||'*) ;;
+              *) echo "::error::清单②格式不对（要「文件 ||| 原文 ||| 新文」）：$line"; exit 1 ;;
+            esac
+            sub "$(printf '%s' "$f" | sed -e 's/[[:space:]]*$//')" "${rest%%|||*}" "${rest#*|||}"
+          done <<< "$EDITS"
 
-            mkdir -p public/tools/character/css
-            for f in buttons.css dropdown.js editor.css home.css inputs.css overlays.css \
-                     panels.css preview.css theme-init.js theme.css; do
-              git mv "public/shared/css/$f" "public/tools/character/css/$f"
-            done
-            rmdir public/shared/css 2>/dev/null || true
-
-            sub public/tools/character/index.html '../../shared/css/theme-init.js' 'css/theme-init.js'
-            sub public/tools/character/index.html '../../shared/css/dropdown.js' 'css/dropdown.js'
-            sub public/tools/character/index.html '../../shared/css/theme.css' 'css/theme.css'
-            sub public/tools/character/css/theme-init.js 'shared/css/theme-init.js' 'tools/character/css/theme-init.js'
-            sub public/tools/character/style.css 'shared/css/preview.css' 'css/preview.css'
-
-            git rm -q src/components/Tabs.vue src/components/Combobox.vue
-          fi
+          # ③ 删文件
+          while IFS= read -r line; do
+            line="$(pick "$line")" || continue
+            git rm -q "$line"
+            echo "rm: $line"
+          done <<< "$DELETES"
 
           git add -A
+          echo "---- 动了这些文件 ----"
           git status --short
+          git diff --cached --quiet && { echo "::error::清单没产生任何改动，先检查路径 / 字符串"; exit 1; }
 
           npm install --no-audit --no-fund
           npm run build
 
-          git commit -m "reorg: 批次 $BATCH"
-          git push -f origin "HEAD:refs/heads/reorg/batch-$BATCH"
+          git commit -m "reorg: $B"
+          git push -f origin "HEAD:refs/heads/reorg/$B"
