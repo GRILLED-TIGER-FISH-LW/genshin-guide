@@ -54,3 +54,7 @@ export const LAYOUT = {
   labelColor: '#FFE898',
   innerBoxFill: 'rgba(255, 255, 255, 0.3)',
 }
+/* 武器分三组，组内最多 4 个；标签与旧版逐字一致 */
+export const WEAPON_ORDER = ['graduate', 'optional', 'newbie']
+export const WEAPON_MAX = 4
+export const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手' }
