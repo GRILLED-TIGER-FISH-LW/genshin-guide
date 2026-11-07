@@ -17,8 +17,7 @@ name: Reorg
 #                 >>>>
 #   ③ DELETES  一行一个路径（文件或目录都行）
 #   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
-#   经验：自检要查「实际读取」（grep "text('data/…')"），别查名字 ——
-#         新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
+#   经验：自检要查「实际读取」，别查名字 —— 新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
 
 on:
   workflow_dispatch:
@@ -26,131 +25,186 @@ on:
       batch:
         description: 清单名（会建 reorg-<名字> 分支）
         required: true
-        default: txt-retire
+        default: editor-dict
 
 permissions:
   contents: write
 
 env:
-  # ---------- ① 搬文件：旧路径 -> 新路径 ----------
+  # ---------- ① 搬文件 ----------
   MOVES: |
     # 例：src/old.js -> src/new.js
 
   # ---------- ② 替换 ----------
   EDITS: |
-    ### src/lib/videoCover.js
+    ### src/composables/useIconDict.js
     <<<<
-    export async function loadData() {
-      const [characterTxt, artTxt, namecardTxt, logoTxt] = await Promise.all([
-        text('data/characters.txt'),
-        text('data/character-art.txt'),
-        text('data/namecards.txt'),
-        text('data/logos.txt'),
-      ])
-
-      const orders = {}
-      for (const line of lines(characterTxt)) {
-        const parts = line.split(/[\s,，\t]+/)
-        if (parts.length < 2) continue
-        const order = parseInt(parts[0], 10)
-        const name = parts.slice(1).join(' ').trim()
-        if (order && name) orders[name] = order
-      }
-
-      const art = {}
-      for (const line of lines(artTxt)) {
-        const m = line.match(/^(\d+)\s+(\S+)\s*(.*)$/)
-        if (m) art[m[2]] = artUrl((m[3] || '').trim())
-      }
-
-      const namecards = {}
-      for (const line of lines(namecardTxt)) {
-        const m = line.match(/^(\d+)\s+(\S+)\s+(https?:\/\/\S+)$/)
-        if (m) namecards[m[2]] = m[3]
-      }
-
-      const logos = []
-      for (const line of lines(logoTxt)) {
-        const parts = line.split(/\s+/)
-        if (parts.length >= 2) logos.push({ name: parts[0], file: parts[1] })
-      }
-      if (!logos.length) logos.push({ name: '原神', file: DEFAULT_LOGO_FILE })
-
-      return { orders, art, namecards, logos }
-    }
+    const CHARS_SRC = 'data/characters.txt'
+    const PORTRAIT_SRC = 'data/character-art.txt' /* 过渡期，见文件尾 */
     >>>>
     <<<<
-    /* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
-       原来那三张数据表从这一版起退休，本文件不再读 data/ 下的表（只剩 logos）。
-       字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
-    export async function loadData() {
-      const [logoTxt] = await Promise.all([text('data/logos.txt')])
-      await iconLib()
+    /* 角色序号与立绘都从图标字典现算（DICT_SRC），那两张 txt 已退休 */
+    >>>>
 
-      const dict = window.ICON_DICT || {}
-      const cardCfg = dict.config?.characters?.card
+    ### src/composables/useIconDict.js
+    <<<<
+      /* data/character-art.txt 解析结果 */
+      let portraitList = null
+    >>>>
+    <<<<
+      /* 立绘列表（由图标字典现算，见 fetchPortraits） */
+      let portraitList = null
+    >>>>
 
-      const orders = {}
-      const art = {}
-      const namecards = {}
-      for (const [key, item] of Object.entries(dict.characters || {})) {
-        const name = item.name || key
-        if (item.order) orders[name] = item.order
-        if (item.art?.url) art[name] = item.art.url
+    ### src/composables/useIconDict.js
+    <<<<
+      async function loadCharOrder() {
+        try {
+          const res = await fetch(`${BASE}${CHARS_SRC}?t=${Date.now()}`)
+          if (!res.ok) return
+          const text = await res.text()
+          for (const k of Object.keys(orderToName)) delete orderToName[k]
+          for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
 
-        const cardKey = item.card?.key
-        if (!cardKey || !cardCfg) continue
-        const src = item.card?.alt && cardCfg.alt ? cardCfg.alt : cardCfg
-        if (src.prefix) namecards[name] = src.prefix + cardKey + (src.ext || '')
+          text.split(/\r?\n/).forEach((raw) => {
+            const line = raw.trim()
+            if (!line || line.startsWith('#')) return
+            const parts = line.split(/[\s,，\t]+/)
+            if (parts.length < 2) return
+            const order = parseInt(parts[0], 10)
+            const name = parts.slice(1).join(' ').trim()
+            if (!order || !name) return
+            nameToOrder[name] = order
+            /* 旅行者和旅行者·冰共用序号 1：反查只认第一个登记的 */
+            if (!orderToName[order]) orderToName[order] = name
+          })
+        } catch (e) {
+          toast.error('角色白名单加载失败：' + e.message)
+        }
       }
+    >>>>
+    <<<<
+      /* 序号表改从图标字典现算：字典里「旅行者·冰」这类分元素条目是独立一条，
+         序号 1 还是只认第一个登记的那个，跟 txt 那版行为一致 */
+      async function loadCharOrder() {
+        try {
+          if (!window.ICON_DICT) await fetchDict()
+          const dict = window.ICON_DICT?.characters || {}
 
-      const logos = []
-      for (const line of lines(logoTxt)) {
-        const parts = line.split(/\s+/)
-        if (parts.length >= 2) logos.push({ name: parts[0], file: parts[1] })
+          for (const k of Object.keys(orderToName)) delete orderToName[k]
+          for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
+
+          for (const [key, item] of Object.entries(dict)) {
+            const name = item.name || key
+            const order = parseInt(item.order, 10)
+            if (!order || !name) continue
+            nameToOrder[name] = order
+            if (!orderToName[order]) orderToName[order] = name
+          }
+        } catch (e) {
+          toast.error('角色序号加载失败：' + e.message)
+        }
       }
-      if (!logos.length) logos.push({ name: '原神', file: DEFAULT_LOGO_FILE })
-
-      return { orders, art, namecards, logos }
-    }
     >>>>
 
-    ### src/lib/videoCover.js
+    ### src/composables/useIconDict.js
     <<<<
-    /* character-art.txt / 旧配置里的路径是工具页时代的相对路径（../../shared/…）。
-       SPA 里相对路径按仓库根算，会跑到域名外面 —— 统一改成站点基址。
-       http(s) / data: 原样放行。 */
+      /* data/character-art.txt：每行「序号 名字 地址」。
+       仓库内路径 → 站点绝对路径；完整 URL 原样存。 */
+      async function fetchPortraits() {
+        if (portraitList) return portraitList
+
+        const res = await fetch(`${BASE}${PORTRAIT_SRC}?t=${Date.now()}`)
+        if (!res.ok) throw new Error('HTTP ' + res.status)
+        const text = await res.text()
+
+        const list = []
+        text.split(/\r?\n/).forEach((raw) => {
+          const line = raw.trim()
+          if (!line || line.startsWith('#')) return
+          const m = line.match(/^(\d+)\s+(\S+)\s+(\S+)$/)
+          if (!m) return
+
+          const addr = repoUrl(m[3]) || m[3]
+          list.push({
+            order: parseInt(m[1], 10),
+            name: m[2],
+            art: { key: codeFrom(addr, 'characters', 'art'), url: addr },
+          })
+        })
+
+        portraitList = list
+        return list
+      }
     >>>>
     <<<<
-    /* 旧配置里存的是工具页时代的相对路径（../../shared/…），走这里统一改写成站点基址。
-       姓名与序号那三张 txt 已经退休，本函数现在只服务旧配置的兼容。 */
+      /* 立绘清单改成从图标字典现算：字典的 art.url 就是要用的地址，
+         条目自己没记代号时按地址反推一个（codeFrom），与 txt 那版一致。 */
+      async function fetchPortraits() {
+        if (portraitList) return portraitList
+        if (!window.ICON_DICT) await fetchDict()
+
+        const list = []
+        for (const [key, item] of Object.entries(window.ICON_DICT?.characters || {})) {
+          const addr = item.art?.url
+          if (!addr) continue
+          list.push({
+            order: parseInt(item.order, 10) || 0,
+            name: item.name || key,
+            art: { key: item.art?.key || codeFrom(addr, 'characters', 'art'), url: addr },
+          })
+        }
+
+        portraitList = list
+        return list
+      }
     >>>>
 
-    ### src/lib/videoCover.js
+    ### src/composables/useIconDict.js
     <<<<
-     *   1. 数据与几何：状态默认值、模式表、character-art / namecards / logos 解析、
-     *      胶囊与浮层几何、文本测量、签名栏
+        toast.success(
+          type === 'characters' && !f.order
+            ? `已加入「${row.name}」（不在 characters.txt，序号 0）`
+            : `已加入「${row.name}」`,
+        )
     >>>>
     <<<<
-     *   1. 数据与几何：状态默认值、模式表、图标字典里的序号 / 立绘 / 名片与 logos 解析、
-     *      胶囊与浮层几何、文本测量、签名栏
+        toast.success(
+          type === 'characters' && !f.order
+            ? `已加入「${row.name}」（序号表里没有，序号 0）`
+            : `已加入「${row.name}」`,
+        )
+    >>>>
+
+    ### src/composables/useIconDict.js
+    <<<<
+        /* ---- 立绘：从 data/character-art.txt 灌进来（过渡期）----
+           「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
+           按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
+    >>>>
+    <<<<
+        /* ---- 立绘：从图标字典灌进来 ----
+           「有差异就更新」：字典是立绘的唯一来源，要改某张图就改字典。
+           按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
     >>>>
 
   # ---------- ③ 删文件 / 目录 ----------
   DELETES: |
-    public/data/namecards.txt
-    public/tools/character
+    public/data/characters.txt
+    public/data/character-art.txt
 
   # ---------- ④ 自检 ----------
   CHECKS: |
     ! grep -n "text('data/characters.txt')" src/lib/videoCover.js
     ! grep -n "text('data/character-art.txt')" src/lib/videoCover.js
-    ! grep -n "text('data/namecards.txt')" src/lib/videoCover.js
-    grep -n '图标字典里的序号 / 立绘 / 名片' src/lib/videoCover.js
-    grep -n "text('data/logos.txt')" src/lib/videoCover.js
-    test ! -e public/data/namecards.txt
-    test ! -d public/tools/character
-    grep -n "text('data/" src/lib/videoCover.js || true
+    ! grep -n 'CHARS_SRC' src/composables/useIconDict.js
+    ! grep -n 'PORTRAIT_SRC' src/composables/useIconDict.js
+    ! grep -n 'characters\.txt' src/composables/useIconDict.js
+    ! grep -n 'character-art\.txt' src/composables/useIconDict.js
+    grep -n 'ICON_DICT?.characters' src/composables/useIconDict.js
+    test ! -e public/data/characters.txt
+    test ! -e public/data/character-art.txt
+    grep -rn 'data/characters.txt\|data/character-art.txt' src public || true
 
 jobs:
   reorg:
