@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { ICONS } from 'virtual:gg-icons'
 import Btn from '../components/Btn.vue'
+import DockCta from '../components/DockCta.vue'
 import Dropdown from '../components/Dropdown.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
@@ -10,19 +11,20 @@ import PreviewFrame from '../components/PreviewFrame.vue'
 import Slider from '../components/Slider.vue'
 import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
 import { useToast } from '../composables/useToast.js'
-import { download, loadImageMeta } from '../lib/assets.js'
+import { download, loadImageMeta, svgToPng, urlToDataURL } from '../lib/assets.js'
 import * as fonts from '../lib/fonts.js'
 import {
-  elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS,
+  elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS, SVG_H, SVG_W,
   TEAM_MAX, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
 } from '../lib/guideConsts.js'
 import * as guide from '../lib/guideChart.js'
 import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
-/* 通用件里 danger 的底色是 #f8e9e7，卡片底是 #faf9f5 —— 对比 1.02:1，等于看不见。
-   旧版 delete 按钮有 border-color: rgba(199,102,92,.2) 那条红线，所以这里按旧版配方
-   补一条 30% 的危险色边框（同一个 --color-danger 令牌，不新造颜色）。
-   另外：Btn 的图标一律走 #icon 具名插槽，只有「收起/展开」是文字在前、三角在后。 */
+/* 编辑区按旧版一图流的骨架；控件走通用件。
+   两个和观感有关的坑，都记在这儿免得以后再踩：
+   · danger 档的底色 #f8e9e7 贴在卡片底 #faf9f5 上对比只有 1.02:1，等于看不见 ——
+     删除按钮一律补一条 border-danger/30（旧版也是靠那 1px 红边框区分）
+   · float 档自带 text-ink / border-line-3，想让它显示成危险色必须用 ! 强制覆盖 */
 
 const s = reactive(guide.fresh())
 const toast = useToast()
@@ -34,8 +36,7 @@ const PLACEHOLDER = guide.placeholder()
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
-/* 元素图标是 1024 视框，Icon.vue 外框写死 24 视框会把它放大 43 倍画出画面外，
-   所以这里自己套 1024 视框，颜色跟随文字色 */
+/* 元素图标是 1024 视框，Icon.vue 外框写死 24 视框会把它放大 43 倍画出画面外 */
 const elementIcon = (key) => `<svg viewBox="0 0 1024 1024" class="size-4 shrink-0 [&_path]:fill-current" aria-hidden="true">${ICONS[`element.${key}`] || ''}</svg>`
 
 const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
@@ -43,7 +44,6 @@ const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounde
 const PANEL = 'grid gap-2 rounded-panel border border-line bg-surface p-2'
 const CARD = 'grid gap-2 rounded-ctl border border-line-2 p-2'
 const HEAD = 'flex items-center justify-between gap-2'
-/* 删除按钮：通用 danger 底在浅色下看不见，补一条危险色边框 */
 const DEL = 'border border-danger/30'
 
 /* =========================================================================
@@ -168,11 +168,16 @@ onMounted(async () => {
 })
 
 /* =========================================================================
- * 存档 / 配置
+ * 存档 / 配置 / 导出
  * ========================================================================= */
 const confirmBox = ref(false)
 const confirmKind = ref('repo')
 const importInput = ref(null)
+const previewHost = ref(null)
+const exporting = ref(false)
+
+/* 导出按 3 倍：1280×720 的卡片出 3840×2160，和封面工具出图同尺寸 */
+const PNG_SCALE = 3
 
 const confirmTitle = computed(() => (confirmKind.value === 'clear' ? '清空全部数据' : '载入在线存档'))
 const confirmText = computed(() => (confirmKind.value === 'clear' ? '清空' : '载入'))
@@ -239,6 +244,46 @@ async function importConfig(e) {
     toast.success('配置已导入')
   } catch {
     toast.error('这个文件不是本工具的配置')
+  }
+}
+
+/* 导出 PNG：和视频封面同一条链 —— 先把图烘成 data URL（外站图不烘会污染 canvas，
+   toBlob 直接抛错），字体内嵌，再把 SVG 当独立文档画进 canvas */
+async function exportPng() {
+  if (exporting.value) return
+  const host = previewHost.value?.querySelector('svg')
+  if (!host) return toast.error('预览还没准备好')
+
+  exporting.value = true
+  try {
+    await document.fonts?.ready
+
+    const clone = host.cloneNode(true)
+    clone.setAttribute('width', SVG_W * PNG_SCALE)
+    clone.setAttribute('height', SVG_H * PNG_SCALE)
+
+    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体要内嵌进去 */
+    if (s.fontName && s.fontData) {
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+      style.textContent = fonts.fontFaceCss(s.fontName, s.fontData)
+      clone.querySelector('defs')?.prepend(style)
+    }
+
+    for (const img of clone.querySelectorAll('image')) {
+      const href = img.getAttribute('href')
+      if (href && !/^data:/i.test(href)) img.setAttribute('href', await urlToDataURL(href))
+    }
+
+    const blob = await svgToPng(clone, SVG_W * PNG_SCALE, SVG_H * PNG_SCALE)
+    if (!blob) throw new Error('画布导出失败')
+
+    const name = (s.charName.trim() || '角色卡').replace(/[\\/:*?"<>|]/g, '_')
+    download(blob, `${name}_${dayStamp()}.png`)
+    toast.success('图片已导出')
+  } catch (err) {
+    toast.error(`导出失败：${err.message}`)
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -447,7 +492,8 @@ function clearTeamCore() {
   <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]">
     <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
       <PreviewFrame>
-        <div class="grid size-full [&>svg]:size-full" v-html="svg" />
+        <!-- 导出时要从这层里取那份 SVG -->
+        <div ref="previewHost" class="grid size-full [&>svg]:size-full" v-html="svg" />
 
         <template #toolbar>
           <Btn variant="float" square aria-label="导出配置" @click="exportConfig">
@@ -456,7 +502,14 @@ function clearTeamCore() {
           <Btn variant="float" square aria-label="导入配置" @click="importInput?.click()">
             <template #icon><Icon name="ui.import" size="sm" /></template>
           </Btn>
-          <Btn variant="float" square aria-label="清空全部数据" @click="askClear">
+          <!-- float 自带 text-ink / border-line-3，要显示成危险色必须 ! 覆盖 -->
+          <Btn
+            variant="float"
+            square
+            class="text-danger! border-danger/30!"
+            aria-label="清空全部数据"
+            @click="askClear"
+          >
             <template #icon><Icon name="ui.trash" size="sm" /></template>
           </Btn>
           <input
@@ -490,7 +543,7 @@ function clearTeamCore() {
       </button>
     </div>
 
-    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3 pb-6">
+    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3 pb-24">
       <!-- ① 外观样式 -->
       <section v-show="tab === 'style'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
@@ -1015,6 +1068,8 @@ function clearTeamCore() {
         </div>
       </section>
     </main>
+
+    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
 
     <Modal
       v-model="confirmBox"
