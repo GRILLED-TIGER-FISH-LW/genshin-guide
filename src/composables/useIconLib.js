@@ -6,8 +6,8 @@ import { loadGlobalScript } from './useData.js'
  * · shared/gi-icons/icon-dict.js + icon-loader.js：图标字典本体与查询
  * · shared/ui-icons.js：本仓库的图标真源。SPA 界面的图标走构建期虚拟模块
  *   （vite.config.js 的 virtual:gg-icons），但那个模块只收「值是 <svg 字符串」
- *   的条目 —— element / artifact 两组存的是路径数据，界面用不到、绘制要用，
- *   所以这里在运行时取一次（花 / 杯 / 冠 三个词条图标）。
+ *   的条目 —— element / artifact / card 三组存的是路径数据，界面用不到、
+ *   绘制要用（词条的花杯冠、配队的加号），所以这里在运行时取整份。
  *
  * SPA 侧不改这三个文件，只把它们当全局脚本挂上。window 只在这个文件里露面。
  * ========================================================================= */
@@ -19,10 +19,7 @@ function sharedGlobal(path, name) {
   return (async () => {
     await loadGlobalScript(path, name)
     return window[name]
-  })().catch((err) => {
-    /* 失败不缓存，下次还能重试 */
-    throw err
-  })
+  })()
 }
 
 function iconLib() {
@@ -32,7 +29,7 @@ function iconLib() {
       await sharedGlobal('shared/gi-icons/icon-loader.js', 'ICON_LIB')
       return window.ICON_LIB
     })().catch((err) => {
-      dictTask = null
+      dictTask = null /* 失败不缓存，下次还能重试 */
       throw err
     })
   }
@@ -52,17 +49,17 @@ export async function matchIcon(type, name) {
   }
 }
 
-/* shared/ui-icons.js 的 artifact 组：花 / 杯 / 冠 的路径数据。取不到就给空对象，
-   卡片少画三个小图标，其余照画 */
-export function loadArtifactIcons() {
+/* shared/ui-icons.js 整份（含 ui / element / artifact / nav / card 各组的路径数据）。
+   取不到就给空对象，卡片少画几个小图标，其余照画 */
+export function loadUiIcons() {
   if (!uiTask) {
-    uiTask = (async () => {
-      const icons = await sharedGlobal('shared/ui-icons.js', 'ICONS')
-      return icons?.artifact || {}
-    })().catch((err) => {
+    uiTask = sharedGlobal('shared/ui-icons.js', 'ICONS').catch((err) => {
       uiTask = null
       throw err
     })
   }
   return uiTask
 }
+
+/* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 5 合并完删掉 */
+export const loadArtifactIcons = async () => (await loadUiIcons())?.artifact || {}
