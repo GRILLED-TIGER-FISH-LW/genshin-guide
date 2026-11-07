@@ -1,22 +1,21 @@
 name: Reorg (temp)
 
-# 临时搬家小工：整理仓库结构用。批 1~3 全部合并后删掉这个文件。
-# 手机上 GitHub 网页只能改文本，图片/字体这类二进制文件没法改名挪位置，
-# 所以借 Actions 跑 git mv。它只做两件事：按写死的清单 mv、做精确字符串替换
-# （原串一处都找不到就报错停下，绝不静默改错）。永远推到 reorg/batch-N 分支，
-# 不碰 main；构建不通过就不推。
+# 临时搬家小工：只干手机上 GitHub 网页做不到的事 —— 一次把一堆文件 git mv 走。
+# 批 4 合并后连这个文件一起删掉。
+# 规矩：按写死的清单 mv；精确字符串替换，原串一处都找不到就报错停下；
+# 永远推到 reorg/batch-4 分支，不碰 main；构建不通过就不推。
 #
-# 用法：Actions → 左侧 "Reorg (temp)" → Run workflow → 选批次号。
+# 用法：Actions → 左侧「Reorg (temp)」→ Run workflow → 批次选 4。
 
 on:
   workflow_dispatch:
     inputs:
       batch:
-        description: '批次：1 = 搬进 public/；2 = shared 内部归位；3 = 摊到 public 顶层'
+        description: '批次：4 = 一图流自己的样式归位 + 删两个死组件'
         required: true
-        default: '1'
+        default: '4'
         type: choice
-        options: ['1', '2', '3']
+        options: ['4']
 
 permissions:
   contents: write
@@ -50,55 +49,33 @@ jobs:
 
           echo "批次：$BATCH"
 
-          # ---------- 批 1：搬进 public/（URL 一处不变） ----------
-          if [ "$BATCH" = "1" ]; then
-            mkdir -p public
-            git mv shared public/shared
-            git mv tools public/tools
-            git mv favicon.ico public/favicon.ico
-            sub package.json 'vite build && cp -r shared dist/shared && cp -r tools dist/tools && cp favicon.ico dist/favicon.ico' 'vite build'
-            sub vite.config.js "path('shared/ui-icons.js')" "path('public/shared/ui-icons.js')"
-            sub vite.config.js "path('shared/gi-icons/icon-loader.js')" "path('public/shared/gi-icons/icon-loader.js')"
-          fi
+          # ---------- 批 4：一图流的样式归位 + 删死组件 ----------
+          # public/shared/css 那 10 个文件全站只有「角色一图流」一个页面在用
+          # （theme.css @import 了另外 7 个），不该挂在 shared 名下 —— 整个
+          # 目录跟着它的唯一使用者走，shared/ 就只剩真共享的两样。
+          if [ "$BATCH" = "4" ]; then
 
-          # ---------- 批 2：shared 内部归位 ----------
-          if [ "$BATCH" = "2" ]; then
-            git rm -q public/shared/theme.css
-            git mv public/shared/assets/portrait public/shared/assets/art
-            git mv public/shared/assets/characters/element public/shared/assets/element
-            git mv public/shared/assets/video-cover public/shared/assets/cover
-            mkdir -p public/shared/assets/game
-            git mv public/shared/gi-icons/UI_AvatarIcon_Traveler.webp public/shared/assets/game/UI_AvatarIcon_Traveler.webp
-            sub public/shared/gi-icons/icon-dict.js 'shared/assets/portrait/' 'shared/assets/art/'
-            sub public/shared/data/character-art.txt 'shared/assets/portrait/' 'shared/assets/art/'
-            sub public/tools/character/app.js 'shared/assets/characters/element/' 'shared/assets/element/'
-            sub src/lib/videoCover.js 'shared/assets/video-cover/' 'shared/assets/cover/'
-            sub src/composables/useIconDict.js 'shared/gi-icons/UI_AvatarIcon_Traveler.webp' 'shared/assets/game/UI_AvatarIcon_Traveler.webp'
-            sub src/composables/useIconDict.js 'shared/gi-icons/${row.key}' 'shared/assets/game/${row.key}'
-            sub public/shared/gi-icons/icon-dict.js 'shared/gi-icons/UI_AvatarIcon_Traveler.webp' 'shared/assets/game/UI_AvatarIcon_Traveler.webp'
-          fi
+            # 别的文件还在引用这两个组件就报错停下：宁可任务失败，不可误删
+            if grep -rl "Tabs\.vue\|Combobox\.vue\|<Tabs\|<Combobox" src --include='*.vue' \
+               | grep -qv "^src/components/Tabs\.vue$\|^src/components/Combobox\.vue$"; then
+              echo "::error::Tabs / Combobox 还有引用，先查清楚再删"
+              exit 1
+            fi
 
-          # ---------- 批 3：摊到 public 顶层 ----------
-          if [ "$BATCH" = "3" ]; then
-            git mv public/shared/assets public/images
-            git mv public/shared/fonts public/fonts
-            git mv public/shared/data public/data
-            git mv public/shared/saves public/saves
-            sub src/lib/videoCover.js 'shared/data/' 'data/'
-            sub src/lib/videoCover.js 'shared/assets/' 'images/'
-            sub src/lib/videoCover.js '+shared\//)' '+/)'
-            sub src/lib/videoCover.js 'shared/${String(raw).slice' '${String(raw).slice'
-            sub src/lib/fonts.js 'BASE_URL}shared/${path}' 'BASE_URL}${path}'
-            sub src/composables/useIconDict.js "const i = s.indexOf('shared/')" "const i = ['shared/', 'images/', 'fonts/', 'data/', 'saves/'].map((k) => s.indexOf(k)).filter((n) => n >= 0).sort((a, b) => a - b)[0] ?? -1"
-            sub src/composables/useIconDict.js 'shared/assets/' 'images/'
-            sub src/composables/useIconDict.js 'shared/data/characters.txt' 'data/characters.txt'
-            sub src/composables/useIconDict.js 'shared/data/character-art.txt' 'data/character-art.txt'
-            sub public/shared/gi-icons/icon-dict.js 'shared/assets/' 'images/'
-            sub public/data/character-art.txt 'shared/assets/' 'images/'
-            sub public/tools/character/app.js '../../shared/data/' '../../data/'
-            sub public/tools/character/app.js '../../shared/fonts/' '../../fonts/'
-            sub public/tools/character/app.js '../../shared/saves/' '../../saves/'
-            sub public/tools/character/app.js '../../shared/assets/element/' '../../images/element/'
+            mkdir -p public/tools/character/css
+            for f in buttons.css dropdown.js editor.css home.css inputs.css overlays.css \
+                     panels.css preview.css theme-init.js theme.css; do
+              git mv "public/shared/css/$f" "public/tools/character/css/$f"
+            done
+            rmdir public/shared/css 2>/dev/null || true
+
+            sub public/tools/character/index.html '../../shared/css/theme-init.js' 'css/theme-init.js'
+            sub public/tools/character/index.html '../../shared/css/dropdown.js' 'css/dropdown.js'
+            sub public/tools/character/index.html '../../shared/css/theme.css' 'css/theme.css'
+            sub public/tools/character/css/theme-init.js 'shared/css/theme-init.js' 'tools/character/css/theme-init.js'
+            sub public/tools/character/style.css 'shared/css/preview.css' 'css/preview.css'
+
+            git rm -q src/components/Tabs.vue src/components/Combobox.vue
           fi
 
           git add -A
