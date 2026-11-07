@@ -9,7 +9,7 @@
  *  2. 删除 .sub-card（已无任何引用，被 .alt-row 取代）。
  * v4 变更：
  *  1. 删除本地 .preview-frame 的全部定义（基础块 + 两段媒体查询）
- *     —— 宽高比现在由 shared/css/preview.css 的 --preview-ratio 统一决定，
+ *     —— 宽高比现在由 css/preview.css 的 --preview-ratio 统一决定，
  *        本地那句 max-height: 32svh 会把 16:9 比例又压坏
  *  2. 其余内容与 v3 完全一致
  * ============================================================ */
@@ -59,7 +59,7 @@ body {
 
 /* ============================================================
  * 2. 预览区（固定在顶部，不参与滚动）
- *    .preview-frame 的尺寸与宽高比由 shared/css/preview.css 提供
+ *    .preview-frame 的尺寸与宽高比由 css/preview.css 提供
  * ============================================================ */
 .preview-pane {
   display: flex;
