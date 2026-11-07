@@ -18,7 +18,9 @@ import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, s
 
 /* 尺寸与旧版对齐：缩略图一律 40px（旧版 --thumb-size，正好是规范里的 h-10），
    备选缩略图 32px（旧版 .alt-row .thumb）；控件高度交给 Btn / Field 自己管。
-   颜色属性的 transition 全局禁用（见 AGENTS 禁用清单），要过渡只用 shadow。 */
+   颜色属性的 transition 全局禁用（见 AGENTS 禁用清单），要过渡只用 shadow。
+   列表行里不给 Field 传 label（那样会多出一行标签、和缩略图对不齐），
+   改成 aria-label + placeholder —— Field 会把 $attrs 落到 input 上。 */
 
 /* 整份状态就一个对象：字段名与旧版一图流逐字一致 */
 const s = reactive(guide.fresh())
@@ -33,11 +35,12 @@ const PLACEHOLDER = guide.placeholder()
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
-/* 可点缩略图 / 图片按钮的公共样式：圆角、衬底、焦点环 */
-const THUMB = 'shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+/* 缩略图外壳：40px 见方、圆角、衬底、焦点环；里面的图一律 object-cover ——
+   非正方形的图按短边铺满裁切，不留空白 */
+const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 
 /* =========================================================================
- * 分区：预览常驻上方，下面一次只显示一个区块 —— 十来个区块一路往下滚太费劲
+ * 分区：预览常驻上方，下面一次只显示一个区块
  * ========================================================================= */
 const SECTIONS = [
   { key: 'style', label: '外观样式' },
@@ -136,9 +139,6 @@ const runConfirm = () => (confirmKind.value === 'clear' ? clearAll() : loadRepo(
 
 /* =========================================================================
  * 大图槽：立绘 / 元素图 / 大背景
- * -------------------------------------------------------------------------
- * state 字段名 / Meta / Deleted / Manual 全是旧版原样：Deleted 与 Manual 记的是
- * 「用户手动换过图、手动删过图」，从存档补图时靠它们避免盖掉用户的选择。
  * ========================================================================= */
 const IMG_SLOTS = [
   { key: 'charImg', label: '立绘' },
@@ -347,7 +347,7 @@ function clearTeamCore() {
       </PreviewFrame>
     </div>
 
-    <!-- 换区按钮：筛选条高度，窄屏 h-10、宽屏 h-9，跟 Btn 的中号同一条尺寸线 -->
+    <!-- 换区按钮：筛选条那条尺寸线（窄屏 h-10、宽屏 h-9） -->
     <div class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2" role="group" aria-label="编辑区域切换">
       <button
         v-for="sec in SECTIONS"
@@ -362,10 +362,10 @@ function clearTeamCore() {
       </button>
     </div>
 
-    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
-      <section v-show="tab === 'style'" class="grid grid-cols-1 gap-4">
-        <div class="grid grid-cols-1 gap-2">
-          <h2 class="px-1 text-xs font-medium text-muted">文字</h2>
+    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3 pb-6">
+      <section v-show="tab === 'style'" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <h2 class="text-xs font-medium text-muted">文字</h2>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field v-model="s.charName" label="角色名称" placeholder="如：芙宁娜" />
             <Field v-model="s.version" label="适用版本" placeholder="如：5.4" />
@@ -374,8 +374,8 @@ function clearTeamCore() {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-2">
-          <h2 class="px-1 text-xs font-medium text-muted">元素配色</h2>
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <h2 class="text-xs font-medium text-muted">元素配色</h2>
           <div class="grid grid-cols-4 gap-2">
             <button
               v-for="[name, color] in elementColors"
@@ -393,26 +393,48 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">素材</h2>
+      <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <h2 class="text-xs font-medium text-muted">素材</h2>
 
-        <template v-for="slot in IMG_SLOTS" :key="slot.key">
-          <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-2">
-            <button
-              type="button"
-              class="size-10 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-              :aria-label="`上传${slot.label}`"
-              @click="pickFile(slot.key)"
-            >
-              <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-contain" />
-            </button>
-            <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
-              <span class="text-xs font-medium text-ink">{{ slot.label }}</span>
-              <div class="flex gap-2">
-                <Btn size="sm" @click="pickFile(slot.key)">{{ s[slot.key] ? '更换' : '上传' }}{{ slot.label }}</Btn>
-                <Btn v-if="s[slot.key]" size="sm" variant="danger" @click="clearImg(slot.key)">删除</Btn>
-              </div>
+          <template v-for="slot in IMG_SLOTS" :key="slot.key">
+            <div class="flex items-center gap-2">
+              <!-- 整行是一个按钮：缩略图 + 说明文字，点哪都能上传 -->
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl p-1 text-left transition-shadow duration-150 hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                @click="pickFile(slot.key)"
+              >
+                <span :class="THUMB">
+                  <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-cover" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-xs font-medium text-ink">{{ slot.label }}</span>
+                  <span class="block text-xs text-muted">{{ s[slot.key] ? '点击更换' : '点击上传' }}</span>
+                </span>
+              </button>
+              <Btn
+                v-if="s[slot.key]"
+                size="sm"
+                square
+                variant="danger"
+                :aria-label="`删除${slot.label}`"
+                @click="clearImg(slot.key)"
+              >
+                <Icon name="ui.trash" />
+              </Btn>
             </div>
+
+            <!-- 立绘偏移：紧跟立绘那一行 -->
+            <Slider
+              v-if="slot.key === 'charImg' && s.charImg"
+              v-model="s.imgX"
+              label="立绘左右偏移"
+              :min="-400"
+              :max="400"
+              unit="px"
+            />
+
             <input
               :ref="(el) => (fileInputs[slot.key] = el)"
               type="file"
@@ -422,64 +444,49 @@ function clearTeamCore() {
               aria-hidden="true"
               @change="onSlotFile(slot.key, $event)"
             />
-          </div>
-
-          <!-- 立绘偏移：紧跟立绘那一行 -->
-          <Slider
-            v-if="slot.key === 'charImg' && s.charImg"
-            v-model="s.imgX"
-            label="立绘左右偏移"
-            :min="-400"
-            :max="400"
-            unit="px"
-          />
-        </template>
+          </template>
+        </div>
       </section>
 
-      <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-4">
-        <div v-for="type in WEAPON_ORDER" :key="type" class="grid grid-cols-1 gap-2">
-          <div class="flex items-center justify-between gap-2 px-1">
+      <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-3">
+        <div
+          v-for="type in WEAPON_ORDER"
+          :key="type"
+          class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
+        >
+          <div class="flex items-center justify-between gap-2">
             <h2 class="text-xs font-medium text-muted">{{ WEAPON_LABELS[type] }}武器（{{ s.weaponData[type].length }}/{{ WEAPON_MAX }}）</h2>
             <Btn size="sm" @click="addWeapon(type)">添加</Btn>
           </div>
-          <p v-if="!s.weaponData[type].length" class="px-1 text-xs text-faint">暂无配置</p>
+          <p v-if="!s.weaponData[type].length" class="text-xs text-faint">暂无配置</p>
 
-          <div
-            v-for="(w, i) in s.weaponData[type]"
-            :key="i"
-            class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-xs font-medium text-ink">#{{ i + 1 }}</span>
-              <div class="flex gap-1">
-                <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
-                  <Icon name="ui.arrowUp" />
-                </Btn>
-                <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
-                  <Icon name="ui.arrowDown" />
-                </Btn>
-                <Btn size="sm" square variant="danger" aria-label="删除武器" @click="removeWeapon(type, i)">
-                  <Icon name="ui.trash" />
-                </Btn>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                :class="THUMB"
-                class="size-10"
-                :aria-label="`上传第 ${i + 1} 个武器的图标`"
-                @click="pickFile(`w:${type}:${i}`)"
-              >
-                <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-contain" />
-              </button>
-              <Field
-                v-model="w.name"
-                label="武器名"
-                placeholder="如：静水流涌之辉"
-                class="min-w-0 flex-1"
-                @blur="matchWeapon(type, i)"
-              />
+          <div v-for="(w, i) in s.weaponData[type]" :key="i" class="flex items-center gap-2">
+            <button
+              type="button"
+              :class="THUMB"
+              :aria-label="`上传第 ${i + 1} 个武器的图标`"
+              @click="pickFile(`w:${type}:${i}`)"
+            >
+              <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+            </button>
+            <Field
+              v-model="w.name"
+              label=""
+              :aria-label="`第 ${i + 1} 个武器名`"
+              placeholder="武器名"
+              class="min-w-0 flex-1"
+              @blur="matchWeapon(type, i)"
+            />
+            <div class="flex shrink-0 gap-1">
+              <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
+                <Icon name="ui.arrowUp" />
+              </Btn>
+              <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
+                <Icon name="ui.arrowDown" />
+              </Btn>
+              <Btn size="sm" square variant="danger" aria-label="删除武器" @click="removeWeapon(type, i)">
+                <Icon name="ui.trash" />
+              </Btn>
             </div>
             <input
               :ref="(el) => (fileInputs[`w:${type}:${i}`] = el)"
@@ -494,99 +501,114 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-2">
-        <div class="flex items-center justify-between gap-2 px-1">
-          <h2 class="text-xs font-medium text-muted">圣遗物推荐（{{ s.artifactData.length }}）</h2>
-          <div class="flex gap-2">
-            <Btn size="sm" @click="addArtifact('single')">整套</Btn>
-            <Btn size="sm" @click="addArtifact('double')">散搭</Btn>
-          </div>
-        </div>
-        <p v-if="!s.artifactData.length" class="px-1 text-xs text-faint">暂无配置</p>
-
-        <div
-          v-for="(a, i) in s.artifactData"
-          :key="i"
-          class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
-        >
+      <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-medium text-ink">{{ a.type === 'double' ? '散搭' : '整套' }} #{{ i + 1 }}</span>
-            <div class="flex gap-1">
-              <Btn size="sm" square aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
-                <Icon name="ui.arrowUp" />
-              </Btn>
-              <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
-                <Icon name="ui.arrowDown" />
-              </Btn>
-              <Btn size="sm" square variant="danger" aria-label="删除圣遗物" @click="removeArtifact(i)">
-                <Icon name="ui.trash" />
-              </Btn>
+            <h2 class="text-xs font-medium text-muted">圣遗物推荐（{{ s.artifactData.length }}）</h2>
+            <div class="flex gap-2">
+              <Btn size="sm" @click="addArtifact('single')">整套</Btn>
+              <Btn size="sm" @click="addArtifact('double')">散搭</Btn>
             </div>
           </div>
+          <p v-if="!s.artifactData.length" class="text-xs text-faint">暂无配置</p>
 
-          <template v-if="a.type === 'double'">
-            <Field v-model="a.displayText" label="卡片显示文本" placeholder="留空则显示两个名字" />
-            <div v-for="n in 2" :key="n" class="flex items-center gap-2">
+          <div v-for="(a, i) in s.artifactData" :key="i" class="grid grid-cols-1 gap-2">
+            <!-- 散搭：一行显示文本 + 两行「图标 + 名字」，操作按钮跟显示文本同一行 -->
+            <template v-if="a.type === 'double'">
+              <div class="flex items-center gap-2">
+                <Field
+                  v-model="a.displayText"
+                  label=""
+                  aria-label="卡片显示文本"
+                  placeholder="卡片显示文本（留空显示两个名字）"
+                  class="min-w-0 flex-1"
+                />
+                <div class="flex shrink-0 gap-1">
+                  <Btn size="sm" square aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
+                    <Icon name="ui.arrowUp" />
+                  </Btn>
+                  <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
+                    <Icon name="ui.arrowDown" />
+                  </Btn>
+                  <Btn size="sm" square variant="danger" aria-label="删除散搭圣遗物" @click="removeArtifact(i)">
+                    <Icon name="ui.trash" />
+                  </Btn>
+                </div>
+              </div>
+              <div v-for="n in 2" :key="n" class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :class="THUMB"
+                  :aria-label="`上传散搭第 ${n} 个圣遗物的图标`"
+                  @click="pickFile(`a:${i}:${n}`)"
+                >
+                  <img :src="a[`img${n}`] || PLACEHOLDER" alt="" class="size-full object-cover" />
+                </button>
+                <Field
+                  v-model="a[`name${n}`]"
+                  label=""
+                  :aria-label="`散搭第 ${n} 个圣遗物名`"
+                  :placeholder="`圣遗物名 ${n}`"
+                  class="min-w-0 flex-1"
+                  @blur="matchArtifactPart(i, n)"
+                />
+                <input
+                  :ref="(el) => (fileInputs[`a:${i}:${n}`] = el)"
+                  type="file"
+                  accept="image/*"
+                  class="sr-only"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="onArtifactFile(i, `img${n}`, $event)"
+                />
+              </div>
+            </template>
+
+            <!-- 整套：和武器一行一个样 -->
+            <div v-else class="flex items-center gap-2">
               <button
                 type="button"
                 :class="THUMB"
-                class="size-10"
-                :aria-label="`上传散搭第 ${n} 个圣遗物的图标`"
-                @click="pickFile(`a:${i}:${n}`)"
+                :aria-label="`上传第 ${i + 1} 个圣遗物的图标`"
+                @click="pickFile(`a:${i}`)"
               >
-                <img :src="a[`img${n}`] || PLACEHOLDER" alt="" class="size-full object-contain" />
+                <img :src="a.img || PLACEHOLDER" alt="" class="size-full object-cover" />
               </button>
               <Field
-                v-model="a[`name${n}`]"
-                label="圣遗物名"
-                placeholder="如：深廊终曲的秘仪"
+                v-model="a.name"
+                label=""
+                :aria-label="`第 ${i + 1} 个圣遗物名`"
+                placeholder="圣遗物名"
                 class="min-w-0 flex-1"
-                @blur="matchArtifactPart(i, n)"
+                @blur="matchArtifact(i)"
               />
+              <div class="flex shrink-0 gap-1">
+                <Btn size="sm" square aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
+                  <Icon name="ui.arrowUp" />
+                </Btn>
+                <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
+                  <Icon name="ui.arrowDown" />
+                </Btn>
+                <Btn size="sm" square variant="danger" aria-label="删除圣遗物" @click="removeArtifact(i)">
+                  <Icon name="ui.trash" />
+                </Btn>
+              </div>
               <input
-                :ref="(el) => (fileInputs[`a:${i}:${n}`] = el)"
+                :ref="(el) => (fileInputs[`a:${i}`] = el)"
                 type="file"
                 accept="image/*"
                 class="sr-only"
                 tabindex="-1"
                 aria-hidden="true"
-                @change="onArtifactFile(i, `img${n}`, $event)"
+                @change="onArtifactFile(i, 'img', $event)"
               />
             </div>
-          </template>
-
-          <div v-else class="flex items-center gap-2">
-            <button
-              type="button"
-              :class="THUMB"
-              class="size-10"
-              :aria-label="`上传第 ${i + 1} 个圣遗物的图标`"
-              @click="pickFile(`a:${i}`)"
-            >
-              <img :src="a.img || PLACEHOLDER" alt="" class="size-full object-contain" />
-            </button>
-            <Field
-              v-model="a.name"
-              label="圣遗物名"
-              placeholder="如：深廊终曲的秘仪"
-              class="min-w-0 flex-1"
-              @blur="matchArtifact(i)"
-            />
-            <input
-              :ref="(el) => (fileInputs[`a:${i}`] = el)"
-              type="file"
-              accept="image/*"
-              class="sr-only"
-              tabindex="-1"
-              aria-hidden="true"
-              @change="onArtifactFile(i, 'img', $event)"
-            />
           </div>
         </div>
       </section>
 
-      <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">天赋加点</h2>
+      <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+        <h2 class="text-xs font-medium text-muted">天赋加点</h2>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field v-model="s.talentA" label="普通攻击" placeholder="如：10" />
           <Field v-model="s.talentE" label="元素战技" placeholder="如：9" />
@@ -594,8 +616,8 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">词条推荐</h2>
+      <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+        <h2 class="text-xs font-medium text-muted">词条推荐</h2>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field v-model="s.sandMain" label="时之沙" placeholder="如：元素精通" />
           <Field v-model="s.gobMain" label="空之杯" placeholder="如：火元素伤害加成" />
@@ -604,9 +626,9 @@ function clearTeamCore() {
         <Field v-model="s.subStats" label="副词条优先顺序" placeholder="如：暴击率 > 暴击伤害 > 元素精通" />
       </section>
 
-      <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-4">
-        <div class="grid grid-cols-1 gap-2">
-          <h2 class="px-1 text-xs font-medium text-muted">主属性</h2>
+      <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <h2 class="text-xs font-medium text-muted">主属性</h2>
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="opt in PRIMARY_OPTIONS"
@@ -623,8 +645,8 @@ function clearTeamCore() {
           <Field v-model="s.panel.primaryValue" label="主属性数值" placeholder="留空显示「任意」" />
         </div>
 
-        <div class="grid grid-cols-1 gap-2">
-          <h2 class="px-1 text-xs font-medium text-muted">副属性</h2>
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <h2 class="text-xs font-medium text-muted">副属性</h2>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field v-model="s.panel.cr" label="暴击率" placeholder="留空显示「任意」" />
             <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
@@ -634,17 +656,13 @@ function clearTeamCore() {
         </div>
       </section>
 
-      <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">核心命座</h2>
-        <div
-          v-for="(c, i) in s.constellationData"
-          :key="i"
-          class="flex items-center gap-2 rounded-panel border border-line bg-surface p-2"
-        >
-          <!-- 左圆圈数字，点亮时填元素色（和卡片上的序号圆点一致） -->
+      <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+        <h2 class="text-xs font-medium text-muted">核心命座</h2>
+        <div v-for="(c, i) in s.constellationData" :key="i" class="flex items-center gap-2">
+          <!-- 圆圈数字：36px（规范里的紧凑档），跟 40px 的输入框居中对齐；点亮填元素色 -->
           <button
             type="button"
-            class="grid size-10 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
+            class="grid size-9 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
             :class="c.active ? 'border-transparent text-white' : 'border-line text-muted hover:bg-hover'"
             :style="c.active ? { backgroundColor: s.theme } : {}"
             :aria-pressed="c.active"
@@ -655,47 +673,59 @@ function clearTeamCore() {
           </button>
           <Field
             v-model="c.desc"
-            label="核心效果描述"
+            label=""
+            :aria-label="`第 ${i + 1} 命核心效果描述`"
             :placeholder="`${i + 1} 命核心效果描述`"
             class="min-w-0 flex-1"
           />
         </div>
       </section>
 
-      <section v-show="tab === 'team'" class="grid grid-cols-1 gap-2">
+      <section v-show="tab === 'team'" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              :class="THUMB"
+              aria-label="上传 1 号位头像"
+              @click="pickFile('teamCore')"
+            >
+              <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-cover" />
+            </button>
+            <button
+              type="button"
+              class="min-w-0 flex-1 rounded-ctl p-1 text-left transition-shadow duration-150 hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              @click="pickFile('teamCore')"
+            >
+              <span class="block text-xs font-medium text-ink">1 号位头像</span>
+              <span class="block text-xs text-muted">{{ s.teamCoreImg ? '点击更换' : '留空就用角色自己的头像' }}</span>
+            </button>
+            <Btn
+              v-if="s.teamCoreImg"
+              size="sm"
+              square
+              variant="danger"
+              aria-label="删除 1 号位头像"
+              @click="clearTeamCore"
+            >
+              <Icon name="ui.trash" />
+            </Btn>
+            <input
+              :ref="(el) => (fileInputs.teamCore = el)"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="onTeamCoreFile"
+            />
+          </div>
+        </div>
+
         <div class="flex items-center justify-between gap-2 px-1">
-          <h2 class="text-xs font-medium text-muted">配队参考（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
+          <h2 class="text-xs font-medium text-muted">配队（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
           <Btn size="sm" @click="addTeam">添加队伍</Btn>
         </div>
-
-        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-2">
-          <button
-            type="button"
-            :class="THUMB"
-            class="size-10"
-            aria-label="上传 1 号位头像"
-            @click="pickFile('teamCore')"
-          >
-            <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-contain" />
-          </button>
-          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
-            <span class="text-xs font-medium text-ink">1 号位头像</span>
-            <div class="flex gap-2">
-              <Btn size="sm" @click="pickFile('teamCore')">{{ s.teamCoreImg ? '更换' : '上传' }}1 号位头像</Btn>
-              <Btn v-if="s.teamCoreImg" size="sm" variant="danger" @click="clearTeamCore">删除</Btn>
-            </div>
-          </div>
-          <input
-            :ref="(el) => (fileInputs.teamCore = el)"
-            type="file"
-            accept="image/*"
-            class="sr-only"
-            tabindex="-1"
-            aria-hidden="true"
-            @change="onTeamCoreFile"
-          />
-        </div>
-
         <p v-if="!s.teamData.length" class="px-1 text-xs text-faint">暂未添加配队</p>
 
         <div
@@ -703,9 +733,9 @@ function clearTeamCore() {
           :key="ti"
           class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
         >
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-medium text-ink">队伍 {{ ti + 1 }}</span>
-            <div class="flex gap-1">
+          <div class="flex items-center gap-2">
+            <span class="min-w-0 flex-1 text-xs font-medium text-ink">队伍 {{ ti + 1 }}</span>
+            <div class="flex shrink-0 gap-1">
               <Btn size="sm" square aria-label="上移" :disabled="ti === 0" @click="moveTeam(ti, -1)">
                 <Icon name="ui.arrowUp" />
               </Btn>
@@ -718,12 +748,27 @@ function clearTeamCore() {
             </div>
           </div>
 
-          <Field v-model="team.name" label="队伍名称" placeholder="如：蒸发队" />
+          <Field v-model="team.name" label="" aria-label="队伍名称" placeholder="队伍名称（如：蒸发队）" />
 
-          <div v-for="ci in 3" :key="ci" class="grid grid-cols-1 gap-2 rounded-ctl border border-line-2 p-2">
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-body">{{ ci + 1 }} 号位主角色</span>
-              <div class="flex gap-1">
+          <div v-for="ci in 3" :key="ci" class="grid grid-cols-1 gap-2 border-t border-line pt-2">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :class="THUMB"
+                :aria-label="`上传 ${ci + 1} 号位角色头像`"
+                @click="pickFile(`t:${ti}:${ci}`)"
+              >
+                <img :src="team.chars[ci].img || PLACEHOLDER" alt="" class="size-full object-cover" />
+              </button>
+              <Field
+                v-model="team.chars[ci].name"
+                label=""
+                :aria-label="`${ci + 1} 号位角色名`"
+                :placeholder="`${ci + 1} 号位角色名`"
+                class="min-w-0 flex-1"
+                @blur="matchTeamChar(ti, ci)"
+              />
+              <div class="flex shrink-0 gap-1">
                 <Btn size="sm" square aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
                   <Icon name="ui.arrowUp" />
                 </Btn>
@@ -731,25 +776,6 @@ function clearTeamCore() {
                   <Icon name="ui.arrowDown" />
                 </Btn>
               </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                :class="THUMB"
-                class="size-10"
-                :aria-label="`上传 ${ci + 1} 号位角色头像`"
-                @click="pickFile(`t:${ti}:${ci}`)"
-              >
-                <img :src="team.chars[ci].img || PLACEHOLDER" alt="" class="size-full object-contain" />
-              </button>
-              <Field
-                v-model="team.chars[ci].name"
-                label="角色名"
-                placeholder="如：芙宁娜"
-                class="min-w-0 flex-1"
-                @blur="matchTeamChar(ti, ci)"
-              />
               <input
                 :ref="(el) => (fileInputs[`t:${ti}:${ci}`] = el)"
                 type="file"
@@ -762,24 +788,24 @@ function clearTeamCore() {
             </div>
 
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-muted">备选角色（{{ team.chars[ci].alts.length }}/4）</span>
+              <span class="text-xs text-muted">备选（{{ team.chars[ci].alts.length }}/4）</span>
               <Btn size="sm" @click="addAlt(ti, ci)">添加</Btn>
             </div>
 
             <div v-for="(alt, ai) in team.chars[ci].alts" :key="ai" class="flex items-center gap-2">
               <button
                 type="button"
-                :class="THUMB"
-                class="size-8"
+                class="grid size-8 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
                 :aria-label="`上传 ${ci + 1} 号位第 ${ai + 1} 个备选的头像`"
                 @click="pickFile(`ta:${ti}:${ci}:${ai}`)"
               >
-                <img :src="alt.img || PLACEHOLDER" alt="" class="size-full object-contain" />
+                <img :src="alt.img || PLACEHOLDER" alt="" class="size-full object-cover" />
               </button>
               <Field
                 v-model="alt.name"
-                label="角色名"
-                placeholder="备选角色"
+                label=""
+                :aria-label="`${ci + 1} 号位第 ${ai + 1} 个备选角色名`"
+                placeholder="备选角色名"
                 class="min-w-0 flex-1"
                 @blur="matchAlt(ti, ci, ai)"
               />
@@ -808,22 +834,23 @@ function clearTeamCore() {
             <Field
               v-if="!team.chars[ci].alts.length"
               v-model="team.chars[ci].emptyAltText"
-              label="无备选时显示的文字"
-              placeholder="暂无备选"
+              label=""
+              :aria-label="`${ci + 1} 号位无备选时显示的文字`"
+              placeholder="无备选时显示的文字（默认：暂无备选）"
             />
           </div>
         </div>
       </section>
 
-      <section v-show="tab === 'save'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">存档</h2>
-        <p class="px-1 text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
-        <p class="px-1 text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
+      <section v-show="tab === 'save'" class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2">
+        <h2 class="text-xs font-medium text-muted">存档</h2>
+        <p class="text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
+        <p class="text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
         <div class="flex flex-wrap gap-2">
           <Btn @click="askRepoSave">载入在线存档</Btn>
           <Btn variant="danger" @click="askClear">清空全部数据</Btn>
         </div>
-        <p class="px-1 text-xs text-faint">
+        <p class="text-xs text-faint">
           在线存档按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
         </p>
       </section>
