@@ -31,7 +31,7 @@ export const DEFAULTS = {
 export const fresh = () => structuredClone(DEFAULTS)
 
 /* =========================================================================
- * 文本测量：字号自适应靠 canvas 量宽，所以同一个文本要反复量
+ * 文本测量：字号自适应靠 canvas 量宽，同一个文本要反复量
  * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d')
 
@@ -74,7 +74,7 @@ const image = (href, x, y, w, h, fit = 'xMidYMid slice', extra = '') =>
 const panelRect = (x, y, w, h, rx) =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(0, 0, 0, 0.4)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>`
 
-/* 面板标题：小圆点 + 标题。圆点取元素色 */
+/* 面板标题：小圆点 + 标题，圆点取元素色 */
 const sectionTitle = (x, y, title, theme) => {
   const { fs, dotR, dotGap } = LAYOUT.title
   return `<circle cx="${x + dotR}" cy="${y}" r="${dotR}" fill="${theme || '#939393'}"/>` +
@@ -87,7 +87,6 @@ const sectionTitle = (x, y, title, theme) => {
 export function buildGuideSVG(d) {
   const L = LAYOUT
   const left = L.left
-  const isNote = ''
 
   /* 立绘：按原图比例贴满左栏高度，imgX 左右挪 */
   const meta = d.charImgMeta || {}
@@ -127,7 +126,7 @@ export function buildGuideSVG(d) {
     info += text(left.x + CI.padL, y, `${label} ${value}`, 12, { fill: '#ffffff', stroke: '#000000', strokeWidth: 1.2 })
   })
 
-  /* 一块面板 = 底 + 标题。内容按批 2、批 3 塞进 section 里 */
+  /* 一块面板 = 底 + 标题。内容按批 2、批 3 往里填 */
   const layers = L.layers
   const mid = layers.mid
   const panel = (x, y, w, h, title) =>
