@@ -1,6 +1,6 @@
 123 米提亚 https://fastcdn.hoyoverse.com/content-v2/hk4e/167060/7634882dae5f51a9c8c20881eec25c30_5749592554917751632.png
 122 瓦列里 https://fastcdn.hoyoverse.com/content-v2/hk4e/167099/8c6c7e6ecf5a42e13fd63523f5910100_3482945650514640705.png
-121 沃雅妮莎 ../../shared/assets/art/121.沃雅妮莎.webp
+121 沃雅妮莎 ../../images/art/121.沃雅妮莎.webp
 120 薇斯纳 https://fastcdn.hoyoverse.com/content-v2/hk4e/166101/2fcf06b3387743b28d83c81877fbd3f9_4035024996550386837.png
 119 奥黛塔 https://fastcdn.hoyoverse.com/content-v2/hk4e/165495/8099301bba7d1f37bb688c848618f7d8_6115297978588435734.png
 118 阿罗夏 https://fastcdn.hoyoverse.com/content-v2/hk4e/165500/06362b46d6f5c71ebdfd9e149513e36d_840920505687671432.png
@@ -120,5 +120,5 @@
 4 丽莎 https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/43922f5162840c215638affedad0459a_3369229991804918602.png
 3 凯亚 https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/cbce61ef1ee5586c4e77b2070348685f_2003673786618101140.png
 2 安柏 https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/6f0ef40157e95b0d59455c12f4d3f270_6966278935690800707.png
-1 旅行者 ../../shared/assets/art/001.旅行者.webp
-1 旅行者·冰 ../../shared/assets/art/001.旅行者·冰.webp
+1 旅行者 ../../images/art/001.旅行者.webp
+1 旅行者·冰 ../../images/art/001.旅行者·冰.webp

@@ -25,7 +25,7 @@ const LOGO_SIZE = 200
 const LOGO_ROUNDED = 50
 
 export const BASE = import.meta.env.BASE_URL
-export const LOGO_BASE = `${BASE}shared/assets/cover/`
+export const LOGO_BASE = `${BASE}images/cover/`
 const BOSS_BASE = `${LOGO_BASE}boss-base.png`
 const DEFAULT_LOGO_FILE = 'gi-logo.png'
 
@@ -158,16 +158,16 @@ const lines = (txt) => txt.split(/\r?\n/).map((l) => l.trim()).filter((l) => l &
    SPA 里相对路径按仓库根算，会跑到域名外面 —— 统一改成站点基址。
    http(s) / data: 原样放行。 */
 export function artUrl(raw) {
-  const m = String(raw || '').match(/^(?:\.\.\/)+shared\//)
-  return m ? `${BASE}shared/${String(raw).slice(m[0].length)}` : raw || ''
+  const m = String(raw || '').match(/^(?:\.\.\/)+/)
+  return m ? `${BASE}${String(raw).slice(m[0].length)}` : raw || ''
 }
 
 export async function loadData() {
   const [characterTxt, artTxt, namecardTxt, logoTxt] = await Promise.all([
-    text('shared/data/characters.txt'),
-    text('shared/data/character-art.txt'),
-    text('shared/data/namecards.txt'),
-    text('shared/data/logos.txt'),
+    text('data/characters.txt'),
+    text('data/character-art.txt'),
+    text('data/namecards.txt'),
+    text('data/logos.txt'),
   ])
 
   const orders = {}
