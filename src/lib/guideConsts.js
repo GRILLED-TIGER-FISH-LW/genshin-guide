@@ -67,3 +67,6 @@ export const PANEL_EMPTY_TEXT = '任意'
 
 /* 中段三块（词条 / 面板 / 命座）的内容起点：面板顶 + 标题带高度 */
 export const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY
+
+/* 天赋没填时占位（面板那边用的是「任意」，两处不一样是旧版原样） */
+export const TALENT_EMPTY_TEXT = '—'
