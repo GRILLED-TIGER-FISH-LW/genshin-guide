@@ -56,8 +56,7 @@ const STORAGE_KEY = 'icon_dict_editor_v4'
 const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
 const MAX_LOG = 10
 const DICT_SRC = 'shared/gi-icons/icon-dict.js'
-const CHARS_SRC = 'data/characters.txt'
-const PORTRAIT_SRC = 'data/character-art.txt' /* 过渡期，见文件尾 */
+/* 角色序号与立绘都从图标字典现算（DICT_SRC），那两张 txt 已退休 */
 
 const LU = 'https://api.lunaris.moe/data/assets/'
 const AMBER = 'https://gi.yatta.moe/assets/UI/'
@@ -433,7 +432,7 @@ export function useIconDict() {
   const amberIndex = {}
   /* { byRoute, byCode } —— 名片表索引，只收 bond 类 */
   let cardMap = null
-  /* data/character-art.txt 解析结果 */
+  /* 立绘列表（由图标字典现算，见 fetchPortraits） */
   let portraitList = null
 
   /* ---------------- 存储 ---------------- */
@@ -483,54 +482,44 @@ export function useIconDict() {
 
   /* ---------------- 资源 ---------------- */
 
+  /* 序号表改从图标字典现算：字典里「旅行者·冰」这类分元素条目是独立一条，
+     序号 1 还是只认第一个登记的那个，跟 txt 那版行为一致 */
   async function loadCharOrder() {
     try {
-      const res = await fetch(`${BASE}${CHARS_SRC}?t=${Date.now()}`)
-      if (!res.ok) return
-      const text = await res.text()
+      if (!window.ICON_DICT) await fetchDict()
+      const dict = window.ICON_DICT?.characters || {}
+
       for (const k of Object.keys(orderToName)) delete orderToName[k]
       for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
 
-      text.split(/\r?\n/).forEach((raw) => {
-        const line = raw.trim()
-        if (!line || line.startsWith('#')) return
-        const parts = line.split(/[\s,，\t]+/)
-        if (parts.length < 2) return
-        const order = parseInt(parts[0], 10)
-        const name = parts.slice(1).join(' ').trim()
-        if (!order || !name) return
+      for (const [key, item] of Object.entries(dict)) {
+        const name = item.name || key
+        const order = parseInt(item.order, 10)
+        if (!order || !name) continue
         nameToOrder[name] = order
-        /* 旅行者和旅行者·冰共用序号 1：反查只认第一个登记的 */
         if (!orderToName[order]) orderToName[order] = name
-      })
+      }
     } catch (e) {
-      toast.error('角色白名单加载失败：' + e.message)
+      toast.error('角色序号加载失败：' + e.message)
     }
   }
 
-  /* data/character-art.txt：每行「序号 名字 地址」。
-   仓库内路径 → 站点绝对路径；完整 URL 原样存。 */
+  /* 立绘清单改成从图标字典现算：字典的 art.url 就是要用的地址，
+     条目自己没记代号时按地址反推一个（codeFrom），与 txt 那版一致。 */
   async function fetchPortraits() {
     if (portraitList) return portraitList
-
-    const res = await fetch(`${BASE}${PORTRAIT_SRC}?t=${Date.now()}`)
-    if (!res.ok) throw new Error('HTTP ' + res.status)
-    const text = await res.text()
+    if (!window.ICON_DICT) await fetchDict()
 
     const list = []
-    text.split(/\r?\n/).forEach((raw) => {
-      const line = raw.trim()
-      if (!line || line.startsWith('#')) return
-      const m = line.match(/^(\d+)\s+(\S+)\s+(\S+)$/)
-      if (!m) return
-
-      const addr = repoUrl(m[3]) || m[3]
+    for (const [key, item] of Object.entries(window.ICON_DICT?.characters || {})) {
+      const addr = item.art?.url
+      if (!addr) continue
       list.push({
-        order: parseInt(m[1], 10),
-        name: m[2],
-        art: { key: codeFrom(addr, 'characters', 'art'), url: addr },
+        order: parseInt(item.order, 10) || 0,
+        name: item.name || key,
+        art: { key: item.art?.key || codeFrom(addr, 'characters', 'art'), url: addr },
       })
-    })
+    }
 
     portraitList = list
     return list
@@ -1131,7 +1120,7 @@ export function useIconDict() {
     if (type === 'characters') activeKey.value = row.key
     toast.success(
       type === 'characters' && !f.order
-        ? `已加入「${row.name}」（不在 characters.txt，序号 0）`
+        ? `已加入「${row.name}」（序号表里没有，序号 0）`
         : `已加入「${row.name}」`,
     )
     return true
@@ -1383,8 +1372,8 @@ export function useIconDict() {
       }
     }
 
-    /* ---- 立绘：从 data/character-art.txt 灌进来（过渡期）----
-       「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
+    /* ---- 立绘：从图标字典灌进来 ----
+       「有差异就更新」：字典是立绘的唯一来源，要改某张图就改字典。
        按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
     busy.value = '正在导入立绘对照…'
     let portraitNote = ''
