@@ -2,7 +2,7 @@
  * theme-init.js —— 主题持久化 / 防闪白 / 黑白切换
  * ------------------------------------------------------------
  * 引入方式：每个页面 <head> 内最前面，【不要加 defer / async】
- *   <script src="shared/css/theme-init.js?v=20261024"></script>
+ *   <script src="tools/character/css/theme-init.js?v=20261024"></script>
  * ------------------------------------------------------------
  * 行为：
  *   · 首次访问跟随系统 prefers-color-scheme
