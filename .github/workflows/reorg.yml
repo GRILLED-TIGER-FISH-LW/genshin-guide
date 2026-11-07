@@ -1,11 +1,12 @@
 name: Reorg (temp)
 
-# 临时搬家小工：整理仓库结构用。批 1~3 全部合并后，删掉这个文件。
-# 为什么需要它：手机上 GitHub 网页只能编辑文本，图片/字体这类二进制文件
-# 没法改名字、没法挪位置。这个 Action 只做两件事：按下面写死的清单 git mv、
-# 做精确字符串替换（一处都没匹配到就报错停下，绝不静默改错）。
-# 永远推到 reorg/batch-N 分支，不碰 main；构建不通过就不推。
-# 用法：Actions → 左侧 Reorg (temp) → Run workflow → 选批次号。
+# 临时搬家小工：整理仓库结构用。批 1~3 全部合并后删掉这个文件。
+# 手机上 GitHub 网页只能改文本，图片/字体这类二进制文件没法改名挪位置，
+# 所以借 Actions 跑 git mv。它只做两件事：按写死的清单 mv、做精确字符串替换
+# （原串一处都找不到就报错停下，绝不静默改错）。永远推到 reorg/batch-N 分支，
+# 不碰 main；构建不通过就不推。
+#
+# 用法：Actions → 左侧 "Reorg (temp)" → Run workflow → 选批次号。
 
 on:
   workflow_dispatch:
@@ -19,11 +20,12 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   reorg:
     runs-on: ubuntu-latest
+    env:
+      BATCH: ${{ inputs.batch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,31 +33,26 @@ jobs:
         with:
           node-version: 20
 
-      - name: 搬家 + 改引用
+      - name: 搬家并改引用
         run: |
           set -euo pipefail
           git config user.name "reorg-bot"
           git config user.email "reorg-bot@users.noreply.github.com"
 
-          # 精确替换：文件 原串 新串。匹配不到就报错退出。
+          # 精确替换：文件 原串 新串。原串一处都找不到就报错退出。
           sub() {
-            python3 -c '
-import sys
-f, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(f, "r", encoding="utf-8", newline="") as fh:
-    s = fh.read()
-if a not in s:
-    print("::error file=%s::没找到要替换的字符串：%s" % (f, a))
-    raise SystemExit(1)
-with open(f, "w", encoding="utf-8", newline="") as fh:
-    fh.write(s.replace(a, b))
-' "$1" "$2" "$3"
+            if ! grep -qF -- "$2" "$1"; then
+              echo "::error file=$1::没找到要替换的字符串：$2"
+              exit 1
+            fi
+            FROM="$2" TO="$3" perl -0777 -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/g' "$1"
           }
 
-          B="${{ inputs.batch }}"
+          echo "批次：$BATCH"
 
-          # ---------------- 批 1：搬进 public/（URL 一处不变） ----------------
-          if [ "$B" = "1" ]; then
+          # ---------- 批 1：搬进 public/（URL 一处不变） ----------
+          if [ "$BATCH" = "1" ]; then
+            mkdir -p public
             git mv shared public/shared
             git mv tools public/tools
             git mv favicon.ico public/favicon.ico
@@ -64,8 +61,8 @@ with open(f, "w", encoding="utf-8", newline="") as fh:
             sub vite.config.js "path('shared/gi-icons/icon-loader.js')" "path('public/shared/gi-icons/icon-loader.js')"
           fi
 
-          # ---------------- 批 2：shared 内部归位 ----------------
-          if [ "$B" = "2" ]; then
+          # ---------- 批 2：shared 内部归位 ----------
+          if [ "$BATCH" = "2" ]; then
             git rm -q public/shared/theme.css
             git mv public/shared/assets/portrait public/shared/assets/art
             git mv public/shared/assets/characters/element public/shared/assets/element
@@ -81,16 +78,16 @@ with open(f, "w", encoding="utf-8", newline="") as fh:
             sub public/shared/gi-icons/icon-dict.js 'shared/gi-icons/UI_AvatarIcon_Traveler.webp' 'shared/assets/game/UI_AvatarIcon_Traveler.webp'
           fi
 
-          # ---------------- 批 3：摊到 public 顶层 ----------------
-          if [ "$B" = "3" ]; then
+          # ---------- 批 3：摊到 public 顶层 ----------
+          if [ "$BATCH" = "3" ]; then
             git mv public/shared/assets public/images
             git mv public/shared/fonts public/fonts
             git mv public/shared/data public/data
             git mv public/shared/saves public/saves
             sub src/lib/videoCover.js 'shared/data/' 'data/'
             sub src/lib/videoCover.js 'shared/assets/' 'images/'
-            sub src/lib/videoCover.js "const m = String(raw || '').match(/^(?:\.\.\/)+shared\//)" "const m = String(raw || '').match(/^(?:\.\.\/)+/)"
-            sub src/lib/videoCover.js 'return m ? `${BASE}shared/${String(raw).slice(m[0].length)}` : raw || ""' 'return m ? BASE + String(raw).slice(m[0].length) : raw || ""'
+            sub src/lib/videoCover.js '+shared\//)' '+/)'
+            sub src/lib/videoCover.js 'shared/${String(raw).slice' '${String(raw).slice'
             sub src/lib/fonts.js 'BASE_URL}shared/${path}' 'BASE_URL}${path}'
             sub src/composables/useIconDict.js "const i = s.indexOf('shared/')" "const i = ['shared/', 'images/', 'fonts/', 'data/', 'saves/'].map((k) => s.indexOf(k)).filter((n) => n >= 0).sort((a, b) => a - b)[0] ?? -1"
             sub src/composables/useIconDict.js 'shared/assets/' 'images/'
@@ -110,5 +107,5 @@ with open(f, "w", encoding="utf-8", newline="") as fh:
           npm install --no-audit --no-fund
           npm run build
 
-          git commit -m "reorg: 批次 $B"
-          git push -f origin "HEAD:refs/heads/reorg/batch-$B"
+          git commit -m "reorg: 批次 $BATCH"
+          git push -f origin "HEAD:refs/heads/reorg/batch-$BATCH"
