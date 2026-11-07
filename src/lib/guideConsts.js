@@ -58,3 +58,12 @@ export const LAYOUT = {
 export const WEAPON_ORDER = ['graduate', 'optional', 'newbie']
 export const WEAPON_MAX = 4
 export const WEAPON_LABELS = { graduate: '毕业', optional: '可选', newbie: '新手' }
+
+/* 空值占位灰字：明显弱于填值用的 #fff，但在深色格子上读得清（旧版实测值） */
+export const EMPTY_FILL = '#E6E6E6'
+export const PANEL_PRIMARY_KEYS = ['hp', 'atk', 'def']
+export const PANEL_PRIMARY_LABELS = { hp: '生命值', atk: '攻击力', def: '防御力' }
+export const PANEL_EMPTY_TEXT = '任意'
+
+/* 中段三块（词条 / 面板 / 命座）的内容起点：面板顶 + 标题带高度 */
+export const MID_CONTENT_Y = LAYOUT.layers.mid.y + LAYOUT.contentOffsetY
