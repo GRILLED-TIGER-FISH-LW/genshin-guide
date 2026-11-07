@@ -19,6 +19,12 @@
 
 ## 2026 年 11 月
 
+### 2026-11-07 · 仓库目录整理归位
+
+- **起因**：迁到 Vite 之后，`public/` 里还是老结构（`shared/data`、`shared/fonts`、`shared/assets`、`shared/css`），`shared/` 名下混着一堆其实只有某个工具在用的东西；`src/components/` 里还留着两个没人引用的死组件；文档里的路径和目录树也还是迁移前的。
+- **经过**：分四批做纯机械整理（改名 / 挪位置 / 跟着改引用）。数据字典 → `public/data/`、字体 → `public/fonts/`、素材 → `public/images/`、存档 → `public/saves/`；「角色一图流」自己的 10 个样式文件从 `public/shared/css/` 跟着它唯一的使用者进了 `public/tools/character/css/`；删掉没人引用的 `src/components/Tabs.vue` 与 `Combobox.vue`；`README.md` / `AGENTS.md` 的目录树与路径重写。全程用临时 GitHub Action（清单式 `git mv` + 精确替换 + 构建门槛，只推分支）在手机上完成。
+- **结果**：`public/shared/` 只剩真正共享的两样（`ui-icons.js` + `gi-icons/`）；目录名与内容一一对应，看名字就知道东西该放哪、谁在用；代码零残留（全仓 grep 确认），回退仍是 `git revert` 一条提交。
+
 ### 2026-11-07 · 图标字典扩成「原神图片通用字典」
 
 - **起因**：字典里只有角色的头像 key 和星级 / 序号，名片得手工填；`characters.txt` / `character-art.txt` / `namecards.txt` 还各管一段数据，字典当不了唯一真源，封面工具也就没法改读它。两个源站又各有各的毛病（lunaris 更新快但个别图是错的、Amber 慢但更准），需要一个能按格切换的机制。
