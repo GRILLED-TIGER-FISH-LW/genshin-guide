@@ -56,8 +56,8 @@ const STORAGE_KEY = 'icon_dict_editor_v4'
 const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
 const MAX_LOG = 10
 const DICT_SRC = 'shared/gi-icons/icon-dict.js'
-const CHARS_SRC = 'shared/data/characters.txt'
-const PORTRAIT_SRC = 'shared/data/character-art.txt' /* 过渡期，见文件尾 */
+const CHARS_SRC = 'data/characters.txt'
+const PORTRAIT_SRC = 'data/character-art.txt' /* 过渡期，见文件尾 */
 
 const LU = 'https://api.lunaris.moe/data/assets/'
 const AMBER = 'https://gi.yatta.moe/assets/UI/'
@@ -125,7 +125,7 @@ const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
    旅行者·冰 和旅行者共用头像和名片，只有立绘不同 ——
    字典的 key 不能重复（那是个对象），所以给它一个自己的 key（中文名），
    头像用 url 指回旅行者那张图（仓库里的图，走站点绝对路径）。 */
-const TRAVELER_ICON = `${BASE}shared/assets/game/UI_AvatarIcon_Traveler.webp`
+const TRAVELER_ICON = `${BASE}images/game/UI_AvatarIcon_Traveler.webp`
 const TRAVELER_CARD = 'Ysxf6'
 const FORCED_LOCAL = {
   characters: [
@@ -183,7 +183,7 @@ const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
 function repoUrl(input) {
   const s = String(input || '').trim()
   if (!s || /^https?:\/\//i.test(s)) return ''
-  const i = s.indexOf('shared/')
+  const i = ['shared/', 'images/', 'fonts/', 'data/', 'saves/'].map((k) => s.indexOf(k)).filter((n) => n >= 0).sort((a, b) => a - b)[0] ?? -1
   return i < 0 ? '' : BASE + s.slice(i)
 }
 
@@ -361,7 +361,7 @@ function readSlot(o) {
 function migrateRow(row, type) {
   if (row.local) {
     /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
-    if (!row.url) row.url = `${BASE}shared/assets/game/${row.key}`
+    if (!row.url) row.url = `${BASE}images/game/${row.key}`
     delete row.local
   } else if (row.url && !/^https?:\/\//i.test(row.url)) {
     const r = repoUrl(row.url)
@@ -433,7 +433,7 @@ export function useIconDict() {
   const amberIndex = {}
   /* { byRoute, byCode } —— 名片表索引，只收 bond 类 */
   let cardMap = null
-  /* shared/data/character-art.txt 解析结果 */
+  /* data/character-art.txt 解析结果 */
   let portraitList = null
 
   /* ---------------- 存储 ---------------- */
@@ -508,7 +508,7 @@ export function useIconDict() {
     }
   }
 
-  /* shared/data/character-art.txt：每行「序号 名字 地址」。
+  /* data/character-art.txt：每行「序号 名字 地址」。
    仓库内路径 → 站点绝对路径；完整 URL 原样存。 */
   async function fetchPortraits() {
     if (portraitList) return portraitList
@@ -1383,7 +1383,7 @@ export function useIconDict() {
       }
     }
 
-    /* ---- 立绘：从 shared/data/character-art.txt 灌进来（过渡期）----
+    /* ---- 立绘：从 data/character-art.txt 灌进来（过渡期）----
        「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
        按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
     busy.value = '正在导入立绘对照…'

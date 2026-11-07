@@ -91,7 +91,7 @@ const FONT_CACHE_PREFIX = 'font_cache::';
 
 async function loadCharOrderTxt() {
   try {
-    const res = await fetch('../../shared/data/characters.txt?t=' + Date.now());
+    const res = await fetch('../../data/characters.txt?t=' + Date.now());
     if (!res.ok) return;
     const text = await res.text();
     CHAR_NAME_TO_ORDER = {};
@@ -109,7 +109,7 @@ async function loadCharOrderTxt() {
 
 async function loadNamecards() {
   try {
-    const res = await fetch('../../shared/data/namecards.txt?t=' + Date.now());
+    const res = await fetch('../../data/namecards.txt?t=' + Date.now());
     if (!res.ok) return;
     const text = await res.text();
     NAMECARD_DICT = {};
@@ -124,7 +124,7 @@ async function loadNamecards() {
 
 async function loadArtDict() {
   try {
-    const res = await fetch('../../shared/data/character-art.txt?t=' + Date.now());
+    const res = await fetch('../../data/character-art.txt?t=' + Date.now());
     if (!res.ok) return;
     const text = await res.text();
     ART_DICT = {};
@@ -140,7 +140,7 @@ async function loadArtDict() {
 
 async function loadFontList() {
   try {
-    const res = await fetch('../../shared/fonts/fonts.json?t=' + Date.now());
+    const res = await fetch('../../fonts/fonts.json?t=' + Date.now());
     if (!res.ok) return;
     const json = await res.json();
     FONT_LIST = Array.isArray(json.fonts) ? json.fonts : [];
@@ -295,7 +295,7 @@ async function selectFont(index) {
     if (labelEl) labelEl.textContent = `[1/3] 正在下载二进制流...`;
     let res;
     try {
-      res = await fetch('../../shared/fonts/' + encodeURIComponent(f.file) + '?t=' + Date.now());
+      res = await fetch('../../fonts/' + encodeURIComponent(f.file) + '?t=' + Date.now());
     } catch (netErr) {
       throw new Error(`跨域或网络受阻 (${netErr.message})`);
     }
@@ -1029,7 +1029,7 @@ async function matchStyleImages(onlyEmpty) {
     tasks.push(async () => {
       let elementUrl = '';
       if (elementName) {
-        const ghUrl = '../../shared/assets/element/' + elementName + '.png';
+        const ghUrl = '../../images/element/' + elementName + '.png';
         if (await urlExists(ghUrl)) elementUrl = ghUrl;
       }
       if (elementUrl) {
@@ -1086,7 +1086,7 @@ async function loadSaveFromRepo() {
   const order = CHAR_NAME_TO_ORDER[name];
   if (!order) { showToast('characters.txt 中找不到「' + name + '」', 'error'); return; }
   const filename = padOrder(order) + '.' + name + '.json';
-  const url = '../../shared/saves/characters/' + filename;
+  const url = '../../saves/characters/' + filename;
   showToast('正在查找存档…', 'info');
 
   try {

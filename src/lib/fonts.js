@@ -8,7 +8,7 @@
 
 export const withTs = (url) => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
 
-const asset = (path) => withTs(`${import.meta.env.BASE_URL}shared/${path}`)
+const asset = (path) => withTs(`${import.meta.env.BASE_URL}${path}`)
 
 const MIME = { ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' }
 

@@ -8,8 +8,8 @@ window.ICON_DICT = {
 
   /* ============ 角色 ============ */
   characters: {
-    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/shared/assets/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/shared/assets/art/001.旅行者.webp" } },
-    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/shared/assets/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/shared/assets/art/001.旅行者·冰.webp" } },
+    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者.webp" } },
+    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者·冰.webp" } },
     "Ambor": { name: "安柏", star: 4, order: 2, card: { key: "Ambor" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/6f0ef40157e95b0d59455c12f4d3f270_6966278935690800707.png" } },
     "Kaeya": { name: "凯亚", star: 4, order: 3, card: { key: "Kaeya" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/cbce61ef1ee5586c4e77b2070348685f_2003673786618101140.png" } },
     "Lisa": { name: "丽莎", star: 4, order: 4, card: { key: "Lisa" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/43922f5162840c215638affedad0459a_3369229991804918602.png" } },
@@ -129,7 +129,7 @@ window.ICON_DICT = {
     "Alyosha": { name: "阿罗夏", star: 4, order: 118, card: { key: "Alyosha" }, art: { url: "https://fastcdn.hoyoverse.com/content-v2/hk4e/165500/06362b46d6f5c71ebdfd9e149513e36d_840920505687671432.png" } },
     "Odette": { name: "奥黛塔", star: 5, order: 119, card: { key: "Odette" }, art: { url: "https://fastcdn.hoyoverse.com/content-v2/hk4e/165495/8099301bba7d1f37bb688c848618f7d8_6115297978588435734.png" } },
     "Vesna": { name: "薇斯纳", star: 5, order: 120, card: { key: "Vesna" }, art: { url: "https://fastcdn.hoyoverse.com/content-v2/hk4e/166101/2fcf06b3387743b28d83c81877fbd3f9_4035024996550386837.png" } },
-    "Vodyanitsa": { name: "沃雅妮莎", star: 5, order: 121, card: { key: "Vodyanitsa" }, art: { url: "/genshin-guide/shared/assets/art/121.沃雅妮莎.webp" } },
+    "Vodyanitsa": { name: "沃雅妮莎", star: 5, order: 121, card: { key: "Vodyanitsa" }, art: { url: "/genshin-guide/images/art/121.沃雅妮莎.webp" } },
     "Valeriy": { name: "瓦列里", star: 4, order: 122, card: { key: "Valeriy" }, art: { url: "https://fastcdn.hoyoverse.com/content-v2/hk4e/167099/8c6c7e6ecf5a42e13fd63523f5910100_3482945650514640705.png" } },
     "Mitya": { name: "米提亚", star: 5, order: 123, card: { key: "Mitya" }, art: { url: "https://fastcdn.hoyoverse.com/content-v2/hk4e/167060/7634882dae5f51a9c8c20881eec25c30_5749592554917751632.png" } },
     "Danica": { name: "达妮卡", star: 5, order: 124, card: { key: "Danica" } },
