@@ -1,22 +1,38 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import Btn from '../components/Btn.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
+import Seg from '../components/Seg.vue'
 import Slider from '../components/Slider.vue'
 import { useToast } from '../composables/useToast.js'
-import { matchIcon } from '../composables/useIconLib.js'
-import { elementColors, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER } from '../lib/guideConsts.js'
+import { loadArtifactIcons, matchIcon } from '../composables/useIconLib.js'
+import {
+  elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS,
+  WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
+} from '../lib/guideConsts.js'
 import * as guide from '../lib/guideChart.js'
 
 /* 整份状态就一个对象：字段名与旧版一图流逐字一致，旧草稿、旧配置 JSON 都能读进来 */
 const s = reactive(guide.fresh())
 const toast = useToast()
 
-const svg = computed(() => guide.buildGuideSVG(s))
+/* 词条那三个图标在 ui-icons.js 的 artifact 组（路径数据），构建期模块里没有，
+   运行时取一次；取不到就不画图标，卡片其余部分照画 */
+const artifactIcons = ref({})
+onMounted(async () => {
+  try {
+    artifactIcons.value = await loadArtifactIcons()
+  } catch {
+    /* 没图标也能用 */
+  }
+})
+
+const svg = computed(() => guide.buildGuideSVG(s, artifactIcons.value))
 const PLACEHOLDER = guide.placeholder()
 
+const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
 /* =========================================================================
@@ -242,34 +258,39 @@ async function onArtifactFile(i, imgKey, e) {
           <div
             v-for="(w, i) in s.weaponData[type]"
             :key="i"
-            class="flex items-center gap-2 rounded-panel border border-line bg-surface p-2"
+            class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
           >
-            <button
-              type="button"
-              class="size-14 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
-              :aria-label="`上传第 ${i + 1} 个武器的图标`"
-              @click="pickFile(`w:${type}:${i}`)"
-            >
-              <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-contain" />
-            </button>
-            <Field
-              v-model="w.name"
-              label="武器名"
-              placeholder="如：静水流涌之辉"
-              class="min-w-0 flex-1"
-              @blur="matchWeapon(type, i)"
-            />
-            <div class="flex shrink-0 flex-col gap-1">
-              <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
-                <Icon name="ui.arrowUp" />
-              </Btn>
-              <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
-                <Icon name="ui.arrowDown" />
-              </Btn>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-medium text-ink">#{{ i + 1 }} {{ WEAPON_LABELS[type] }}武器</span>
+              <div class="flex gap-1">
+                <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
+                  <Icon name="ui.arrowUp" />
+                </Btn>
+                <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
+                  <Icon name="ui.arrowDown" />
+                </Btn>
+                <Btn size="sm" square variant="danger" aria-label="删除武器" @click="removeWeapon(type, i)">
+                  <Icon name="ui.trash" />
+                </Btn>
+              </div>
             </div>
-            <Btn size="sm" square variant="danger" aria-label="删除武器" @click="removeWeapon(type, i)">
-              <Icon name="ui.trash" />
-            </Btn>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="size-14 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :aria-label="`上传第 ${i + 1} 个武器的图标`"
+                @click="pickFile(`w:${type}:${i}`)"
+              >
+                <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-contain" />
+              </button>
+              <Field
+                v-model="w.name"
+                label="武器名"
+                placeholder="如：静水流涌之辉"
+                class="min-w-0 flex-1"
+                @blur="matchWeapon(type, i)"
+              />
+            </div>
             <input
               :ref="(el) => (fileInputs[`w:${type}:${i}`] = el)"
               type="file"
@@ -369,6 +390,32 @@ async function onArtifactFile(i, imgKey, e) {
               @change="onArtifactFile(i, 'img', $event)"
             />
           </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">词条推荐</h2>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Field v-model="s.sandMain" label="时之沙" placeholder="如：元素精通" />
+          <Field v-model="s.gobMain" label="空之杯" placeholder="如：火元素伤害加成" />
+          <Field v-model="s.cirMain" label="理之冠" placeholder="如：暴击率" />
+        </div>
+        <Field v-model="s.subStats" label="副词条优先顺序" placeholder="如：暴击率 > 暴击伤害 > 元素精通" />
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">面板参考 · 主属性</h2>
+        <Seg v-model="s.panel.primaryKey" :options="PRIMARY_OPTIONS" full />
+        <Field v-model="s.panel.primaryValue" label="主属性数值" placeholder="留空显示「任意」" />
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">面板参考 · 副属性</h2>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Field v-model="s.panel.cr" label="暴击率" placeholder="留空显示「任意」" />
+          <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
+          <Field v-model="s.panel.em" label="元素精通" placeholder="留空显示「任意」" />
+          <Field v-model="s.panel.er" label="充能效率" placeholder="留空显示「任意」" />
         </div>
       </section>
     </main>
