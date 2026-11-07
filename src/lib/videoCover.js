@@ -25,7 +25,7 @@ const LOGO_SIZE = 200
 const LOGO_ROUNDED = 50
 
 export const BASE = import.meta.env.BASE_URL
-export const LOGO_BASE = `${BASE}shared/assets/video-cover/`
+export const LOGO_BASE = `${BASE}shared/assets/cover/`
 const BOSS_BASE = `${LOGO_BASE}boss-base.png`
 const DEFAULT_LOGO_FILE = 'gi-logo.png'
 

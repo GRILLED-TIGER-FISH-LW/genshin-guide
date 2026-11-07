@@ -125,7 +125,7 @@ const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
    旅行者·冰 和旅行者共用头像和名片，只有立绘不同 ——
    字典的 key 不能重复（那是个对象），所以给它一个自己的 key（中文名），
    头像用 url 指回旅行者那张图（仓库里的图，走站点绝对路径）。 */
-const TRAVELER_ICON = `${BASE}shared/gi-icons/UI_AvatarIcon_Traveler.webp`
+const TRAVELER_ICON = `${BASE}shared/assets/game/UI_AvatarIcon_Traveler.webp`
 const TRAVELER_CARD = 'Ysxf6'
 const FORCED_LOCAL = {
   characters: [
@@ -361,7 +361,7 @@ function readSlot(o) {
 function migrateRow(row, type) {
   if (row.local) {
     /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
-    if (!row.url) row.url = `${BASE}shared/gi-icons/${row.key}`
+    if (!row.url) row.url = `${BASE}shared/assets/game/${row.key}`
     delete row.local
   } else if (row.url && !/^https?:\/\//i.test(row.url)) {
     const r = repoUrl(row.url)

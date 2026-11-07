@@ -1029,7 +1029,7 @@ async function matchStyleImages(onlyEmpty) {
     tasks.push(async () => {
       let elementUrl = '';
       if (elementName) {
-        const ghUrl = '../../shared/assets/characters/element/' + elementName + '.png';
+        const ghUrl = '../../shared/assets/element/' + elementName + '.png';
         if (await urlExists(ghUrl)) elementUrl = ghUrl;
       }
       if (elementUrl) {
