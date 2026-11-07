@@ -14,3 +14,13 @@ export function loadImageMeta(src) {
     img.src = src
   })
 }
+
+/* 存文件：临时链接用完就回收 */
+export function download(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
