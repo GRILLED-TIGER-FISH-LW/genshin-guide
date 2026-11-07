@@ -19,12 +19,10 @@ import {
 import * as guide from '../lib/guideChart.js'
 import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
-/* 编辑区按旧版一图流的骨架：组 = 头部（标题 + 添加 + 收起展开）+ 内容；
-   条目 = 头部（名字 + 上移/下移/删除）+ 一行「缩略图 + 输入框」；散搭两个并排；
-   备选左缩进挂一条竖线。控件一律走通用件、写法对齐仓库里已有的用法：
-   · 按钮里的图标走 #icon 具名插槽（Btn 会给它按档位定尺寸）
-   · 只有「收起 / 展开」是文字在前、实心三角在后（这是特意要的）
-   尺寸按规范：缩略图 40px（旧版 --thumb-size，= h-10）、备选 32px。 */
+/* 通用件里 danger 的底色是 #f8e9e7，卡片底是 #faf9f5 —— 对比 1.02:1，等于看不见。
+   旧版 delete 按钮有 border-color: rgba(199,102,92,.2) 那条红线，所以这里按旧版配方
+   补一条 30% 的危险色边框（同一个 --color-danger 令牌，不新造颜色）。
+   另外：Btn 的图标一律走 #icon 具名插槽，只有「收起/展开」是文字在前、三角在后。 */
 
 const s = reactive(guide.fresh())
 const toast = useToast()
@@ -36,9 +34,8 @@ const PLACEHOLDER = guide.placeholder()
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
-/* 元素图标的几何是 1024 视框（和词条的花杯冠同一套），而 Icon.vue 的外框写死 24 视框，
-   直接套会把路径放大 43 倍画出画面外 —— 构建期模块收的又正好是「剥掉外层 svg」的内容，
-   拿不到原 viewBox，所以这里自己套一个 1024 视框，颜色强制跟随文字色 */
+/* 元素图标是 1024 视框，Icon.vue 外框写死 24 视框会把它放大 43 倍画出画面外，
+   所以这里自己套 1024 视框，颜色跟随文字色 */
 const elementIcon = (key) => `<svg viewBox="0 0 1024 1024" class="size-4 shrink-0 [&_path]:fill-current" aria-hidden="true">${ICONS[`element.${key}`] || ''}</svg>`
 
 const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
@@ -46,6 +43,8 @@ const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounde
 const PANEL = 'grid gap-2 rounded-panel border border-line bg-surface p-2'
 const CARD = 'grid gap-2 rounded-ctl border border-line-2 p-2'
 const HEAD = 'flex items-center justify-between gap-2'
+/* 删除按钮：通用 danger 底在浅色下看不见，补一条危险色边框 */
+const DEL = 'border border-danger/30'
 
 /* =========================================================================
  * 分区
@@ -66,7 +65,6 @@ const contentEl = ref(null)
 
 watch(tab, () => contentEl.value?.scrollTo({ top: 0 }))
 
-/* 收起 / 展开：默认全展开；新增条目时展开所在组 */
 const collapsed = reactive({})
 const isCollapsed = (key) => !!collapsed[key]
 const toggleCollapse = (key) => { collapsed[key] = !collapsed[key] }
@@ -225,7 +223,6 @@ const dayStamp = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/* 导出的配置不带字体字节（和视频封面一致），导入时按 fontFileName 重新取 */
 async function exportConfig() {
   const text = JSON.stringify({ ...toRaw(s), fontData: '' }, null, 2)
   download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
@@ -571,6 +568,7 @@ function clearTeamCore() {
                 size="sm"
                 variant="danger"
                 square
+                :class="DEL"
                 :aria-label="`删除${slot.label}`"
                 @click="clearImg(slot.key)"
               >
@@ -626,7 +624,7 @@ function clearTeamCore() {
                   <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
                     <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                   </Btn>
-                  <Btn size="sm" variant="danger" square aria-label="删除武器" @click="removeWeapon(type, i)">
+                  <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除武器" @click="removeWeapon(type, i)">
                     <template #icon><Icon name="ui.trash" size="sm" /></template>
                   </Btn>
                 </div>
@@ -695,7 +693,7 @@ function clearTeamCore() {
                   <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
                     <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                   </Btn>
-                  <Btn size="sm" variant="danger" square aria-label="删除圣遗物" @click="removeArtifact(i)">
+                  <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除圣遗物" @click="removeArtifact(i)">
                     <template #icon><Icon name="ui.trash" size="sm" /></template>
                   </Btn>
                 </div>
@@ -868,7 +866,7 @@ function clearTeamCore() {
               <div class="text-xs font-medium text-ink">1 号位头像</div>
               <div class="truncate text-xs text-muted">{{ s.teamCoreImg ? '已载入，点图更换' : '留空就用角色自己的头像' }}</div>
             </div>
-            <Btn v-if="s.teamCoreImg" size="sm" variant="danger" square aria-label="删除 1 号位头像" @click="clearTeamCore">
+            <Btn v-if="s.teamCoreImg" size="sm" variant="danger" square :class="DEL" aria-label="删除 1 号位头像" @click="clearTeamCore">
               <template #icon><Icon name="ui.trash" size="sm" /></template>
             </Btn>
             <input
@@ -903,7 +901,7 @@ function clearTeamCore() {
                 {{ isCollapsed(`team_${ti}`) ? '展开' : '收起' }}
                 <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
               </Btn>
-              <Btn size="sm" variant="danger" square aria-label="删除队伍" @click="removeTeam(ti)">
+              <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除队伍" @click="removeTeam(ti)">
                 <template #icon><Icon name="ui.trash" size="sm" /></template>
               </Btn>
             </div>
@@ -988,7 +986,7 @@ function clearTeamCore() {
                       <Btn size="sm" square aria-label="下移" :disabled="ai === team.chars[ci].alts.length - 1" @click="moveAlt(ti, ci, ai, 1)">
                         <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
                       </Btn>
-                      <Btn size="sm" variant="danger" square aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
+                      <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
                         <template #icon><Icon name="ui.trash" size="sm" /></template>
                       </Btn>
                     </div>
