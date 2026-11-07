@@ -2,7 +2,7 @@
  * 视频封面 · 绘制与导出引擎
  * =========================================================================
  * 三块，都不碰界面：
- *   1. 数据与几何：状态默认值、模式表、character-art / namecards / logos 解析、
+ *   1. 数据与几何：状态默认值、模式表、图标字典里的序号 / 立绘 / 名片与 logos 解析、
  *      胶囊与浮层几何、文本测量、签名栏
  *   2. 素材：模糊背景条（带缓存）、图片加载、URL → data URL
  *   3. 出图与存档：SVG 克隆烘焙 → PNG、配置导入导出、IndexedDB
@@ -154,41 +154,35 @@ const text = async (path) => {
 
 const lines = (txt) => txt.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'))
 
-/* character-art.txt / 旧配置里的路径是工具页时代的相对路径（../../shared/…）。
-   SPA 里相对路径按仓库根算，会跑到域名外面 —— 统一改成站点基址。
-   http(s) / data: 原样放行。 */
+/* 旧配置里存的是工具页时代的相对路径（../../shared/…），走这里统一改写成站点基址。
+   姓名与序号那三张 txt 已经退休，本函数现在只服务旧配置的兼容。 */
 export function artUrl(raw) {
   const m = String(raw || '').match(/^(?:\.\.\/)+/)
   return m ? `${BASE}${String(raw).slice(m[0].length)}` : raw || ''
 }
 
+/* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
+   原来那三张数据表从这一版起退休，本文件不再读 data/ 下的表（只剩 logos）。
+   字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
 export async function loadData() {
-  const [characterTxt, artTxt, namecardTxt, logoTxt] = await Promise.all([
-    text('data/characters.txt'),
-    text('data/character-art.txt'),
-    text('data/namecards.txt'),
-    text('data/logos.txt'),
-  ])
+  const [logoTxt] = await Promise.all([text('data/logos.txt')])
+  await iconLib()
+
+  const dict = window.ICON_DICT || {}
+  const cardCfg = dict.config?.characters?.card
 
   const orders = {}
-  for (const line of lines(characterTxt)) {
-    const parts = line.split(/[\s,，\t]+/)
-    if (parts.length < 2) continue
-    const order = parseInt(parts[0], 10)
-    const name = parts.slice(1).join(' ').trim()
-    if (order && name) orders[name] = order
-  }
-
   const art = {}
-  for (const line of lines(artTxt)) {
-    const m = line.match(/^(\d+)\s+(\S+)\s*(.*)$/)
-    if (m) art[m[2]] = artUrl((m[3] || '').trim())
-  }
-
   const namecards = {}
-  for (const line of lines(namecardTxt)) {
-    const m = line.match(/^(\d+)\s+(\S+)\s+(https?:\/\/\S+)$/)
-    if (m) namecards[m[2]] = m[3]
+  for (const [key, item] of Object.entries(dict.characters || {})) {
+    const name = item.name || key
+    if (item.order) orders[name] = item.order
+    if (item.art?.url) art[name] = item.art.url
+
+    const cardKey = item.card?.key
+    if (!cardKey || !cardCfg) continue
+    const src = item.card?.alt && cardCfg.alt ? cardCfg.alt : cardCfg
+    if (src.prefix) namecards[name] = src.prefix + cardKey + (src.ext || '')
   }
 
   const logos = []
