@@ -3,30 +3,27 @@
  * =========================================================================
  * 与旧 public/tools/character/svg.js 同源：坐标尺寸全走 guideConsts.js 的 LAYOUT，
  * 输出一整段 <svg> 字符串。预览和导出共用这一个入口 —— 预览把它塞进 v-html，
- * 导出时把同一段字符串喂给 canvas（批 5 接上视频封面那条 svgToPng 链）。
+ * 导出时把同一段字符串喂给 canvas（下一批接视频封面那条 svgToPng 链）。
  *
- * 到这一批为止，卡片的七个区块全部画齐：左栏、武器、圣遗物、天赋、词条、面板、
- * 命座、配队。
+ * 字体：视频封面那套共享设施（src/lib/fonts.js）把字体按真实字体名注册进文档，
+ * 所以这里只要把 font-family 写成 '字体名', 兜底族 就行，不需要旧版的 CardCustomFont。
+ * 量宽必须用同一个族，否则自适应字号会按兜底字体算。
  *
- * icons 参数是 shared/ui-icons.js 整份（界面取好传进来）：
+ * icons 参数是 shared/ui-icons.js 整份：
  *   icons.artifact  花 / 杯 / 冠 三个词条图标（路径数据）
  *   icons.card.plusPath  配队里主角色之间的加号
- * 缺哪个就少画哪个，不影响别的。
  *
- * 相对旧版的删除：text() 里 data-field / data-fit-* 那组属性是给旧版「按 DOM 节点
- * 局部改字」用的，Vue 里整份重画，不需要；slot()/doubleArtifact() 的 field 参数
- * （同一个用途）、图片上 id="charImgEl" 同理。配队里「角色名是否在白名单里」那道
- * 校验也没了 —— 名字直接问字典，查不到就是没有。
+ * 相对旧版的删除：text() 的 data-field / data-fit-*（旧版按 DOM 节点局部改字用）、
+ * slot() 的 field 参数、图片上的 id="charImgEl"。
  *
- * shortcut: 每次输入整份重拼字符串（1280×720、无滤镜），量小，不值得做局部更新；
- *           等出现大图模糊或几十个 text 一起量宽时再改成只重画变的块。
+ * shortcut: 每次输入整份重拼字符串（1280×720、无滤镜），量小，不值得做局部更新。
  * ========================================================================= */
 import {
   EMPTY_FILL, FONT_FAMILY_DEFAULT, LAYOUT, MID_CONTENT_Y, PANEL_EMPTY_TEXT, PANEL_PRIMARY_LABELS,
   SVG_H, SVG_W, TALENT_EMPTY_TEXT, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
 } from './guideConsts.js'
 
-/* 字段名与旧版一图流、IDB 里的草稿逐字一致，旧档才读得进来 */
+/* 字段名与旧版一图流、IDB 里的草稿逐字一致 */
 export const DEFAULTS = {
   charName: '', version: '', date: '', author: '烤吃虎鱼LW',
   theme: '#939393',
@@ -42,12 +39,12 @@ export const DEFAULTS = {
   constellationData: Array.from({ length: 6 }, () => ({ active: false, desc: '' })),
   teamCoreImg: '', teamCoreImgManual: false,
   teamData: [],
+  fontData: '', fontName: '', fontFileName: '',
 }
 
 export const fresh = () => structuredClone(DEFAULTS)
 
-/* 一支队伍固定四格：0 号是卡片主角（由角色名称 / 1 号位头像决定，编辑器不碰），
-   1~3 号可编辑，各自带最多 4 个备选 */
+/* 一支队伍固定四格：0 号是卡片主角（由角色名称 / 1 号位头像决定，编辑器不碰） */
 export const makeTeam = () => ({
   name: '',
   chars: Array.from({ length: 4 }, () => ({
@@ -56,12 +53,19 @@ export const makeTeam = () => ({
 })
 
 /* =========================================================================
- * 文本测量与自动排版：字号自适应靠 canvas 量宽，同一个文本要反复量
+ * 文本测量与自动排版
+ * -------------------------------------------------------------------------
+ * family 是当前这次出图用的字体族，由 buildGuideSVG 在开始时定，
+ * 量宽和 SVG 里的 font-family 必须一致。
  * ========================================================================= */
 const measureCtx = document.createElement('canvas').getContext('2d')
 
+let family = FONT_FAMILY_DEFAULT
+
+const fontFamilyOf = (name) => (name ? `'${name}', ${FONT_FAMILY_DEFAULT}` : FONT_FAMILY_DEFAULT)
+
 const measureTextWidth = (content, size) => {
-  measureCtx.font = `${size}px ${FONT_FAMILY_DEFAULT}`
+  measureCtx.font = `${size}px ${family}`
   return measureCtx.measureText(String(content ?? '')).width
 }
 
@@ -128,7 +132,7 @@ const wrappedLeftText = (x, areaTop, areaW, areaH, content, maxW, base, min, fil
 }
 
 /* =========================================================================
- * SVG 绘制原语（与旧 svg.js 逐个对齐）
+ * SVG 绘制原语
  * ========================================================================= */
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c])
@@ -182,7 +186,7 @@ const pathIcon = (paths, cx, cy, size, theme) => {
 }
 
 /* =========================================================================
- * 图标槽：方图 + 底部渐变压条 + 条上名字（名字太长自动缩字号）
+ * 图标槽：方图 + 底部渐变压条 + 条上名字
  * ========================================================================= */
 const slot = (x, y, size, img, name, key) => {
   const cp = `clip_${key}`
@@ -235,7 +239,6 @@ const doubleArtifact = (x, y, size, a, key) => {
 /* =========================================================================
  * 各区块内容
  * ========================================================================= */
-/* 武器：毕业 / 可选 / 新手，三组横向排，组间一条竖分隔线 */
 const buildWeapons = (d) => {
   const groups = WEAPON_ORDER.filter((type) => d.weaponData[type]?.length)
   if (!groups.length) return ''
@@ -264,7 +267,6 @@ const buildWeapons = (d) => {
   return out
 }
 
-/* 圣遗物：整套一个槽，散搭两个槽 */
 const buildArtifacts = (d) => {
   if (!d.artifactData.length) return ''
 
@@ -287,7 +289,6 @@ const buildArtifacts = (d) => {
   return out
 }
 
-/* 天赋：三列，空值画破折号 */
 const buildTalents = (d) => {
   const layer = LAYOUT.layers.talent
   const contentX = layer.x + LAYOUT.padX
@@ -315,7 +316,6 @@ const buildTalents = (d) => {
   }).join('')
 }
 
-/* 词条：三个主词条盒（图标 + 标题 + 值），下面一条副词条 */
 const statBox = (d, artIcons, x, y, w, h, iconKey, title, value) => {
   const boxRx = LAYOUT.radius.inner
   const iconSize = LAYOUT.stat.iconSize
@@ -356,7 +356,6 @@ const buildStats = (d, artIcons) => {
     ${wrappedLeftText(subTextX, subY, subTextW, subH, d.subStats, subTextW, 12, 6, '#fff', 4)}`
 }
 
-/* 面板：主属性 + 四项副属性，两列排，空值显示「任意」 */
 const buildPanel = (d) => {
   const p = d.panel || {}
   const contentX = LAYOUT.layers.mid.panel.x + LAYOUT.padX
@@ -384,7 +383,6 @@ const buildPanel = (d) => {
   }).join('')
 }
 
-/* 命座：两列六格，点亮的那格用元素色 + 序号圆点加深 */
 const buildConstellations = (d) => {
   const layer = LAYOUT.layers.mid.cons
   const colX = layer.x + LAYOUT.padX
@@ -419,7 +417,6 @@ const buildConstellations = (d) => {
   }).join('')
 }
 
-/* 配队：最多三支队伍横排，每支一个白底框，里面 4 个主角色 + 3 行备选 */
 const buildTeams = (d, plusPath) => {
   if (!d.teamData.length) return ''
 
@@ -490,7 +487,9 @@ export function buildGuideSVG(d, icons = {}) {
   const L = LAYOUT
   const left = L.left
 
-  /* 立绘：按原图比例贴满左栏高度，imgX 左右挪 */
+  /* 这次出图用的字体族 —— 量宽与 SVG 里的 font-family 都取它 */
+  family = fontFamilyOf(d.fontName)
+
   const meta = d.charImgMeta || {}
   const iw = Number(meta.w) || 0
   const ih = Number(meta.h) || 0
@@ -501,7 +500,6 @@ export function buildGuideSVG(d, icons = {}) {
   const nameY = left.y + left.h - 100
   const nameFs = fitSize(d.charName, 280, 50, 18)
 
-  /* 元素图：等比缩进左栏一半宽度，居中在名字背后 */
   const nb = d.nameBgImgMeta || {}
   const nbW = Number(nb.w) || 0
   const nbH = Number(nb.h) || 0
@@ -514,7 +512,6 @@ export function buildGuideSVG(d, icons = {}) {
   const elemX = nameX - elemW / 2
   const elemY = nameY - elemH / 2
 
-  /* 版本 / 日期 / 作者：贴着左栏底部往上排，空值不占行 */
   const rows = [
     d.version && ['当前版本:', d.version],
     d.date && ['制作日期:', d.date],
@@ -528,7 +525,6 @@ export function buildGuideSVG(d, icons = {}) {
     info += text(left.x + CI.padL, y, `${label} ${value}`, 12, { fill: '#ffffff', stroke: '#000000', strokeWidth: 1.2 })
   })
 
-  /* 一块面板 = 底 + 标题 */
   const layers = L.layers
   const mid = layers.mid
   const panel = (x, y, w, h, title) =>
@@ -536,7 +532,7 @@ export function buildGuideSVG(d, icons = {}) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
     <defs>
-      <style>text { font-family: ${FONT_FAMILY_DEFAULT}; paint-order: stroke fill; }</style>
+      <style>text { font-family: ${family}; paint-order: stroke fill; }</style>
       <linearGradient id="slotBottomGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#000" stop-opacity="0"/>
         <stop offset="50%" stop-color="#000" stop-opacity="0.75"/>
