@@ -23,8 +23,7 @@ import { loadGlobalScript } from './useData.js'
  *   拼出来的地址都是同一套：prefix + 代号 + ext
  *
  * 【链接怎么落】
- *   判断一个链接属于谁，只看「路径」不比扩展名（lunaris 同一张图 .png / .webp
- *   两种后缀都可能给出，旧数据里全是 .png）。
+ *   判断一个链接属于谁，只看「路径」不比扩展名（旧数据里两种后缀都可能存在）。
  *   对得上主源规则 → 只记代号
  *   对得上备用源规则 → 只记代号 + alt: true（夏洛蒂：粘 Amber 的头像链接）
  *   两组都对不上（官网那一长串、别的站）→ 才存 url 兜底
@@ -37,6 +36,15 @@ import { loadGlobalScript } from './useData.js'
  *      连源里没有的未实装角色也能用（URL 里带着代号就行）
  *   ③ 按英文名查源：代号代换不成立时（绮良良头像 Momoka、名片 Kirara），
  *      拿角色的 route（Kirara）去名片表对上
+ *
+ * 【补齐什么时候发生】（needFill）
+ *   一条「有名字、有头像、就是缺名片」的行，以前没人去碰它就补不上。
+ *   现在四条路都自动：
+ *     · 选中这一行 → select() 里有 needFill 就补
+ *     · 改了名字 / 粘了地址 → 界面在失焦或停手后调 hydrate()
+ *     · 新增（名字 / 批量链接）→ 建行时就补
+ *     · 同步末尾 → 源里没有的角色按「代号同名代换」再试一次
+ *   补过就不再重复请求（needFill 为假就什么都不做）。
  *
  * 【「不更新」是按槽位算的】
  *   头像槽 / 名片槽：带 url 或 alt 就留你的，否则跟源走
@@ -180,7 +188,7 @@ function repoUrl(input) {
 }
 
 /* 两个地址是不是同一张图：只看路径，不比扩展名。
-   lunaris 同一张图 .webp / .png 都可能给出（旧数据里存的是 .png），
+   lunaris 同一张图 .png / .webp 都可能给出（旧数据里存的是 .png），
    不比扩展名才能把它们认成「主源地址」而不是「手填的链接」。 */
 function sameAsset(a, b) {
   const cut = (s) =>
@@ -563,6 +571,11 @@ export function useIconDict() {
   const missingCard = (row) => !row.card?.key && !row.card?.url
   const missingArt = (row) => !row.art?.key && !row.art?.url
 
+  /* 这一条还有没有该补的东西。名片最常见 ——
+     以前只有「名字框失焦」那一条路会去补它，所以缺名片的行得人工踢一脚 */
+  const needFill = (row) =>
+    !!row && (!row.key || !row.name || row.star == null || missingCard(row))
+
   const FILTERS = [
     { value: 'all', label: '全部' },
     { value: 'noCard', label: '缺名片' },
@@ -767,8 +780,13 @@ export function useIconDict() {
     toast.success(`已清空「${LABELS[tab.value]}」`)
   }
 
+  /* 选中一条就顺手补它缺的（名片最常见），补过就不再请求。
+     以前这一步只在「名字框失焦」时发生，缺名片的行没人碰就一直缺着。 */
   function select(row) {
     activeKey.value = row?.key || ''
+    if (row && tab.value === 'characters' && needFill(row)) {
+      hydrate(row, row.key ? 'avatar' : 'name')
+    }
   }
 
   /* ---------------- 槽位 ---------------- */
@@ -1057,7 +1075,7 @@ export function useIconDict() {
 
     /* 名片：源里给了就用源的；源里没有这个角色（未实装）就同名代换，
        代换出来的地址要真能加载才算数 */
-    if (!row.card?.key && !row.card?.url && row.key) {
+    if (missingCard(row) && row.key) {
       const code = item?.cardCode || ((await cardOk(row.key)) ? row.key : '')
       if (code) {
         row.card = { key: code, url: '' }
@@ -1218,7 +1236,7 @@ export function useIconDict() {
           }
         }
         /* 源里没有这个角色（未实装）：名片代号同名代换，验得出来就填 */
-        if (type === 'characters' && !row.card?.key && !row.card?.url && row.key) {
+        if (type === 'characters' && missingCard(row) && row.key) {
           if (await cardOk(row.key)) {
             row.card = { key: row.key, url: '' }
             changed = true
@@ -1353,6 +1371,18 @@ export function useIconDict() {
       data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
     })
 
+    /* ---- 源里没有的角色（未实装）：同步补不到名片，这里按「代号同名代换」再试一次 ---- */
+    const holes = data.characters.filter((r) => r.key && missingCard(r))
+    if (holes.length) {
+      busy.value = `正在补名片（${holes.length} 条）…`
+      for (const row of holes) {
+        if (await cardOk(row.key)) {
+          row.card = { key: row.key, url: '' }
+          markDirty()
+        }
+      }
+    }
+
     /* ---- 立绘：从 shared/data/character-art.txt 灌进来（过渡期）----
        「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
        按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
@@ -1389,7 +1419,7 @@ export function useIconDict() {
           applied++
         })
 
-        const still = data.characters.filter((r) => !r.art?.url && !r.art?.key).length
+        const still = data.characters.filter((r) => missingArt(r)).length
         const head = missed.slice(0, 4).join('、')
         portraitNote =
           `立绘：写入 ${applied} 项` +
@@ -1520,6 +1550,7 @@ export function useIconDict() {
     activeKey,
     missingCard,
     missingArt,
+    needFill,
     /* 行操作 */
     slotSrc,
     starStyle,
