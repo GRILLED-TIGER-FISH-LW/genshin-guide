@@ -182,9 +182,12 @@ export async function rematchMissing(d) {
       }
     }
 
-    const cardCfg = await dictConfig('characters')
-    if (!d.bgImg && !d.bgImgDeleted && cardCfg?.prefix && entry.card?.key) {
-      d.bgImg = cardCfg.prefix + entry.card.key + (cardCfg.ext || '')
+    /* 大背景用的是名片图。注意规则在 config.characters.card 里 ——
+       config.characters 那一层的 prefix/ext 是头像规则，拿它去拼 card.key 会拼出头像 */
+    const cardCfg = (await dictConfig('characters'))?.card
+    const cardSrc = entry.card?.alt && cardCfg?.alt ? cardCfg.alt : cardCfg
+    if (!d.bgImg && !d.bgImgDeleted && cardSrc?.prefix && entry.card?.key) {
+      d.bgImg = cardSrc.prefix + entry.card.key + (cardSrc.ext || '')
       d.bgImgManual = false
     }
 
