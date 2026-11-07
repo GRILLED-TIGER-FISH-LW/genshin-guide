@@ -1,33 +1,28 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Btn from '../components/Btn.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
 import Slider from '../components/Slider.vue'
-import { useToast } from '../composables/useToast.js'
 import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
+import { useToast } from '../composables/useToast.js'
+import { loadImageMeta } from '../lib/assets.js'
 import {
   elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS,
-  WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
+  TEAM_MAX, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
 } from '../lib/guideConsts.js'
 import * as guide from '../lib/guideChart.js'
+import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
-/* 整份状态就一个对象：字段名与旧版一图流逐字一致，旧草稿、旧配置 JSON 都能读进来 */
+/* 整份状态就一个对象：字段名与旧版一图流逐字一致 */
 const s = reactive(guide.fresh())
 const toast = useToast()
 
 /* 绘制引擎要的两组路径数据（词条的花杯冠、配队的加号）在构建期模块里没有，
    运行时取一次；取不到就少画那几个小图标，卡片其余部分照画 */
 const uiIcons = ref({})
-onMounted(async () => {
-  try {
-    uiIcons.value = await loadUiIcons()
-  } catch {
-    /* 没图标也能用 */
-  }
-})
-
 const svg = computed(() => guide.buildGuideSVG(s, uiIcons.value))
 const PLACEHOLDER = guide.placeholder()
 
@@ -35,10 +30,87 @@ const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PA
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
 /* =========================================================================
- * 大图槽：立绘 / 元素图 / 大背景 / 配队 1 号位头像
+ * 草稿：自动存本机，下次打开接着上次
+ * ========================================================================= */
+const saveState = ref('')
+let saveTimer = 0
+
+function touchDraft() {
+  saveState.value = '保存中…'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    saveState.value = (await saveDraft(s)) ? '已保存' : '保存失败'
+  }, 600)
+}
+
+onMounted(async () => {
+  try {
+    uiIcons.value = await loadUiIcons()
+  } catch {
+    /* 没图标也能用 */
+  }
+
+  const draft = await loadDraft()
+  if (draft) {
+    Object.assign(s, normalizeGuide(draft))
+    saveState.value = '已恢复上次的草稿'
+  }
+
+  /* 挂在读取之后：恢复草稿这一步不该再触发一次保存 */
+  watch(s, touchDraft, { deep: true })
+})
+
+/* =========================================================================
+ * 存档：在线存档 + 清空全部
+ * ========================================================================= */
+const confirmBox = ref(false)
+const confirmKind = ref('repo')
+
+const confirmTitle = computed(() => (confirmKind.value === 'clear' ? '清空全部数据' : '载入在线存档'))
+const confirmText = computed(() => (confirmKind.value === 'clear' ? '清空' : '载入'))
+const confirmMessage = computed(() => (confirmKind.value === 'clear'
+  ? '确定清空所有配置与图片吗？此操作不可撤销。'
+  : `是否载入「${s.charName}」的存档？当前编辑内容会被覆盖。`))
+
+function askRepoSave() {
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+  confirmKind.value = 'repo'
+  confirmBox.value = true
+}
+
+function askClear() {
+  confirmKind.value = 'clear'
+  confirmBox.value = true
+}
+
+async function loadRepo() {
+  saveState.value = '正在读存档…'
+  const res = await fetchRepoSave(s.charName)
+  if (res.error) {
+    saveState.value = ''
+    return toast.error(res.error)
+  }
+
+  Object.assign(s, normalizeGuide(res.data))
+  saveState.value = '正在补齐图标…'
+  await rematchMissing(s)
+  saveState.value = `已载入存档 ${res.file}`
+}
+
+async function clearAll() {
+  const author = s.author
+  Object.assign(s, normalizeGuide({ author }))
+  await clearDraft()
+  saveState.value = '已清空'
+}
+
+const runConfirm = () => (confirmKind.value === 'clear' ? clearAll() : loadRepo())
+
+/* =========================================================================
+ * 大图槽：立绘 / 元素图 / 大背景
  * -------------------------------------------------------------------------
  * state 字段名 / Meta / Deleted / Manual 全是旧版原样：Deleted 与 Manual 记的是
- * 「用户手动换过图、手动删过图」，将来自动匹配素材时靠它们避免盖掉用户的选择。
+ * 「用户手动换过图、手动删过图」，从存档补图时靠它们避免盖掉用户的选择。
  * ========================================================================= */
 const IMG_SLOTS = [
   { key: 'charImg', label: '立绘' },
@@ -64,19 +136,11 @@ async function fileToDataURL(e) {
   return file ? readAsDataURL(file) : ''
 }
 
-/* 尺寸拿不到就退回 0，绘制那边会按左栏宽度摆 */
-const measureImage = (src) => new Promise((resolve) => {
-  const img = new Image()
-  img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
-  img.onerror = () => resolve({ w: 0, h: 0 })
-  img.src = src
-})
-
 async function onSlotFile(key, e) {
   const url = await fileToDataURL(e)
   if (!url) return
   s[key] = url
-  s[key + 'Meta'] = await measureImage(url)
+  s[key + 'Meta'] = await loadImageMeta(url)
   s[key + 'Deleted'] = false
   s[key + 'Manual'] = true
 }
@@ -178,7 +242,11 @@ async function onArtifactFile(i, imgKey, e) {
 /* =========================================================================
  * 配队：每队 4 格，第 1 格是卡片主角（编辑器不碰），2~4 号位可编辑 + 备选
  * ========================================================================= */
-const addTeam = () => s.teamData.push(guide.makeTeam())
+function addTeam() {
+  if (s.teamData.length >= TEAM_MAX) return toast.error(`最多 ${TEAM_MAX} 支队伍`)
+  s.teamData.push(guide.makeTeam())
+}
+
 const removeTeam = (ti) => s.teamData.splice(ti, 1)
 const moveTeam = (ti, dir) => moveItem(s.teamData, ti, dir)
 
@@ -529,7 +597,7 @@ function clearTeamCore() {
 
       <section class="grid grid-cols-1 gap-2">
         <div class="flex items-center justify-between gap-2 px-1">
-          <h2 class="text-xs font-medium text-muted">配队参考（{{ s.teamData.length }}）</h2>
+          <h2 class="text-xs font-medium text-muted">配队参考（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
           <Btn size="sm" @click="addTeam">添加队伍</Btn>
         </div>
 
@@ -671,6 +739,28 @@ function clearTeamCore() {
           </div>
         </div>
       </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">存档</h2>
+        <p class="px-1 text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
+        <p class="px-1 text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
+        <div class="flex flex-wrap gap-2">
+          <Btn @click="askRepoSave">载入在线存档</Btn>
+          <Btn variant="danger" @click="askClear">清空全部数据</Btn>
+        </div>
+        <p class="px-1 text-xs text-faint">
+          在线存档按角色名去找（编号取自图标字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
+        </p>
+      </section>
     </main>
+
+    <Modal
+      v-model="confirmBox"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmText"
+      :danger="confirmKind === 'clear'"
+      @confirm="runConfirm"
+    />
   </div>
 </template>
