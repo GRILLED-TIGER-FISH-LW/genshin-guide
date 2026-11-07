@@ -1,5 +1,5 @@
 <script setup>
-import { computed, useId } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -23,6 +23,16 @@ const props = defineProps({
 
 const model = defineModel({ type: String, default: '' })
 
+const attrs = useAttrs()
+
+/* class / style 归外壳，其余透传给 input（aria-*、@blur、inputmode…）。
+   理由：调用方写 class="min-w-0 flex-1" 是要「这一格撑开」，落到里面那个
+   input 上没用 —— input 在 grid 容器里，flex-1 不起作用，只有固有宽度。 */
+const inputAttrs = computed(() => {
+  const { class: _class, style: _style, ...rest } = attrs
+  return rest
+})
+
 const uid = useId()
 const id = computed(() => `${uid}`)
 const descId = computed(() => `${id.value}-desc`)
@@ -38,7 +48,6 @@ const isNumber = computed(() => props.type === 'number')
 const fieldClass = computed(() => [
   'w-full min-w-0 rounded-ctl border bg-surface px-3 text-sm text-ink',
   'placeholder:text-muted',
-  'transition-colors duration-150 ease-spring',
   'hover:border-line-3',
   'focus-visible:outline-2 focus-visible:outline-offset-1',
   'disabled:pointer-events-none disabled:opacity-50 disabled:bg-sunken',
@@ -54,7 +63,7 @@ const fieldClass = computed(() => [
 </script>
 
 <template>
-  <div class="grid gap-1.5">
+  <div class="grid gap-1.5" :class="attrs.class" :style="attrs.style">
     <div v-if="label || showCount" class="flex items-center justify-between gap-2">
       <label v-if="label" :for="id" class="text-xs font-medium text-muted">
         {{ label }}
@@ -69,7 +78,7 @@ const fieldClass = computed(() => [
       v-if="isTextarea"
       :id="id"
       v-model="model"
-      v-bind="$attrs"
+      v-bind="inputAttrs"
       :class="[fieldClass, autoGrow ? 'field-sizing-content' : '']"
       :rows="rows"
       :placeholder="placeholder"
@@ -85,7 +94,7 @@ const fieldClass = computed(() => [
       v-else
       :id="id"
       v-model="model"
-      v-bind="$attrs"
+      v-bind="inputAttrs"
       :type="type"
       :class="fieldClass"
       :placeholder="placeholder"
