@@ -35,25 +35,33 @@
 |---|---|
 | 1 处、1 行以内 | 说清**哪个文件** + 给出**完整一整行** + 注明共几处 |
 | 2 处以上，或涉及一个块 | **直接给全文** |
+| 机械改动 / 大删除 | 写进 `reorg.yml` 清单（见第六节），我 dispatch 一次 |
+
+**给自己的两条纪律**（吃过亏）：
+
+- 给「原文」之前，**grep 结果不要用 `head` 截断** —— 漏看一处就会白跑一轮机器人。
+- 自检要查**实际行为**（`grep "text('data/x.txt')"`），不要查名字：新文注释里顺手写个被检查的字符串，会把自己卡住。
 
 ---
 
 ## 三、当前架构
 
-单一 Vue 单页应用，**唯一的例外是还没搬过来的 4 个旧工具**（iframe 常驻托管）。
+单一 Vue 单页应用，**唯一的例外是还没搬过来的 3 个旧工具**（iframe 常驻托管）。
 
     ├── index.html              入口：内联主题预置 + 加载守卫 + 旧 hash 归一
     ├── src/
     │   ├── main.js router.js App.vue
     │   ├── styles/             tokens.css（令牌唯一真源）· base.css · app.css
     │   ├── components/         通用控件
-    │   ├── composables/        useTheme · useToast · useData · useIconDict
+    │   ├── composables/        useTheme · useToast · useData · useIconDict · useIconLib
     │   ├── lib/                纯绘制 / 导出 / 存档引擎（不碰界面）
-    │   └── views/              Home · IconEditor · VideoCover · CollectionCover
+    │   │                       videoCover · collectionCover · guideChart · guideConsts
+    │   │                       guideStore · assets · fonts
+    │   └── views/              Home · CharacterGuide · IconEditor · VideoCover · CollectionCover
     └── public/                 整目录照搬进 dist（不走打包）
         ├── shared/             UI 图标库 + 图片字典 / 加载器 —— 真共享，只有这两样
-        ├── tools/              旧工具页；character/css/ 是「角色一图流」自己的样式
-        ├── data/               4 个纯文本数据字典（待退休）
+        ├── tools/              旧工具页（图片处理 / 图表 / 角色梯队）
+        ├── data/               只剩 logos.txt（角色数据已并入图片字典）
         ├── fonts/              字体库
         ├── images/             本地素材（元素 / 立绘 / 封面底图 / 游戏图标）
         └── saves/characters/   角色一图流的存档
@@ -78,7 +86,7 @@
 
 **只剩 1 个，且只有单向**：
 
-- `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/gi-icons/icon-dict.js`（**图片字典**：角色头像 / 名片 / 立绘 + 圣遗物 / 武器 / 怪物）。文件名与内容已经不太相符，改名见待办。
+- `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/gi-icons/icon-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'ICON_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。改名见待办。
 - **反向禁止**：本仓库不依赖 `adventurer-handbook`；图标一律来自本仓库自己的 `public/shared/ui-icons.js`。
 
 ---
@@ -95,6 +103,7 @@
 | `src/components/{PreviewFrame,DockCta}` | 工具页外壳：预览框（16:9 + 右上角浮动工具栏 + 点一下淡出）、底部悬浮主操作 |
 | `src/components/{AppNav,AppDrawer,FrameLayer,ToastHost,SyncReport}` | 应用外壳 |
 | `src/lib/fonts.js` | 字体：清单 / 取字节 / 装进文档 / 导出用的 `@font-face` 文本 |
+| `src/lib/assets.js` | 资源层：图片尺寸 / 远程图转 dataURL / 存文件 / SVG→PNG |
 | `public/shared/gi-icons/icon-loader.js` | 图标加载器：`getPath` / `match` / `load` / `openPicker`。**两个仓库都在读** |
 
 **先看有没有现成的**：控件一律用共享层，不新写本地样式、不用浏览器原生外观。
@@ -105,6 +114,7 @@
 - 色板取 Claude（`#f5f0e8` 底 / `#141413` 字 / `#cc785c` 强调），几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
 - 深色模式**靠变量覆盖**（`[data-theme="dark"]`），不用 `dark:` 前缀。
 - 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
+- **列表里的缩略图统一 40px（`size-10`）**，正好等于表单控件高度，所以和输入框天然对齐；再小的（如备选）32px。
 
 ### 控件高度
 
@@ -130,7 +140,7 @@
 | 裸 `1fr` | 用 `minmax(0, 1fr)` 或 Tailwind 的 `grid-cols-*` |
 | 单独用 `outline-none` | 杀掉焦点环，必须有 `focus:*` 替代 |
 | 布局用 `margin` | 用 `gap` |
-| 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg`） |
+| 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg`）。**已知一处例外**：角色一图流右上角「清空」用 `text-danger! border-danger/30!` 把 `float` 染成危险色 —— 正解是给 `Btn` 加 float+danger 组合，等同步另一仓库那批一起做 |
 
 ### 状态与文案
 
@@ -146,8 +156,10 @@
 - 图标走**构建期虚拟模块**，运行时不再加载图标脚本：
   - `virtual:gg-icons` ← `public/shared/ui-icons.js`（只收值是 `<svg` 开头的条目，剥掉外层 `<svg>`，键名 `组.名字`，如 `ui.trash`）
   - `virtual:gg-icon-lib` ← `public/shared/gi-icons/icon-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
-- **唯一允许的运行时全局**：Boss 图标要用的 `window.ICON_LIB.fromName(...)`，走 `useData.js` 的 `loadGlobalScript()` 载入图片字典。**这个 `window` 只出现在 `src/lib/` 里，不外溢**。
-- 本地草稿一律 IndexedDB，**库名 / 表名 / 键名不能改**：`video_cover_db` / `state` / `video_state`、`collection_state`、`icon_dict_editor_v4`。
+  - **代价**：虚拟模块只给 24 视框能用的界面图标；`element` / `artifact` 两组是 **1024 视框的路径数据**，用 `Icon.vue` 会画到画面外（它外框写死 24）。要用就自己套 `viewBox="0 0 1024 1024"`（`CharacterGuide.vue` 里的 `elementIcon()` 就是这么干的）。
+- **允许的运行时全局**：图片字典要用的 `window.ICON_DICT` / `window.ICON_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+- 本地草稿一律 IndexedDB，**库名 / 表名 / 键名不能改**：`video_cover_db` / `video_state`、`collection_state`、`icon_dict_editor_v4`、`genshin_card_db_v5` / `card_store` / `current_state`。
+- **字典是角色数据的唯一真源**：序号（`order`）、立绘（`art.url`）、名片（`card.key` + `config.characters.card` 规则）。封面与一图流都从这里取，不再有 txt。
 
 ### 图片字典的数据模型（`public/shared/gi-icons/icon-dict.js`）
 
@@ -155,15 +167,19 @@
 - 条目字段：`name` / `order` / `star` / `url` / `alt` / `lock` / `card` / `art`。
   - `url`：直接用它（**只在源拼不出来时才写**，比如仓库里的图、官网那一串）；`alt: true`：这一格改用备用源那组规则（lunaris 图不对时用，如夏洛蒂）。
   - `card` / `art` 是槽位对象（`{ key, url, alt }`）；`key` 是那一格的代号 —— 头像代号和名片代号**可以不一样**（绮良良：Momoka / Kirara）。
+  - **名片地址要拼 `config.characters.card` 那一组规则**（顶层 `prefix` / `ext` 是头像规则，拿它去拼 `card.key` 会拼出头像）。
   - `lock: true`：这一条同步整条不碰。**其余情况下同步按槽位算**：头像槽 / 名片槽带 `url` 或 `alt` 就留用户的，名字 / 星级 / 序号永远跟源走。
 - **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`icon-loader.js` 也留着兼容分支。
 - 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致。
 
 ### 绘制与导出
 
-- 预览用**模板里那份真正的 `<svg>`**，导出时克隆同一份节点、把远程图烘成 data URL 再栅格化 —— 预览与导出共用一份结构，不要再写「导出专用」的第二个分支。
-- 导出前必须把图片洗成 `dataURL`，否则跨域图会丢。
+- 两种都允许，按改动量选：
+  - **视频封面 / 合集封面**：预览用模板里那份真正的 `<svg>`，导出克隆同一份节点。
+  - **角色一图流**：引擎拼 SVG 字符串（`guideChart.js`，坐标走 `guideConsts.js`），预览 `v-html` 塞进去；导出时从 DOM 取那份 `<svg>` 克隆。它 30KB 的坐标代码搬进模板不划算，所以保持字符串。
+- 导出前必须把图片洗成 `dataURL`，否则跨域图会拖脏 canvas、`toBlob` 直接抛错。
 - 导出的 SVG 是**独立文档**，摸不到页面的 `document.fonts`，所以 `@font-face` 必须内嵌（只在导出的那一瞬间挂上，避免预览把字体解析两遍）。
+- 导出倍数：封面与一图流都是 3 倍 → 3840×2160（合集封面 2560×1440）。
 - 模糊层：半分辨率 + JPEG + 按「图 + 参数」缓存，只在参数变化时重算。
 
 ---
@@ -215,10 +231,12 @@
 
 ### 样式没生效 / 时好时坏
 
-- 同一元素上**两个同属性 utility**（如 `bg-surface` 和 `bg-surface-2`），谁赢取决于 Tailwind 生成 CSS 的顺序，**不是模板里的顺序**。修法：让它们互斥，写进同一个条件。
+- 同一元素上**两个同属性 utility**（如 `bg-surface` 和 `bg-surface-2`），谁赢取决于 Tailwind 生成 CSS 的顺序，**不是模板里的顺序**。修法：让它们互斥，写进同一个条件；真要覆盖就用 `!` 后缀（`text-danger!`），但那是例外，见第四节。
 - **组件根节点自带 `w-full` 的**（`Dropdown`），从外面塞宽度类会打架 → 套一层定宽容器。
 - 手写 CSS 里直接写 `var(--color-x)` 而没有 utility 用到它 → Tailwind **不会输出这个变量**。
 - 整页横向溢出、要左右拖 → 容器是 grid 却没写列，隐式轨道被 `flex-wrap` 的 max-content 撑开。**加 `grid-cols-1`**。
+- **`inheritAttrs: false` 的组件**：`class` 会跟着 `$attrs` 落到它内部绑的那个元素上。`Field` 已经特殊处理（class 归外壳、其余归 input），所以给它传 `flex-1` 有效；自建组件别踩这个坑。
+- **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。
 
 ### 点了没反应 / 全站都点不动
 
@@ -230,6 +248,7 @@
 - 箭头类要用 `bold`（实心），其他按钮用默认线框。
 - 组名分不清时，去 `public/shared/ui-icons.js` 里核对该键在哪一组。
 - **取不到名字不会报错，只会渲染成空白** —— 空白图标先怀疑名字写错（`ui.link` 这种就不存在）。
+- **`element` / `artifact` 那两组是 1024 视框**，`Icon.vue` 装不下（见第四节）。
 - 用 `<Icon>` 时颜色靠 `class="text-danger"` 之类传进去，它会并进根节点的类里（只含尺寸与 `shrink-0`，不会打架）。
 
 ### 字体不生效
@@ -237,6 +256,7 @@
 - SVG 里 `@font-face` 的家族名必须和 `font-family` 用的**同一个名字**，否则导出时字体不生效。
 - 字体在预览里靠 `document.fonts`，在导出里靠内嵌 `@font-face`；两边都要有。
 - 字体名带空格要加引号（`'优设标题黑', system-ui, sans-serif`）。
+- **别把字体字节存进草稿或配置**：几兆的 base64 会让每次自动保存都卡一下。只存名字 + 文件名，打开时按文件名从 `public/fonts/` 重新取。
 
 ### 手机上卡住
 
@@ -248,10 +268,20 @@
 
 机械改动（一批改名 / 挪位置 / 全站同一个字符串替换 / 删几个文件）**不用一个个文件去改** —— 交给 `.github/workflows/reorg.yml`（模板，清单直接写在文件里）；哪天不想留它也直接删，按下面几条重写就行。
 
-- **清单区（文件顶部）**：① `MOVES` 每行「旧路径 -> 新路径」② `EDITS` 每行「文件 ||| 原文 ||| 新文」③ `DELETES` 每行一个路径。整行以 `#` 开头的是注释。
-- **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，输入分支名）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
-- **验收**：`https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg/<分支名>` → 开 PR → Merge → 删临时分支。GitHub 推的分支在手机上看不到「recent pushes」横幅，直接用这条链接。
-- **铁律**：只推 `reorg/<名字>` 分支，**永远不碰 main**；构建不过不推；替换前先 `grep -qF` 确认原文存在，找不到就 `exit 1`（宁可失败，不可误删）；删文件前先 `grep -rl` 确认全仓没人引用。
+**清单区（`env:` 里）四段**：
+
+| 段 | 格式 |
+|---|---|
+| `MOVES` | 一行一条：`旧路径 -> 新路径` |
+| `EDITS` | 一条一个块：`### 文件路径`，然后 `<<<<` 原文 `>>>>`，再 `<<<<` 新文 `>>>>`（原文可多行，逐字查找，找不到就中止） |
+| `DELETES` | 一行一个路径（文件或目录都行） |
+| `CHECKS` | 一行一条命令，非 0 即中止（失败会打印该命令的输出） |
+
+- **多行块必须用 python 解析**：bash 的 `while read` 是按行读的，会把多行块拆成一堆假清单（第一版就这么栽的，清单里已经写着这句）。
+- **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
+- **验收**：`https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg-<名字>` → 开 PR → Merge → 删临时分支。GitHub 推的分支在手机上看不到「recent pushes」横幅，直接用这条链接。
+- **顺序铁律**：`EDITS` → `DELETES` → `CHECKS` → 构建 → 才提交推送。所以「先改代码、再删它读的文件」在一个清单里是安全的。
+- **铁律**：只推 `reorg-<名字>` 分支，**永远不碰 main**；任一步失败都不推；替换找不到原文就中止；自检失败就中止。
 - **跨仓库复用**：文件可以照抄，但 **`workflow_dispatch` 只能触发默认分支上已有的 workflow**，所以得先在那个仓库的默认分支上把它建出来。
 - **只适合机械改动**：真正要重写的东西（比如把旧工具搬进 SPA）不适用 —— 那种要反复改、反复看效果。
 
@@ -259,28 +289,26 @@
 
 ## 七、待办 / 下一步
 
-### 接下来这三件（已定）
+### 接下来这两件（已定）
 
-1. **四个 txt 退休，两个仓库都只读字典**
-   本仓库 `videoCover.js` 的 `loadData()` 还在读 `characters.txt` / `character-art.txt` / `namecards.txt`（+ 与本事无关的 `logos.txt`）；编辑器也还在读前两个。改法：封面改成从字典取序号 / 立绘 / 名片，编辑器删掉 `CHARS_SRC` / `PORTRAIT_SRC` 与 `fetchPortraits()`、同步里那段立绘导入——**代码块和 txt 要一起删**，否则每次同步都弹「立绘对照没读到」。同时**白名单取消**（旅行者已经是字典里的独立条目，同步可以直接收 API 的全部角色）。删完 `public/data/` 只留 `logos.txt`。
-2. **字典改名**
-   它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `public/shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图），全局变量 `window.ICON_DICT` / `window.ICON_LIB`，虚拟模块 `virtual:gg-icon-lib`，编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**注意跨仓库**：`adventurer-handbook` 是按绝对 URL 读这个文件的，改名会 404，两个仓库必须同一批改完。
-3. **图片处理工具**
+1. **字典改名**（跨仓库）
+   它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `public/shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图）、`icon-loader.js`、全局变量 `window.ICON_DICT` / `window.ICON_LIB`、虚拟模块 `virtual:gg-icon-lib`、编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**跨仓库**：`adventurer-handbook` 有 4 个文件按绝对 URL 读它（见第三节），每个文件两处，必须同一批改完。
+2. **图片处理工具**
    接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
 
-### 还没搬进 SPA 的 4 个工具（按建议顺序）
+### 还没搬进 SPA 的 3 个工具（按建议顺序）
 
 | 工具 | 说明 |
 |---|---|
-| 角色一图流 | 最大的一块（`public/tools/character/`，已有 consts / svg / app 三层） |
-| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 3 条） |
+| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 2 条） |
 | 图表 | 雷达图 / 柱状图 |
 | 角色梯队 | 单页，最简单，可以拿来当收尾 |
 
 搬家法（已验证）：**模板 1:1 搬、纯绘制与导出引擎留在 `src/lib/`、碰 DOM 的那部分换成共享控件**（旧 `app.js` 里 `bindEvents` / `syncInputsFromState` / `renderXxx` / `injectIcons` / `showToast` / `showConfirm` 这一大票全是废代码，直接删）。
+角色一图流那批补充两条：**① 30KB 级的坐标代码留在引擎里拼字符串、`v-html` 预览**（搬进模板不划算）；**② 老界面的骨架（组头 / 收起展开 / 条目的操作按钮位置）照抄，别自己重新设计** —— 那套结构用户已经用熟了。
 
 ### 其他小事
 
-- `src/lib/` 里 `loadImage` / `urlToDataURL` / `download` 在 `videoCover.js` 和 `collectionCover.js` 各有一份 —— **第三个要用它们的工具出现时**抽到 `src/lib/assets.js`。
-- `Btn.vue` 的 `lg` / `float` 是新加的档位，**记得同步到 `adventurer-handbook`**。
+- `src/lib/assets.js` 已是资源层正本；`videoCover.js` / `collectionCover.js` 里还各留一份 `loadImage` / `urlToDataURL` / `download`（第三个用它的工具出现时抽过来的），下次动那两个文件时删掉、改从这里 import。
+- `Btn.vue` 的 `lg` / `float` 档位记得同步到 `adventurer-handbook`；顺带把「float + danger」加成正式组合（现在靠 `!` 覆盖，见第四节例外那条）。
 - `ToastHost` 的 `role="status"` + `aria-live="assertive"` 两仓库保持一致，知道不规范但故意保留。
