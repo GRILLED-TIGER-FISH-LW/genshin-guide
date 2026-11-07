@@ -4,10 +4,9 @@ import Btn from '../components/Btn.vue'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
-import Seg from '../components/Seg.vue'
 import Slider from '../components/Slider.vue'
 import { useToast } from '../composables/useToast.js'
-import { loadArtifactIcons, matchIcon } from '../composables/useIconLib.js'
+import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
 import {
   elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS,
   WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
@@ -18,25 +17,25 @@ import * as guide from '../lib/guideChart.js'
 const s = reactive(guide.fresh())
 const toast = useToast()
 
-/* 词条那三个图标在 ui-icons.js 的 artifact 组（路径数据），构建期模块里没有，
-   运行时取一次；取不到就不画图标，卡片其余部分照画 */
-const artifactIcons = ref({})
+/* 绘制引擎要的两组路径数据（词条的花杯冠、配队的加号）在构建期模块里没有，
+   运行时取一次；取不到就少画那几个小图标，卡片其余部分照画 */
+const uiIcons = ref({})
 onMounted(async () => {
   try {
-    artifactIcons.value = await loadArtifactIcons()
+    uiIcons.value = await loadUiIcons()
   } catch {
     /* 没图标也能用 */
   }
 })
 
-const svg = computed(() => guide.buildGuideSVG(s, artifactIcons.value))
+const svg = computed(() => guide.buildGuideSVG(s, uiIcons.value))
 const PLACEHOLDER = guide.placeholder()
 
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
 const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
 /* =========================================================================
- * 大图槽：立绘 / 元素图 / 大背景
+ * 大图槽：立绘 / 元素图 / 大背景 / 配队 1 号位头像
  * -------------------------------------------------------------------------
  * state 字段名 / Meta / Deleted / Manual 全是旧版原样：Deleted 与 Manual 记的是
  * 「用户手动换过图、手动删过图」，将来自动匹配素材时靠它们避免盖掉用户的选择。
@@ -174,6 +173,72 @@ async function onArtifactFile(i, imgKey, e) {
   const cell = s.artifactData[i]
   cell[imgKey] = url
   cell[imgKey + 'Manual'] = true
+}
+
+/* =========================================================================
+ * 配队：每队 4 格，第 1 格是卡片主角（编辑器不碰），2~4 号位可编辑 + 备选
+ * ========================================================================= */
+const addTeam = () => s.teamData.push(guide.makeTeam())
+const removeTeam = (ti) => s.teamData.splice(ti, 1)
+const moveTeam = (ti, dir) => moveItem(s.teamData, ti, dir)
+
+/* 2~4 号位之间换位，不碰第 1 格 */
+function moveTeamChar(ti, ci, dir) {
+  const to = ci + dir
+  if (to < 1 || to > 3) return
+  const chars = s.teamData[ti].chars
+  ;[chars[ci], chars[to]] = [chars[to], chars[ci]]
+}
+
+const moveAlt = (ti, ci, ai, dir) => moveItem(s.teamData[ti].chars[ci].alts, ai, dir)
+
+function addAlt(ti, ci) {
+  const alts = s.teamData[ti].chars[ci].alts
+  if (alts.length >= 4) return toast.error('备选最多 4 个')
+  alts.push({ name: '', img: '', imgManual: false })
+}
+
+const removeAlt = (ti, ci, ai) => s.teamData[ti].chars[ci].alts.splice(ai, 1)
+
+/* 角色名直接问字典 —— 名字里带「·冰」这种后缀也认（loader 会先精确匹配） */
+async function matchTeamChar(ti, ci) {
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function matchAlt(ti, ci, ai) {
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function onTeamCharFile(ti, ci, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onAltFile(ti, ci, ai, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onTeamCoreFile(e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  s.teamCoreImg = url
+  s.teamCoreImgManual = true
+}
+
+function clearTeamCore() {
+  s.teamCoreImg = ''
+  s.teamCoreImgManual = false
 }
 </script>
 
@@ -394,6 +459,15 @@ async function onArtifactFile(i, imgKey, e) {
       </section>
 
       <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">天赋加点</h2>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Field v-model="s.talentA" label="普通攻击" placeholder="如：10" />
+          <Field v-model="s.talentE" label="元素战技" placeholder="如：9" />
+          <Field v-model="s.talentQ" label="元素爆发" placeholder="如：10" />
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">词条推荐</h2>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field v-model="s.sandMain" label="时之沙" placeholder="如：元素精通" />
@@ -405,7 +479,19 @@ async function onArtifactFile(i, imgKey, e) {
 
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">面板参考 · 主属性</h2>
-        <Seg v-model="s.panel.primaryKey" :options="PRIMARY_OPTIONS" full />
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            v-for="opt in PRIMARY_OPTIONS"
+            :key="opt.value"
+            type="button"
+            class="h-9 rounded-ctl border text-xs transition-colors"
+            :class="s.panel.primaryKey === opt.value ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
+            :aria-pressed="s.panel.primaryKey === opt.value"
+            @click="s.panel.primaryKey = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
         <Field v-model="s.panel.primaryValue" label="主属性数值" placeholder="留空显示「任意」" />
       </section>
 
@@ -416,6 +502,173 @@ async function onArtifactFile(i, imgKey, e) {
           <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
           <Field v-model="s.panel.em" label="元素精通" placeholder="留空显示「任意」" />
           <Field v-model="s.panel.er" label="充能效率" placeholder="留空显示「任意」" />
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">核心命座</h2>
+        <div
+          v-for="(c, i) in s.constellationData"
+          :key="i"
+          class="flex items-start gap-2 rounded-panel border border-line bg-surface p-2"
+        >
+          <Btn
+            size="sm"
+            :variant="c.active ? 'primary' : 'secondary'"
+            :aria-pressed="c.active"
+            @click="c.active = !c.active"
+          >{{ i + 1 }} 命</Btn>
+          <Field
+            v-model="c.desc"
+            label="核心效果描述"
+            :placeholder="`${i + 1} 命核心效果描述`"
+            class="min-w-0 flex-1"
+          />
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted">配队参考（{{ s.teamData.length }}）</h2>
+          <Btn size="sm" @click="addTeam">添加队伍</Btn>
+        </div>
+
+        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-3">
+          <div class="grid size-14 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb">
+            <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-contain" />
+          </div>
+          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2">
+            <span class="text-xs font-medium text-ink">1 号位头像（留空就用角色自己的图）</span>
+            <div class="flex gap-2">
+              <Btn size="sm" @click="pickFile('teamCore')">{{ s.teamCoreImg ? '更换' : '上传' }}1 号位头像</Btn>
+              <Btn v-if="s.teamCoreImg" size="sm" variant="danger" @click="clearTeamCore">删除</Btn>
+            </div>
+          </div>
+          <input
+            :ref="(el) => (fileInputs.teamCore = el)"
+            type="file"
+            accept="image/*"
+            class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="onTeamCoreFile"
+          />
+        </div>
+
+        <p v-if="!s.teamData.length" class="px-1 text-xs text-faint">暂未添加配队</p>
+
+        <div
+          v-for="(team, ti) in s.teamData"
+          :key="ti"
+          class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-2"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-ink">队伍 {{ ti + 1 }}</span>
+            <div class="flex gap-1">
+              <Btn size="sm" square aria-label="上移" :disabled="ti === 0" @click="moveTeam(ti, -1)">
+                <Icon name="ui.arrowUp" />
+              </Btn>
+              <Btn size="sm" square aria-label="下移" :disabled="ti === s.teamData.length - 1" @click="moveTeam(ti, 1)">
+                <Icon name="ui.arrowDown" />
+              </Btn>
+              <Btn size="sm" square variant="danger" aria-label="删除队伍" @click="removeTeam(ti)">
+                <Icon name="ui.trash" />
+              </Btn>
+            </div>
+          </div>
+
+          <Field v-model="team.name" label="队伍名称" placeholder="如：蒸发队" />
+
+          <div v-for="ci in 3" :key="ci" class="grid grid-cols-1 gap-2 rounded-ctl border border-line-2 p-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-body">{{ ci + 1 }} 号位主角色</span>
+              <div class="flex gap-1">
+                <Btn size="sm" square aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
+                  <Icon name="ui.arrowUp" />
+                </Btn>
+                <Btn size="sm" square aria-label="下移" :disabled="ci === 3" @click="moveTeamChar(ti, ci, 1)">
+                  <Icon name="ui.arrowDown" />
+                </Btn>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="size-12 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :aria-label="`上传 ${ci + 1} 号位角色头像`"
+                @click="pickFile(`t:${ti}:${ci}`)"
+              >
+                <img :src="team.chars[ci].img || PLACEHOLDER" alt="" class="size-full object-contain" />
+              </button>
+              <Field
+                v-model="team.chars[ci].name"
+                label="角色名"
+                placeholder="如：芙宁娜"
+                class="min-w-0 flex-1"
+                @blur="matchTeamChar(ti, ci)"
+              />
+              <input
+                :ref="(el) => (fileInputs[`t:${ti}:${ci}`] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onTeamCharFile(ti, ci, $event)"
+              />
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-muted">备选角色（{{ team.chars[ci].alts.length }}/4）</span>
+              <Btn size="sm" @click="addAlt(ti, ci)">添加</Btn>
+            </div>
+
+            <div v-for="(alt, ai) in team.chars[ci].alts" :key="ai" class="flex items-center gap-2">
+              <button
+                type="button"
+                class="size-10 shrink-0 overflow-hidden rounded-ctl border border-line bg-thumb"
+                :aria-label="`上传 ${ci + 1} 号位第 ${ai + 1} 个备选的头像`"
+                @click="pickFile(`ta:${ti}:${ci}:${ai}`)"
+              >
+                <img :src="alt.img || PLACEHOLDER" alt="" class="size-full object-contain" />
+              </button>
+              <Field
+                v-model="alt.name"
+                label="角色名"
+                placeholder="备选角色"
+                class="min-w-0 flex-1"
+                @blur="matchAlt(ti, ci, ai)"
+              />
+              <div class="flex shrink-0 gap-1">
+                <Btn size="sm" square aria-label="上移" :disabled="ai === 0" @click="moveAlt(ti, ci, ai, -1)">
+                  <Icon name="ui.arrowUp" />
+                </Btn>
+                <Btn size="sm" square aria-label="下移" :disabled="ai === team.chars[ci].alts.length - 1" @click="moveAlt(ti, ci, ai, 1)">
+                  <Icon name="ui.arrowDown" />
+                </Btn>
+                <Btn size="sm" square variant="danger" aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
+                  <Icon name="ui.trash" />
+                </Btn>
+              </div>
+              <input
+                :ref="(el) => (fileInputs[`ta:${ti}:${ci}:${ai}`] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onAltFile(ti, ci, ai, $event)"
+              />
+            </div>
+
+            <Field
+              v-if="!team.chars[ci].alts.length"
+              v-model="team.chars[ci].emptyAltText"
+              label="无备选时显示的文字"
+              placeholder="暂无备选"
+            />
+          </div>
         </div>
       </section>
     </main>
