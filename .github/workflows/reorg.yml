@@ -16,7 +16,7 @@ name: Reorg
 #                 新文
 #                 >>>>
 #   ③ DELETES  一行一个路径（文件或目录都行）
-#   ④ CHECKS   一行一条命令，非 0 即中止
+#   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
 #   注意：多行块必须用 python 解析。bash 的 while read 是按行读的，
 #         会把多行块拆成一堆假清单（v1 栽过一次）。
 
@@ -126,6 +126,16 @@ env:
        姓名与序号那三张 txt 已经退休，本函数现在只服务旧配置的兼容。 */
     >>>>
 
+    ### src/lib/videoCover.js
+    <<<<
+     *   1. 数据与几何：状态默认值、模式表、character-art / namecards / logos 解析、
+     *      胶囊与浮层几何、文本测量、签名栏
+    >>>>
+    <<<<
+     *   1. 数据与几何：状态默认值、模式表、图标字典里的序号 / 立绘 / 名片与 logos 解析、
+     *      胶囊与浮层几何、文本测量、签名栏
+    >>>>
+
   # ---------- ③ 删文件 / 目录 ----------
   DELETES: |
     public/data/namecards.txt
@@ -133,12 +143,11 @@ env:
 
   # ---------- ④ 自检：非 0 即中止 ----------
   CHECKS: |
-    ! grep -q 'data/characters.txt' src/lib/videoCover.js
-    ! grep -q 'data/character-art.txt' src/lib/videoCover.js
-    ! grep -q 'data/namecards.txt' src/lib/videoCover.js
-    ! grep -q 'character-art' src/lib/videoCover.js
+    ! grep -q 'characters\.txt' src/lib/videoCover.js
+    ! grep -q 'character-art\.txt' src/lib/videoCover.js
+    ! grep -q 'namecards\.txt' src/lib/videoCover.js
+    grep -q '图标字典里的序号 / 立绘 / 名片' src/lib/videoCover.js
     grep -q "text('data/logos.txt')" src/lib/videoCover.js
-    grep -q 'export async function loadData' src/lib/videoCover.js
     test ! -e public/data/namecards.txt
     test ! -d public/tools/character
 
@@ -215,10 +224,14 @@ jobs:
               subprocess.run(['git', 'rm', '-r', '-q', '--ignore-unmatch', path], check=True)
               print('rm ' + path)
 
-          # ④ 自检
+          # ④ 自检：失败时把命令的输出也打出来，日志里能直接看到原因
           for check in pick(os.environ.get('CHECKS', '')):
               print('check: ' + check)
-              subprocess.run(['bash', '-c', check], check=True)
+              r = subprocess.run(['bash', '-c', check], capture_output=True, text=True)
+              if r.returncode != 0:
+                  print(r.stdout, r.stderr)
+                  die('自检没过：' + check)
+              print('  ok')
 
           subprocess.run(['git', 'add', '-A'], check=True)
           if subprocess.run(['git', 'diff', '--cached', '--quiet']).returncode == 0:
