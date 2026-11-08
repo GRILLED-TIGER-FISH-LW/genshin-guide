@@ -176,6 +176,7 @@ const confirmKind = ref('repo')
 const importInput = ref(null)
 const previewHost = ref(null)
 const exporting = ref(false)
+const matching = ref(false)
 
 /* 导出按 3 倍：1280×720 的卡片出 3840×2160，和封面工具出图同尺寸 */
 const PNG_SCALE = 3
@@ -210,6 +211,21 @@ async function loadRepo() {
   await rematchMissing(s)
   saveState.value = `已载入存档 ${res.file}`
   await applyFontFromState()
+}
+
+/* 「从字典补素材」：不先读存档，也能按角色名把缺的立绘 / 元素图 / 大背景补上。
+   和「载入在线存档」走同一个 rematchMissing —— 手删过的图有 *Deleted 挡着，不会被补回来 */
+async function matchStyle() {
+  if (matching.value) return
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+
+  matching.value = true
+  try {
+    await rematchMissing(s)
+    toast.success('已按图片字典补齐缺的素材')
+  } finally {
+    matching.value = false
+  }
 }
 
 async function clearAll() {
@@ -589,6 +605,7 @@ function clearTeamCore() {
           <p class="text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
           <div class="flex flex-wrap gap-2">
             <Btn @click="askRepoSave">载入在线存档</Btn>
+            <Btn :loading="matching" @click="matchStyle">从字典补素材</Btn>
           </div>
           <p class="text-xs text-faint">
             按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
