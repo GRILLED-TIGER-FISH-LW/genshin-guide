@@ -238,7 +238,7 @@
 - 手写 CSS 里直接写 `var(--color-x)` 而没有 utility 用到它 → Tailwind **不会输出这个变量**。
 - 整页横向溢出、要左右拖 → 容器是 grid 却没写列，隐式轨道被 `flex-wrap` 的 max-content 撑开。**加 `grid-cols-1`**。
 - **`inheritAttrs: false` 的组件**：`class` 会跟着 `$attrs` 落到它内部绑的那个元素上。`Field` 已经特殊处理（class 归外壳、其余归 input），所以给它传 `flex-1` 有效；自建组件别踩这个坑。
-- **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。一图流表单里这是 `DEL` 常量；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
+- **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。同一页出现两次以上就抽个 `DEL = 'border border-danger/30'` 常量（一图流、图片字典都这么写），只出现一次就直接写进 class（视频封面的浮动图片行）；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
 
 ### 点了没反应 / 全站都点不动
 
@@ -284,7 +284,7 @@
 - **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
 - **验收**：`https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg-<名字>` → 开 PR → Merge → 删临时分支。GitHub 推的分支在手机上看不到「recent pushes」横幅，直接用这条链接。
 - **顺序铁律**：`EDITS` → `DELETES` → `CHECKS` → 构建 → 才提交推送。所以「先改代码、再删它读的文件」在一个清单里是安全的。
-- **铁律**：只推 `reorg-<名字>` 分支，**永远不碰 main**；任一步失败都不推；替换找不到原文就中止；自检失败就中止。
+- **铁律**：只推 `reorg-<名字>` 分支，**永远不碰 main**；任一步失败都不推；替换找不到原文就中止；**原文在同一文件里出现不止一次也中止**（否则 `str.replace` 会顺手改掉别处）；自检失败就中止。
 - **跨仓库复用**：文件可以照抄，但 **`workflow_dispatch` 只能触发默认分支上已有的 workflow**，所以得先在那个仓库的默认分支上把它建出来。
 - **只适合机械改动**：真正要重写的东西（比如把旧工具搬进 SPA）不适用 —— 那种要反复改、反复看效果。
 
@@ -311,5 +311,5 @@
 ### 其他小事
 
 - `src/lib/assets.js` 已是资源层正本；`videoCover.js` / `collectionCover.js` 里还各留一份 `loadImage` / `urlToDataURL` / `download`（第三个用它的工具出现时抽过来的），下次动那两个文件时删掉、改从这里 import。
-- `Btn.vue` 的 `lg` / `float` / `float-danger` 档位记得同步到 `adventurer-handbook`（那边连 `float` 都还没有）；`tokens.css` 新加的 `--color-preview` 也要同步 —— 这两个文件都要求两仓库逐字节相同。
+- `adventurer-handbook` 的 `Btn.vue` 还缺 `lg` / `float` / `float-danger` 三档 —— 那边现在没有预览框、也没有底部悬浮主操作，用不到；等哪页真用上再同步。`tokens.css` 要求两仓库逐字节相同，改动一律两边同时改（`--color-preview` 与同步日期已于 2026-11-08 对齐）。
 - `ToastHost` 的 `role="status"` + `aria-live="assertive"` 两仓库保持一致，知道不规范但故意保留。

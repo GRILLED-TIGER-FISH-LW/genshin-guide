@@ -827,13 +827,14 @@ onMounted(async () => {
                   <template #icon><Icon name="ui.arrowDown" /></template>
                 </Btn>
                 <Btn
-                  variant="secondary"
+                  variant="danger"
                   size="sm"
                   square
+                  class="border border-danger/30"
                   aria-label="删除"
                   @click="s.floatImg.splice(i, 1)"
                 >
-                  <template #icon><Icon name="ui.trash" class="text-danger" /></template>
+                  <template #icon><Icon name="ui.trash" /></template>
                 </Btn>
               </div>
 
