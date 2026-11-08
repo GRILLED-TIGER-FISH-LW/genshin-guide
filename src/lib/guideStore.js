@@ -170,9 +170,24 @@ export async function fetchRepoSave(name) {
  * -------------------------------------------------------------------------
  * 存档里只有名字，图要按名字问字典。顺序请求、一张接一张：一次载入最多二十几张
  * 图，不值得为它写并发池。
+ *
+ * force=false（载入存档）：只补缺的 —— 手删过的（*Deleted）和自己传过的都不动。
+ * force=true（「从字典补素材」按钮）：立绘 / 元素图 / 大背景 / 1 号位头像按当前
+ * 角色名与主题色重算一遍。旧版那颗按钮就是这个语义（`matchStyleImages()` 不带
+ * onlyEmpty 参数时一律覆盖），照抄成「只补缺」就会出现「改了角色名再按没反应」。
  * ========================================================================= */
-export async function rematchMissing(d) {
+export async function rematchMissing(d, force = false) {
   const entry = await dictEntry('characters', d.charName)
+
+  if (force) {
+    /* 先清空 + 清掉手删标记，下面几段就会按新名字重算；字典里查不到就留空（回到占位图） */
+    d.charImg = ''
+    d.charImgDeleted = false
+    d.bgImg = ''
+    d.bgImgDeleted = false
+    d.nameBgImg = ''
+    d.nameBgImgDeleted = false
+  }
 
   if (entry) {
     /* 用户手动删过的图不补（*Deleted 就是干这个的） */
@@ -194,11 +209,14 @@ export async function rematchMissing(d) {
       d.bgImgManual = false
     }
 
-    if (!d.teamCoreImg) {
+    /* 1 号位头像就是主角色：按按钮时（force）跟着换角色，前提是没自己传过 */
+    if (force ? !d.teamCoreImgManual : !d.teamCoreImg) {
       const avatar = await matchIcon('characters', d.charName)
       if (avatar) {
         d.teamCoreImg = avatar
         d.teamCoreImgManual = false
+      } else if (force) {
+        d.teamCoreImg = ''
       }
     }
   }

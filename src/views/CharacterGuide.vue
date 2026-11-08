@@ -213,16 +213,17 @@ async function loadRepo() {
   await applyFontFromState()
 }
 
-/* 「从字典补素材」：不先读存档，也能按角色名把缺的立绘 / 元素图 / 大背景补上。
-   和「载入在线存档」走同一个 rematchMissing —— 手删过的图有 *Deleted 挡着，不会被补回来 */
+/* 「从字典补素材」：按角色名把立绘 / 元素图 / 大背景（还有 1 号位头像）重算一遍。
+   和「载入在线存档」共用 rematchMissing，但这里走 force —— 改了角色名再按要能换过来；
+   自己传过的图（*Manual）两边都会挡住。 */
 async function matchStyle() {
   if (matching.value) return
   if (!s.charName.trim()) return toast.error('请先填角色名')
 
   matching.value = true
   try {
-    await rematchMissing(s)
-    toast.success('已按图片字典补齐缺的素材')
+    await rematchMissing(s, true)
+    toast.success('已按图片字典重新匹配素材')
   } finally {
     matching.value = false
   }
