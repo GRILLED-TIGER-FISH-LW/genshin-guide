@@ -6,84 +6,103 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 这一批（state-doc）：AGENTS 改成「清单在 reorg-list.txt」，并给下一轮开工留一段「当前状态」。
+# 这一批（match-style）：一图流补回「从字典补素材」（旧版那颗「匹配样式图」）。
+#   位置按用户定的：外观样式页，和「载入在线存档」同一行（旧版这两个按钮就是并排的）。
+#   顺手把「搬家漏按钮」这条教训写进 AGENTS。
 
 == MOVES ==
 # 这批没有要搬的文件
 
 == EDITS ==
-### AGENTS.md
+### src/views/CharacterGuide.vue
 <<<<
-| 机械改动 / 大删除 | 写进 `reorg.yml` 清单（见第六节），我 dispatch 一次 |
+const exporting = ref(false)
 >>>>
 <<<<
-| 机械改动 / 大删除 | 写进 `reorg-list.txt` 清单（见第六节），我 dispatch 一次 |
+const exporting = ref(false)
+const matching = ref(false)
+>>>>
+
+### src/views/CharacterGuide.vue
+<<<<
+async function clearAll() {
+  const author = s.author
+>>>>
+<<<<
+/* 「从字典补素材」：不先读存档，也能按角色名把缺的立绘 / 元素图 / 大背景补上。
+   和「载入在线存档」走同一个 rematchMissing —— 手删过的图有 *Deleted 挡着，不会被补回来 */
+async function matchStyle() {
+  if (matching.value) return
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+
+  matching.value = true
+  try {
+    await rematchMissing(s)
+    toast.success('已按图片字典补齐缺的素材')
+  } finally {
+    matching.value = false
+  }
+}
+
+async function clearAll() {
+  const author = s.author
+>>>>
+
+### src/views/CharacterGuide.vue
+<<<<
+          <div class="flex flex-wrap gap-2">
+            <Btn @click="askRepoSave">载入在线存档</Btn>
+          </div>
+>>>>
+<<<<
+          <div class="flex flex-wrap gap-2">
+            <Btn @click="askRepoSave">载入在线存档</Btn>
+            <Btn :loading="matching" @click="matchStyle">从字典补素材</Btn>
+          </div>
+>>>>
+
+### CHANGELOG.md
+<<<<
+## 2026 年 11 月
+
+### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，字典改名，删除按钮收成一档
+>>>>
+<<<<
+## 2026 年 11 月
+
+### 2026-11-09 · 一图流补回「从字典补素材」
+
+- **起因**：旧版一图流的「外观样式」页有颗「匹配样式图」，一次把立绘 / 元素 / 名片按角色名从字典补上（当时 `tools/character/index.html` 里的 `btnMatchStyle`）。搬进 SPA 时这颗按钮没跟着走，补齐逻辑（`rematchMissing`）只剩「载入在线存档」会叫它 —— 结果是：不先读一份存档，就一点自动补素材的办法都没有，只能自己点图上传。
+- **经过**：在「外观样式 → 在线存档」那一行加回一颗「从字典补素材」，位置和名字都按用户定的（旧版这两个按钮就是并排的）。它调用同一个 `rematchMissing`，带 `:loading` 防连点，没填角色名会提示；手删过的图仍由 `*Deleted` 标记挡着，不会被补回来。
+- **结果**：不读存档也能一键补齐立绘 / 元素图 / 大背景（连带头像 / 武器 / 圣遗物 / 配队那些缺图）；按钮名字改用页面里的说法，「样式图」这个旧词不再出现在界面上。
+
+### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，字典改名，删除按钮收成一档
 >>>>
 
 ### AGENTS.md
 <<<<
-## 六、批量搬迁（临时 Action）
+照抄，别自己重新设计** —— 那套结构用户已经用熟了。
 >>>>
 <<<<
-## 六、批量搬迁（清单式 Action）
->>>>
-
-### AGENTS.md
-<<<<
-机械改动（一批改名 / 挪位置 / 全站同一个字符串替换 / 删几个文件）**不用一个个文件去改** —— 交给 `.github/workflows/reorg.yml`（模板，清单直接写在文件里）；哪天不想留它也直接删，按下面几条重写就行。
->>>>
-<<<<
-机械改动（一批改名 / 挪位置 / 全站同一个字符串替换 / 删几个文件）**不用一个个文件去改** —— 交给 `.github/workflows/reorg.yml`，**清单写在仓库根的 `reorg-list.txt`**（工作流本身常驻，改清单不用碰它）。
+照抄，别自己重新设计** —— 那套结构用户已经用熟了。
+**③ 旧的按钮一颗都别丢**：搬之前把旧页面每个 panel 里的按钮列一遍对着打勾。一图流的「匹配样式图」就是搬家时漏掉的，2026-11-09 才补回成「从字典补素材」。
 >>>>
 
 ### AGENTS.md
 <<<<
-**清单区（`env:` 里）四段**：
->>>>
-<<<<
-**清单文件（`reorg-list.txt`）四段**（每段开头一行 `== 段名 ==`）：
->>>>
-
-### AGENTS.md
-<<<<
-- **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
->>>>
-<<<<
-- **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
-- **取数省成本（给 AI）**：开工先读这份 AGENTS 与清单文件，别现场探索；抓文件只抓要改的那几行、一次打印不超过 60 行；不打印整文件 diff；本地验证**最多一次**且只跑「原文唯一 + 自检」；**不要把自己上一轮给过的文件再读回来**。
->>>>
-
-### AGENTS.md
-<<<<
-- **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
->>>>
-<<<<
-- **跑法**：改 `reorg-list.txt` → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
->>>>
-
-### AGENTS.md
-<<<<
-## 七、待办 / 下一步
->>>>
-<<<<
-## 七、待办 / 下一步
-
-### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
-
 - **最后合并**：`danger-buttons` —— 全站删除按钮只剩两档：表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
-- **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
-- **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
-- **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
+>>>>
+<<<<
+- **最后合并**：`match-style` —— 一图流「外观样式 → 在线存档」那行加回一颗「从字典补素材」（`:loading="matching"`，走 `rematchMissing`，只补缺的）。上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -q 'reorg-list.txt' AGENTS.md
-! grep -q '批量搬迁（临时 Action）' AGENTS.md
-grep -q '清单文件（`reorg-list.txt`）四段' AGENTS.md
-grep -q '取数省成本' AGENTS.md
-grep -q '当前状态（每批合并后更新' AGENTS.md
-test -f reorg-list.txt
-grep -q '^== EDITS ==' reorg-list.txt
+grep -q 'const matching = ref(false)' src/views/CharacterGuide.vue
+grep -q ':loading="matching" @click="matchStyle">从字典补素材</Btn>' src/views/CharacterGuide.vue
+test "$(grep -c 'await rematchMissing(s)' src/views/CharacterGuide.vue)" = 2
+grep -q '### 2026-11-09 · 一图流补回' CHANGELOG.md
+grep -q '旧的按钮一颗都别丢' AGENTS.md
+grep -qF '最后合并**：`match-style`' AGENTS.md
