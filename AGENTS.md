@@ -295,7 +295,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`match-style` —— 一图流「外观样式 → 在线存档」那行加回一颗「从字典补素材」（`:loading="matching"`，走 `rematchMissing`，只补缺的）。上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
+- **最后合并**：`match-force` —— 「从字典补素材」走 `rematchMissing(s, true)`：**按钮 = 重算**（先清立绘 / 元素图 / 大背景与手删标记，再按名字与主题色算），**载入存档 = 只补缺**。上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。再上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
@@ -315,7 +315,7 @@
 
 搬家法（已验证）：**模板 1:1 搬、纯绘制与导出引擎留在 `src/lib/`、碰 DOM 的那部分换成共享控件**（旧 `app.js` 里 `bindEvents` / `syncInputsFromState` / `renderXxx` / `injectIcons` / `showToast` / `showConfirm` 这一大票全是废代码，直接删）。
 角色一图流那批补充两条：**① 30KB 级的坐标代码留在引擎里拼字符串、`v-html` 预览**（搬进模板不划算）；**② 老界面的骨架（组头 / 收起展开 / 条目的操作按钮位置）照抄，别自己重新设计** —— 那套结构用户已经用熟了。
-**③ 旧的按钮一颗都别丢**：搬之前把旧页面每个 panel 里的按钮列一遍对着打勾。一图流的「匹配样式图」就是搬家时漏掉的，2026-11-09 才补回成「从字典补素材」。
+**③ 旧的按钮一颗都别丢**：搬之前把旧页面每个 panel 里的按钮列一遍对着打勾。一图流的「匹配样式图」就是搬家时漏掉的，2026-11-09 才补回成「从字典补素材」。**顺带看它按下去是「重算」还是「补缺」**：那颗按钮是重算（旧 `matchStyleImages()` 不带 `onlyEmpty` 一律覆盖），而 `rematchMissing` 是补缺，接错就是「改了名字再按没反应」—— 同一天又补了一批 `force`。
 
 ### 其他小事
 
