@@ -18,6 +18,14 @@ name: Reorg
 #   ③ DELETES  一行一个路径（文件或目录都行）
 #   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
 #   经验：自检要查「实际读取」，别查名字 —— 新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
+#
+# 这一批（image-dict）：字典改名。它已经不只管图标。
+#   · 两个共享脚本搬出 gi-icons/：icon-dict.js → image-dict.js、icon-loader.js → image-loader.js
+#   · 全局变量 window.ICON_DICT / ICON_LIB → IMAGE_DICT / IMAGE_LIB
+#   · 虚拟模块 virtual:gg-icon-lib → virtual:gg-image-lib
+#   · 页面 / 路由 / 文案：图标字典 → 图片字典，路由 #/icon-editor → #/image-dict
+#   · 注意：EDITS 里的文件名一律写「搬完之后的路径」（工序是 MOVES → EDITS → DELETES → CHECKS）
+#   · 跨仓库：adventurer-handbook 的 4 个文件必须同批改（那边也有一个同样的机器人清单）
 
 on:
   workflow_dispatch:
@@ -25,7 +33,7 @@ on:
       batch:
         description: 清单名（会建 reorg-<名字> 分支）
         required: true
-        default: editor-dict
+        default: image-dict
 
 permissions:
   contents: write
@@ -33,178 +41,594 @@ permissions:
 env:
   # ---------- ① 搬文件 ----------
   MOVES: |
-    # 例：src/old.js -> src/new.js
+    public/shared/gi-icons/icon-dict.js -> public/shared/image-dict.js
+    public/shared/gi-icons/icon-loader.js -> public/shared/image-loader.js
+    src/composables/useIconDict.js -> src/composables/useImageDict.js
+    src/views/IconEditor.vue -> src/views/ImageDict.vue
 
   # ---------- ② 替换 ----------
   EDITS: |
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-    const CHARS_SRC = 'data/characters.txt'
-    const PORTRAIT_SRC = 'data/character-art.txt' /* 过渡期，见文件尾 */
+    import { STAR_COLORS } from 'virtual:gg-icon-lib'
     >>>>
     <<<<
-    /* 角色序号与立绘都从图标字典现算（DICT_SRC），那两张 txt 已退休 */
+    import { STAR_COLORS } from 'virtual:gg-image-lib'
     >>>>
 
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-      /* data/character-art.txt 解析结果 */
-      let portraitList = null
+     * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js，这里是
     >>>>
     <<<<
-      /* 立绘列表（由图标字典现算，见 fetchPortraits） */
-      let portraitList = null
+     * 注意：这不是「字典」本身。字典是 shared/image-dict.js，这里是
     >>>>
 
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-      async function loadCharOrder() {
-        try {
-          const res = await fetch(`${BASE}${CHARS_SRC}?t=${Date.now()}`)
-          if (!res.ok) return
-          const text = await res.text()
-          for (const k of Object.keys(orderToName)) delete orderToName[k]
-          for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
-
-          text.split(/\r?\n/).forEach((raw) => {
-            const line = raw.trim()
-            if (!line || line.startsWith('#')) return
-            const parts = line.split(/[\s,，\t]+/)
-            if (parts.length < 2) return
-            const order = parseInt(parts[0], 10)
-            const name = parts.slice(1).join(' ').trim()
-            if (!order || !name) return
-            nameToOrder[name] = order
-            /* 旅行者和旅行者·冰共用序号 1：反查只认第一个登记的 */
-            if (!orderToName[order]) orderToName[order] = name
-          })
-        } catch (e) {
-          toast.error('角色白名单加载失败：' + e.message)
-        }
-      }
+     *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
+     *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
     >>>>
     <<<<
-      /* 序号表改从图标字典现算：字典里「旅行者·冰」这类分元素条目是独立一条，
-         序号 1 还是只认第一个登记的那个，跟 txt 那版行为一致 */
-      async function loadCharOrder() {
-        try {
-          if (!window.ICON_DICT) await fetchDict()
-          const dict = window.ICON_DICT?.characters || {}
-
-          for (const k of Object.keys(orderToName)) delete orderToName[k]
-          for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
-
-          for (const [key, item] of Object.entries(dict)) {
-            const name = item.name || key
-            const order = parseInt(item.order, 10)
-            if (!order || !name) continue
-            nameToOrder[name] = order
-            if (!orderToName[order]) orderToName[order] = name
-          }
-        } catch (e) {
-          toast.error('角色序号加载失败：' + e.message)
-        }
-      }
+     *   · 导出 image-dict.js 的逐字格式（它是被两个仓库读的文件）
+     *   · 星级底色 + 径向渐变：必须与 shared/image-loader.js 的
     >>>>
 
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-      /* data/character-art.txt：每行「序号 名字 地址」。
-       仓库内路径 → 站点绝对路径；完整 URL 原样存。 */
-      async function fetchPortraits() {
-        if (portraitList) return portraitList
-
-        const res = await fetch(`${BASE}${PORTRAIT_SRC}?t=${Date.now()}`)
-        if (!res.ok) throw new Error('HTTP ' + res.status)
-        const text = await res.text()
-
-        const list = []
-        text.split(/\r?\n/).forEach((raw) => {
-          const line = raw.trim()
-          if (!line || line.startsWith('#')) return
-          const m = line.match(/^(\d+)\s+(\S+)\s+(\S+)$/)
-          if (!m) return
-
-          const addr = repoUrl(m[3]) || m[3]
-          list.push({
-            order: parseInt(m[1], 10),
-            name: m[2],
-            art: { key: codeFrom(addr, 'characters', 'art'), url: addr },
-          })
-        })
-
-        portraitList = list
-        return list
-      }
+    const STORAGE_KEY = 'icon_dict_editor_v4'
     >>>>
     <<<<
-      /* 立绘清单改成从图标字典现算：字典的 art.url 就是要用的地址，
-         条目自己没记代号时按地址反推一个（codeFrom），与 txt 那版一致。 */
-      async function fetchPortraits() {
-        if (portraitList) return portraitList
-        if (!window.ICON_DICT) await fetchDict()
-
-        const list = []
-        for (const [key, item] of Object.entries(window.ICON_DICT?.characters || {})) {
-          const addr = item.art?.url
-          if (!addr) continue
-          list.push({
-            order: parseInt(item.order, 10) || 0,
-            name: item.name || key,
-            art: { key: item.art?.key || codeFrom(addr, 'characters', 'art'), url: addr },
-          })
-        }
-
-        portraitList = list
-        return list
-      }
+    /* 本地存储键名保留旧名：改它会让已存在的本地字典读不到（AGENTS 里「键名 / 表名不能改」） */
+    const STORAGE_KEY = 'icon_dict_editor_v4'
     >>>>
 
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-        toast.success(
-          type === 'characters' && !f.order
-            ? `已加入「${row.name}」（不在 characters.txt，序号 0）`
-            : `已加入「${row.name}」`,
-        )
+    const DICT_SRC = 'shared/gi-icons/icon-dict.js'
     >>>>
     <<<<
-        toast.success(
-          type === 'characters' && !f.order
-            ? `已加入「${row.name}」（序号表里没有，序号 0）`
-            : `已加入「${row.name}」`,
-        )
+    const DICT_SRC = 'shared/image-dict.js'
     >>>>
 
-    ### src/composables/useIconDict.js
+    ### src/composables/useImageDict.js
     <<<<
-        /* ---- 立绘：从 data/character-art.txt 灌进来（过渡期）----
-           「有差异就更新」：这份 txt 是立绘的唯一来源，要改某张图就改 txt。
-           按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
+    图标字典
     >>>>
     <<<<
-        /* ---- 立绘：从图标字典灌进来 ----
-           「有差异就更新」：字典是立绘的唯一来源，要改某张图就改字典。
-           按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
+    图片字典
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+     * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
+    >>>>
+    <<<<
+     * 颜色：与 shared/image-loader.js 里的 darken() 逐式相同
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+     * 序列化：导出 icon-dict.js 的逐字格式
+    >>>>
+    <<<<
+     * 序列化：导出 image-dict.js 的逐字格式
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+    window.ICON_DICT
+    >>>>
+    <<<<
+    window.IMAGE_DICT
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+    , 'ICON_DICT')
+    >>>>
+    <<<<
+    , 'IMAGE_DICT')
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+        /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
+    >>>>
+    <<<<
+        /* 老格式：key 就是文件名（仓库里的图放 public/images/game/） */
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+    export function useIconDict() {
+    >>>>
+    <<<<
+    export function useImageDict() {
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+        a.download = 'icon-dict.js'
+    >>>>
+    <<<<
+        a.download = 'image-dict.js'
+    >>>>
+
+    ### src/composables/useImageDict.js
+    <<<<
+        toast.success('已导出 icon-dict.js')
+    >>>>
+    <<<<
+        toast.success('已导出 image-dict.js')
+    >>>>
+
+    ### src/views/ImageDict.vue
+    <<<<
+    useIconDict
+    >>>>
+    <<<<
+    useImageDict
+    >>>>
+
+    ### src/views/ImageDict.vue
+    <<<<
+    图标字典
+    >>>>
+    <<<<
+    图片字典
+    >>>>
+
+    ### src/views/ImageDict.vue
+    <<<<
+       几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+    >>>>
+    <<<<
+       几何与 image-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+    >>>>
+
+    ### src/composables/useIconLib.js
+    <<<<
+     * · shared/gi-icons/icon-dict.js + icon-loader.js：图标字典本体与查询
+    >>>>
+    <<<<
+     * · shared/image-dict.js + image-loader.js：图片字典本体与查询
+    >>>>
+
+    ### src/composables/useIconLib.js
+    <<<<
+          await sharedGlobal('shared/gi-icons/icon-dict.js', 'ICON_DICT')
+          await sharedGlobal('shared/gi-icons/icon-loader.js', 'ICON_LIB')
+          return window.ICON_LIB
+    >>>>
+    <<<<
+          await sharedGlobal('shared/image-dict.js', 'IMAGE_DICT')
+          await sharedGlobal('shared/image-loader.js', 'IMAGE_LIB')
+          return window.IMAGE_LIB
+    >>>>
+
+    ### src/composables/useIconLib.js
+    <<<<
+    window.ICON_DICT
+    >>>>
+    <<<<
+    window.IMAGE_DICT
+    >>>>
+
+    ### src/composables/useIconLib.js
+    <<<<
+    iconLib()
+    >>>>
+    <<<<
+    imageLib()
+    >>>>
+
+    ### src/composables/useIconLib.js
+    <<<<
+    }
+
+    /* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 6 合并完删掉 */
+    export const loadArtifactIcons = async () => (await loadUiIcons())?.artifact || {}
+    >>>>
+    <<<<
+    }
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+    图标字典
+    >>>>
+    <<<<
+    图片字典
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+    （shared/gi-icons/icon-dict.js）
+    >>>>
+    <<<<
+    （shared/image-dict.js）
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+          await loadGlobalScript('shared/gi-icons/icon-dict.js', 'ICON_DICT')
+          await loadGlobalScript('shared/gi-icons/icon-loader.js', 'ICON_LIB')
+          return window.ICON_LIB
+    >>>>
+    <<<<
+          await loadGlobalScript('shared/image-dict.js', 'IMAGE_DICT')
+          await loadGlobalScript('shared/image-loader.js', 'IMAGE_LIB')
+          return window.IMAGE_LIB
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+    window.ICON_DICT
+    >>>>
+    <<<<
+    window.IMAGE_DICT
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+    iconLibTask
+    >>>>
+    <<<<
+    imageLibTask
+    >>>>
+
+    ### src/lib/videoCover.js
+    <<<<
+    iconLib()
+    >>>>
+    <<<<
+    imageLib()
+    >>>>
+
+    ### src/router.js
+    <<<<
+        key: 'icon-editor',
+        label: '图标字典编辑器',
+    >>>>
+    <<<<
+        key: 'image-dict',
+        label: '图片字典编辑器',
+    >>>>
+
+    ### src/router.js
+    <<<<
+        component: () => import('./views/IconEditor.vue'),
+    >>>>
+    <<<<
+        component: () => import('./views/ImageDict.vue'),
+    >>>>
+
+    ### src/views/Home.vue
+    <<<<
+      'icon-editor': '维护图标字典 · 查缺补漏',
+    >>>>
+    <<<<
+      'image-dict': '维护图片字典 · 查缺补漏',
+    >>>>
+
+    ### public/shared/ui-icons.js
+    <<<<
+        // 空态 / 收件箱（替代 icon-editor 的 emoji 📭）
+    >>>>
+    <<<<
+        // 空态 / 收件箱（替代图片字典编辑器里那个 emoji 📭）
+    >>>>
+
+    ### src/components/SyncReport.vue
+    <<<<
+    /* 同步报告 / 更新日志 —— 纯展示组件，数据从 useIconDict 来。
+    >>>>
+    <<<<
+    /* 同步报告 / 更新日志 —— 纯展示组件，数据从 useImageDict 来。
+    >>>>
+
+    ### src/components/FrameLayer.vue
+    <<<<
+     * （IconEditor 等）的点击全部吃掉 —— 表现为「点什么都没反应」。
+    >>>>
+    <<<<
+     * （图片字典等）的点击全部吃掉 —— 表现为「点什么都没反应」。
+    >>>>
+
+    ### vite.config.js
+    <<<<
+     * ../../ 会跑到域名根外面 —— 缩略图、字典、白名单文本会全 404。
+     *
+     * app.js 动辄上千行、手机上没法改，所以改在构建期重写。副作用是好的：
+    >>>>
+    <<<<
+     * ../../ 会跑到域名根外面 —— 缩略图、图片字典、白名单文本会全 404。
+     *
+     * 工具页的脚本动辄上千行、手机上没法改，所以改在构建期重写。副作用是好的：
+    >>>>
+
+    ### vite.config.js
+    <<<<
+     *   shared/gi-icons/icon-loader.js → virtual:gg-icon-lib   （星级底色表）
+    >>>>
+    <<<<
+     *   shared/image-loader.js      → virtual:gg-image-lib  （星级底色表）
+    >>>>
+
+    ### vite.config.js
+    <<<<
+     * 读取手法与 app.js 读 icon-dict.js 完全一样：把脚本跑一遍，取 window 上的结果。
+    >>>>
+    <<<<
+     * 读取手法与旧工具页读共享脚本一样：把脚本跑一遍，取 window 上的结果。
+    >>>>
+
+    ### vite.config.js
+    <<<<
+     *   · icon-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
+    >>>>
+    <<<<
+     *   · image-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
+    >>>>
+
+    ### vite.config.js
+    <<<<
+    const LIB_ID = 'virtual:gg-icon-lib'
+    >>>>
+    <<<<
+    const LIB_ID = 'virtual:gg-image-lib'
+    >>>>
+
+    ### vite.config.js
+    <<<<
+    /* 够 icon-loader.js 在加载期跑完的最小 document 垫片 */
+    >>>>
+    <<<<
+    /* 够 image-loader.js 在加载期跑完的最小 document 垫片 */
+    >>>>
+
+    ### vite.config.js
+    <<<<
+      getElementsByTagName: () => [{ src: 'https://local/shared/gi-icons/icon-loader.js' }],
+    >>>>
+    <<<<
+      getElementsByTagName: () => [{ src: 'https://local/shared/image-loader.js' }],
+    >>>>
+
+    ### vite.config.js
+    <<<<
+            const file = path('public/shared/gi-icons/icon-loader.js')
+    >>>>
+    <<<<
+            const file = path('public/shared/image-loader.js')
+    >>>>
+
+    ### vite.config.js
+    <<<<
+            const starColors = win.ICON_LIB?.starColors || {}
+    >>>>
+    <<<<
+            const starColors = win.IMAGE_LIB?.starColors || {}
+    >>>>
+
+    ### public/shared/image-dict.js
+    <<<<
+    window.ICON_DICT = {
+    >>>>
+    <<<<
+    window.IMAGE_DICT = {
+    >>>>
+
+    ### public/shared/image-loader.js
+    <<<<
+     * 图标加载器 · 全站共享
+    >>>>
+    <<<<
+     * 图片加载器 · 全站共享
+    >>>>
+
+    ### public/shared/image-loader.js
+    <<<<
+          if (src.indexOf("icon-loader.js") >= 0) return src.replace(/icon-loader\.js.*$/, "");
+    >>>>
+    <<<<
+          if (src.indexOf("image-loader.js") >= 0) return src.replace(/image-loader\.js.*$/, "");
+    >>>>
+
+    ### public/shared/image-loader.js
+    <<<<
+    window.ICON_DICT
+    >>>>
+    <<<<
+    window.IMAGE_DICT
+    >>>>
+
+    ### public/shared/image-loader.js
+    <<<<
+      window.ICON_LIB = {
+    >>>>
+    <<<<
+      window.IMAGE_LIB = {
+    >>>>
+
+    ### README.md
+    <<<<
+    图标字典
+    >>>>
+    <<<<
+    图片字典
+    >>>>
+
+    ### README.md
+    <<<<
+    icon-dict.js
+    >>>>
+    <<<<
+    image-dict.js
+    >>>>
+
+    ### README.md
+    <<<<
+    #/icon-editor
+    >>>>
+    <<<<
+    #/image-dict
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+        │   ├── composables/        useTheme · useToast · useData · useIconDict · useIconLib
+    >>>>
+    <<<<
+        │   ├── composables/        useTheme · useToast · useData · useImageDict · useIconLib
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+        │   └── views/              Home · CharacterGuide · IconEditor · VideoCover · CollectionCover
+    >>>>
+    <<<<
+        │   └── views/              Home · CharacterGuide · ImageDict · VideoCover · CollectionCover
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    - `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/gi-icons/icon-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'ICON_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。改名见待办。
+    >>>>
+    <<<<
+    - `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/image-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'IMAGE_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。
+    - 图片字典页的图标键仍叫 `nav.iconEditor`（图标键名与另一个仓库共用，不随页面改名）。
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    | `public/shared/gi-icons/icon-loader.js` | 图标加载器：`getPath` / `match` / `load` / `openPicker`。**两个仓库都在读** |
+    >>>>
+    <<<<
+    | `public/shared/image-loader.js` | 图片加载器：`getPath` / `match` / `load` / `openPicker`。本仓库运行时（`useIconLib.js`）与构建期虚拟模块在读，另一个仓库不读它 |
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+      - `virtual:gg-icon-lib` ← `public/shared/gi-icons/icon-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
+    >>>>
+    <<<<
+      - `virtual:gg-image-lib` ← `public/shared/image-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    - **跑法**：
+    >>>>
+    <<<<
+    - **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
+    - **跑法**：
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    - **允许的运行时全局**：图片字典要用的 `window.ICON_DICT` / `window.ICON_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+    >>>>
+    <<<<
+    - **允许的运行时全局**：图片字典要用的 `window.IMAGE_DICT` / `window.IMAGE_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+    - `composables/useIconLib.js` 的名字**故意不带 `image`**：它同时管 `ui-icons.js`（界面图标），改名会误导。
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    ### 图片字典的数据模型（`public/shared/gi-icons/icon-dict.js`）
+    >>>>
+    <<<<
+    ### 图片字典的数据模型（`public/shared/image-dict.js`）
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    - **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`icon-loader.js` 也留着兼容分支。
+    >>>>
+    <<<<
+    - **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`image-loader.js` 也留着兼容分支。
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    - 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致。
+    >>>>
+    <<<<
+    - 星级底色等渐变算法必须与 `image-loader.js` 的 `applyBackground` 一致。
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    ### 接下来这两件（已定）
+
+    1. **字典改名**（跨仓库）
+       它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `public/shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图）、`icon-loader.js`、全局变量 `window.ICON_DICT` / `window.ICON_LIB`、虚拟模块 `virtual:gg-icon-lib`、编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**跨仓库**：`adventurer-handbook` 有 4 个文件按绝对 URL 读它（见第三节），每个文件两处，必须同一批改完。
+    2. **图片处理工具**
+       接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
+    >>>>
+    <<<<
+    ### 接下来这件（已定）
+
+    **图片处理工具**
+    接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
+    >>>>
+
+    ### AGENTS.md
+    <<<<
+    | 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 2 条） |
+    >>>>
+    <<<<
+    | 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面那条） |
+    >>>>
+
+    ### CHANGELOG.md
+    <<<<
+    ### 2026-11-08 · 角色一图流搬进 SPA，四张 txt 退休
+    >>>>
+    <<<<
+    ### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，图标字典改名「图片字典」
+    >>>>
+
+    ### CHANGELOG.md
+    <<<<
+    全程用清单式临时 Action 在手机上完成。
+    >>>>
+    <<<<
+    全程用清单式临时 Action 在手机上完成。同一批还顺手把字典改名：它已经不只管图标，`icon-dict.js` / `icon-loader.js` 从 `shared/gi-icons/` 挪到 `shared/` 叫 `image-dict.js` / `image-loader.js`，全局变量与虚拟模块跟着叫 `IMAGE_DICT` / `IMAGE_LIB` / `virtual:gg-image-lib`，页面、路由（`#/image-dict`）与全站文案改成「图片字典」；另一个仓库那 4 处读法同批改完，两边名字才对齐。
+    >>>>
+
+    ### CHANGELOG.md
+    <<<<
+    站点只剩 3 个 iframe 旧工具。
+    >>>>
+    <<<<
+    站点只剩 3 个 iframe 旧工具；`shared/` 里只剩 `ui-icons.js` 与改名后的图片字典 / 加载器，`gi-icons/` 这个只放代码的目录消失。
     >>>>
 
   # ---------- ③ 删文件 / 目录 ----------
   DELETES: |
-    public/data/characters.txt
-    public/data/character-art.txt
+    # 这批没有要删的文件（`gi-icons/` 搬空后自己就没了，空目录 git 不记）
 
   # ---------- ④ 自检 ----------
   CHECKS: |
-    ! grep -n "text('data/characters.txt')" src/lib/videoCover.js
-    ! grep -n "text('data/character-art.txt')" src/lib/videoCover.js
-    ! grep -n 'CHARS_SRC' src/composables/useIconDict.js
-    ! grep -n 'PORTRAIT_SRC' src/composables/useIconDict.js
-    ! grep -n 'characters\.txt' src/composables/useIconDict.js
-    ! grep -n 'character-art\.txt' src/composables/useIconDict.js
-    grep -n 'ICON_DICT?.characters' src/composables/useIconDict.js
-    test ! -e public/data/characters.txt
-    test ! -e public/data/character-art.txt
-    grep -rn 'data/characters.txt\|data/character-art.txt' src public || true
+    ! grep -rn 'ICON_DICT\|ICON_LIB\|icon-dict\|icon-loader\|gi-icons\|useIconDict\|IconEditor\|icon-editor\|gg-icon-lib\|图标字典' src public vite.config.js index.html README.md AGENTS.md
+    test -z "$(ls -A public/shared/gi-icons 2>/dev/null)"
+    test -f public/shared/image-dict.js
+    test -f public/shared/image-loader.js
+    test -f src/composables/useImageDict.js
+    test -f src/views/ImageDict.vue
+    grep -q "key: 'image-dict'" src/router.js
+    grep -q "import('./views/ImageDict.vue')" src/router.js
+    grep -q "'image-dict': '维护图片字典" src/views/Home.vue
+    grep -q "const DICT_SRC = 'shared/image-dict.js'" src/composables/useImageDict.js
+    grep -q "'window.IMAGE_DICT = {', '  config: {'" src/composables/useImageDict.js
+    grep -q "shared/image-dict.js', 'IMAGE_DICT'" src/composables/useIconLib.js
+    grep -q "shared/image-dict.js', 'IMAGE_DICT'" src/lib/videoCover.js
+    node --check src/composables/useImageDict.js && node --check src/composables/useIconLib.js && node --check src/lib/videoCover.js && node --check src/router.js && node --check vite.config.js && node --check public/shared/image-loader.js && node --check public/shared/image-dict.js
+    ! grep -q 'loadArtifactIcons' src/composables/useIconLib.js
+    node -e 'const fs=require("fs"),win={},doc={getElementsByTagName:()=>[{src:"https://x/shared/image-loader.js"}],createElement:()=>({getContext:()=>null,style:{},setAttribute(){}}),head:{appendChild(){}},body:{appendChild(){}},addEventListener(){},removeEventListener(){}};new Function("window","document",fs.readFileSync("public/shared/image-loader.js","utf8"))(win,doc);if(!win.IMAGE_LIB)throw new Error("加载器没挂 window.IMAGE_LIB");new Function("window",fs.readFileSync("public/shared/image-dict.js","utf8"))(win);if(!win.IMAGE_DICT)throw new Error("字典没挂 window.IMAGE_DICT");const n=Object.keys(win.IMAGE_DICT.characters).length;const hit=win.IMAGE_LIB.match("characters","安柏");if(!hit||!hit.key)throw new Error("加载器读不到字典："+JSON.stringify(hit));console.log("契约 ok：角色 "+n+" 条，match 安柏 → "+hit.key)'
 
 jobs:
   reorg:
@@ -224,6 +648,31 @@ jobs:
 
           def pick(text):
               return [l.strip() for l in text.split('\n') if l.strip() and not l.strip().startswith('#')]
+
+          def split_records(text):
+              # 只在「标记区外」的行首 ### 才当新块的开始 —— 原文 / 新文里出现
+              # 行首 ###（比如要改文档里的小标题）不会被切错。
+              out, cur, inside = [], None, False
+              for line in text.split('\n'):
+                  s = line.strip()
+                  guarded = inside or s in ('<<<<', '>>>>')
+                  if s == '<<<<':
+                      inside = True
+                  elif s == '>>>>':
+                      inside = False
+                  if not guarded and line.startswith('###'):
+                      if cur is not None:
+                          out.append('\n'.join(cur))
+                      cur = [line[3:].strip()]
+                  else:
+                      if cur is None:
+                          if not line.strip():
+                              continue
+                          cur = []
+                      cur.append(line)
+              if cur:
+                  out.append('\n'.join(cur))
+              return out
 
           def blocks(text):
               out, cur, inside = [], None, False
@@ -255,7 +704,7 @@ jobs:
 
           # ② 替换
           edits = os.environ.get('EDITS', '')
-          records = re.split(r'(?m)^###[ \t]*', edits)[1:]
+          records = split_records(edits)
           if edits.strip() and not records:
               die('EDITS 里没有 ### 头')
           for rec in records:
