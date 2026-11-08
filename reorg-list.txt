@@ -6,8 +6,9 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 这一批（match-force）：「从字典补素材」接错了管子 —— 旧版那颗按钮是「重算」，
-#   rematchMissing 是「只补缺」，所以改了角色名再按没反应。给 rematchMissing 加 force。
+# 这一批（traveler-element）：旅行者一家在字典里按元素分项（旅行者 / 旅行者·冰）。
+#   查字典前把名字按当前元素色补成「名字·元素」，查得到就用那一项、查不到退回原名。
+#   只在一图流里做（角色卡独有），封面工具与字典编辑器不动。
 
 == MOVES ==
 # 这批没有要搬的文件
@@ -15,144 +16,111 @@
 == EDITS ==
 ### src/lib/guideStore.js
 <<<<
-/* =========================================================================
- * 补齐素材
- * -------------------------------------------------------------------------
- * 存档里只有名字，图要按名字问字典。顺序请求、一张接一张：一次载入最多二十几张
- * 图，不值得为它写并发池。
- * ========================================================================= */
-export async function rematchMissing(d) {
-  const entry = await dictEntry('characters', d.charName)
-
-  if (entry) {
+const BASE = import.meta.env.BASE_URL
+const SAVE_DIR = `${BASE}saves/characters/`
+const ELEMENT_DIR = `${BASE}images/element/`
 >>>>
 <<<<
-/* =========================================================================
- * 补齐素材
- * -------------------------------------------------------------------------
- * 存档里只有名字，图要按名字问字典。顺序请求、一张接一张：一次载入最多二十几张
- * 图，不值得为它写并发池。
- *
- * force=false（载入存档）：只补缺的 —— 手删过的（*Deleted）和自己传过的都不动。
- * force=true（「从字典补素材」按钮）：立绘 / 元素图 / 大背景 / 1 号位头像按当前
- * 角色名与主题色重算一遍。旧版那颗按钮就是这个语义（`matchStyleImages()` 不带
- * onlyEmpty 参数时一律覆盖），照抄成「只补缺」就会出现「改了角色名再按没反应」。
- * ========================================================================= */
-export async function rematchMissing(d, force = false) {
-  const entry = await dictEntry('characters', d.charName)
+const BASE = import.meta.env.BASE_URL
+const SAVE_DIR = `${BASE}saves/characters/`
+const ELEMENT_DIR = `${BASE}images/element/`
 
-  if (force) {
-    /* 先清空 + 清掉手删标记，下面几段就会按新名字重算；字典里查不到就留空（回到占位图） */
-    d.charImg = ''
-    d.charImgDeleted = false
-    d.bgImg = ''
-    d.bgImgDeleted = false
-    d.nameBgImg = ''
-    d.nameBgImgDeleted = false
-  }
-
-  if (entry) {
+/* 名字 + 当前元素色 → 该拿去字典里查的名字。
+   旅行者一家在字典里按元素分项（旅行者 / 旅行者·冰），角色名写「旅行者」时要取
+   「旅行者·冰」那一项；字典里没有这一项（岩 / 水 … 还没录）就退回原版旅行者。
+   其它角色不受影响：拼出来的名字查不到，等于没拼 —— 加载器的第一遍就是逐字匹配。 */
+async function dictNameWithElement(name, theme) {
+  const base = String(name || '').trim()
+  const element = themeToElementName(theme)
+  if (!base || !element) return base
+  const combo = `${base}·${element}`
+  return (await dictEntry('characters', combo)) ? combo : base
+}
 >>>>
 
 ### src/lib/guideStore.js
 <<<<
-    if (!d.teamCoreImg) {
-      const avatar = await matchIcon('characters', d.charName)
-      if (avatar) {
-        d.teamCoreImg = avatar
-        d.teamCoreImgManual = false
-      }
-    }
+export async function fetchRepoSave(name) {
+  const query = String(name || '').trim()
+  if (!query) return { error: '请先填角色名' }
+
+  const entry = await dictEntry('characters', query)
+  if (!entry?.order) return { error: `字典里没有「${query}」，不确定存档编号` }
+
+  const file = `${String(entry.order).padStart(3, '0')}.${query}.json`
 >>>>
 <<<<
-    /* 1 号位头像就是主角色：按按钮时（force）跟着换角色，前提是没自己传过 */
-    if (force ? !d.teamCoreImgManual : !d.teamCoreImg) {
-      const avatar = await matchIcon('characters', d.charName)
-      if (avatar) {
-        d.teamCoreImg = avatar
-        d.teamCoreImgManual = false
-      } else if (force) {
-        d.teamCoreImg = ''
-      }
-    }
+export async function fetchRepoSave(name, theme) {
+  const query = String(name || '').trim()
+  if (!query) return { error: '请先填角色名' }
+
+  /* 名字按元素补过再查；文件名用字典里的正式名 —— 旅行者·冰那份存的是
+     001.旅行者·冰.json，输英文代号（Furina）也照样找得到 */
+  const entry = await dictEntry('characters', await dictNameWithElement(query, theme))
+  if (!entry?.order) return { error: `字典里没有「${query}」，不确定存档编号` }
+
+  const file = `${String(entry.order).padStart(3, '0')}.${entry.name || query}.json`
+>>>>
+
+### src/lib/guideStore.js
+<<<<
+  const entry = await dictEntry('characters', d.charName)
+>>>>
+<<<<
+  /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
+  const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
 >>>>
 
 ### src/views/CharacterGuide.vue
 <<<<
-/* 「从字典补素材」：不先读存档，也能按角色名把缺的立绘 / 元素图 / 大背景补上。
-   和「载入在线存档」走同一个 rematchMissing —— 手删过的图有 *Deleted 挡着，不会被补回来 */
-async function matchStyle() {
-  if (matching.value) return
-  if (!s.charName.trim()) return toast.error('请先填角色名')
-
-  matching.value = true
-  try {
-    await rematchMissing(s)
-    toast.success('已按图片字典补齐缺的素材')
-  } finally {
-    matching.value = false
-  }
-}
+  const res = await fetchRepoSave(s.charName)
 >>>>
 <<<<
-/* 「从字典补素材」：按角色名把立绘 / 元素图 / 大背景（还有 1 号位头像）重算一遍。
-   和「载入在线存档」共用 rematchMissing，但这里走 force —— 改了角色名再按要能换过来；
-   自己传过的图（*Manual）两边都会挡住。 */
-async function matchStyle() {
-  if (matching.value) return
-  if (!s.charName.trim()) return toast.error('请先填角色名')
-
-  matching.value = true
-  try {
-    await rematchMissing(s, true)
-    toast.success('已按图片字典重新匹配素材')
-  } finally {
-    matching.value = false
-  }
-}
+  const res = await fetchRepoSave(s.charName, s.theme)
 >>>>
 
 ### CHANGELOG.md
 <<<<
-- **经过**：在「外观样式 → 在线存档」那一行加回一颗「从字典补素材」，位置和名字都按用户定的（旧版这两个按钮就是并排的）。它调用同一个 `rematchMissing`，带 `:loading` 防连点，没填角色名会提示；手删过的图仍由 `*Deleted` 标记挡着，不会被补回来。
+「载入在线存档」那条路仍是只补缺。
 >>>>
 <<<<
-- **经过**：在「外观样式 → 在线存档」那一行加回一颗「从字典补素材」，位置和名字都按用户定的（旧版这两个按钮就是并排的）；带 `:loading` 防连点，没填角色名会提示。**第一版接错了管子**：旧版那颗按钮是「重算」（`matchStyleImages()` 不带 `onlyEmpty` 时一律覆盖），而 `rematchMissing` 是「只补缺」，上线后立刻暴露 —— 填过图再改角色名、按按钮毫无反应。于是给 `rematchMissing` 加了 `force`：按按钮时先清掉立绘 / 元素图 / 大背景和它们的手删标记，再按当前角色名与主题色重算，1 号位头像也跟着换角色（自己传过的 `*Manual` 不动）；「载入在线存档」那条路仍是只补缺。
+「载入在线存档」那条路仍是只补缺。**第三轮**：用户指出旅行者一家在字典里是按元素分项的（`旅行者` / `旅行者·冰`），原来只按名字查，永远是原版那一项。于是查字典前先把名字按当前元素色补成「名字·元素」，查得到就用它、查不到退回原名 —— 立绘 / 名片 / 头像与在线存档文件名都走这一套，其它角色因为拼出来的名字查不到，等于没拼。
 >>>>
 
 ### CHANGELOG.md
 <<<<
-- **结果**：不读存档也能一键补齐立绘 / 元素图 / 大背景（连带头像 / 武器 / 圣遗物 / 配队那些缺图）；按钮名字改用页面里的说法，「样式图」这个旧词不再出现在界面上。
+字典里查不到就回到占位图。
 >>>>
 <<<<
-- **结果**：不读存档也能一键补齐立绘 / 元素图 / 大背景（连带头像 / 武器 / 圣遗物 / 配队那些缺图）；按钮名字改用页面里的说法，「样式图」这个旧词不再出现在界面上；改了角色名再按，立绘 / 元素图 / 大背景会跟着换（旧图不赖着不走），字典里查不到就回到占位图。
+字典里查不到就回到占位图；旅行者按元素分项：角色名「旅行者」+ 元素冰，立绘 / 名片取「旅行者·冰」那一项，字典里没录的元素（岩 / 水 …）退回原版旅行者。
 >>>>
 
 ### AGENTS.md
-<<<<
-- **最后合并**：`match-style` —— 一图流「外观样式 → 在线存档」那行加回一颗「从字典补素材」（`:loading="matching"`，走 `rematchMissing`，只补缺的）。上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
->>>>
 <<<<
 - **最后合并**：`match-force` —— 「从字典补素材」走 `rematchMissing(s, true)`：**按钮 = 重算**（先清立绘 / 元素图 / 大背景与手删标记，再按名字与主题色算），**载入存档 = 只补缺**。上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。再上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
 >>>>
+<<<<
+- **最后合并**：`traveler-element` —— 旅行者一家按元素分项：查字典前先把名字补成「名字·元素」（`dictNameWithElement()`），查不到退回原名；一图流独有。上一批 `match-force`：「从字典补素材」走 `rematchMissing(s, true)`（**按钮 = 重算**，**载入存档 = 只补缺**）。再上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。
+>>>>
 
 ### AGENTS.md
 <<<<
-一图流的「匹配样式图」就是搬家时漏掉的，2026-11-09 才补回成「从字典补素材」。
+### 图片字典的数据模型（`public/shared/image-dict.js`）
 >>>>
 <<<<
-一图流的「匹配样式图」就是搬家时漏掉的，2026-11-09 才补回成「从字典补素材」。**顺带看它按下去是「重算」还是「补缺」**：那颗按钮是重算（旧 `matchStyleImages()` 不带 `onlyEmpty` 一律覆盖），而 `rematchMissing` 是补缺，接错就是「改了名字再按没反应」—— 同一天又补了一批 `force`。
+### 图片字典的数据模型（`public/shared/image-dict.js`）
+
+- **旅行者一家按元素分项**：字典里 `Traveler`（旅行者）与 `旅行者·冰` 是两条，各有自己的立绘，名片与编号相同（都是 `order: 1`）。查字典前先把名字按当前元素色补成「名字·元素」，查得到就用它、查不到退回原名 —— 加载器的第一遍本来就是逐字匹配，所以「旅行者·冰」不会被削回「旅行者」。这条**只在一图流里做**（`guideStore.js` 的 `dictNameWithElement()`：立绘 / 名片 / 头像 / 在线存档文件名都走它），封面工具与字典编辑器按名字匹配即可，队里那个旅行者也不知道什么元素。
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -q 'export async function rematchMissing(d, force = false)' src/lib/guideStore.js
-grep -q 'd.nameBgImgDeleted = false' src/lib/guideStore.js
-grep -q 'rematchMissing(s, true)' src/views/CharacterGuide.vue
-test "$(grep -c 'await rematchMissing(s' src/views/CharacterGuide.vue)" = 2
-grep -q 'force ? !d.teamCoreImgManual : !d.teamCoreImg' src/lib/guideStore.js
-grep -q '第一版接错了管子' CHANGELOG.md
-grep -qF '`match-force`' AGENTS.md
-grep -q '重算」还是「补缺' AGENTS.md
+grep -q 'async function dictNameWithElement' src/lib/guideStore.js
+test "$(grep -c 'dictNameWithElement(' src/lib/guideStore.js)" = 3
+grep -q 'entry.name || query' src/lib/guideStore.js
+grep -q 'fetchRepoSave(s.charName, s.theme)' src/views/CharacterGuide.vue
+grep -q '旅行者·冰' CHANGELOG.md
+grep -qF '旅行者一家按元素分项' AGENTS.md
+grep -qF '`traveler-element`' AGENTS.md
