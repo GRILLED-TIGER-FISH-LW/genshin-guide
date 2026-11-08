@@ -165,6 +165,8 @@
 
 ### 图片字典的数据模型（`public/shared/image-dict.js`）
 
+- **旅行者一家按元素分项**：字典里 `Traveler`（旅行者）与 `旅行者·冰` 是两条，各有自己的立绘，名片与编号相同（都是 `order: 1`）。查字典前先把名字按当前元素色补成「名字·元素」，查得到就用它、查不到退回原名 —— 加载器的第一遍本来就是逐字匹配，所以「旅行者·冰」不会被削回「旅行者」。这条**只在一图流里做**（`guideStore.js` 的 `dictNameWithElement()`：立绘 / 名片 / 头像 / 在线存档文件名都走它），封面工具与字典编辑器按名字匹配即可，队里那个旅行者也不知道什么元素。
+
 - **地址 = 规则 + 代号**。`config[分类]` 放两组源规则：主源（lunaris）用 `prefix` / `ext`，备用源（Amber）在同级的 `alt`。条目 key 是**代号**（`Ambor` / `10001_4` / `Sword_Blunt`），不是图标全名。
 - 条目字段：`name` / `order` / `star` / `url` / `alt` / `lock` / `card` / `art`。
   - `url`：直接用它（**只在源拼不出来时才写**，比如仓库里的图、官网那一串）；`alt: true`：这一格改用备用源那组规则（lunaris 图不对时用，如夏洛蒂）。
@@ -295,7 +297,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`match-force` —— 「从字典补素材」走 `rematchMissing(s, true)`：**按钮 = 重算**（先清立绘 / 元素图 / 大背景与手删标记，再按名字与主题色算），**载入存档 = 只补缺**。上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。再上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
+- **最后合并**：`traveler-element` —— 旅行者一家按元素分项：查字典前先把名字补成「名字·元素」（`dictNameWithElement()`），查不到退回原名；一图流独有。上一批 `match-force`：「从字典补素材」走 `rematchMissing(s, true)`（**按钮 = 重算**，**载入存档 = 只补缺**）。再上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。

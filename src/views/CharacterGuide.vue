@@ -200,7 +200,7 @@ function askClear() {
 
 async function loadRepo() {
   saveState.value = '正在读存档…'
-  const res = await fetchRepoSave(s.charName)
+  const res = await fetchRepoSave(s.charName, s.theme)
   if (res.error) {
     saveState.value = ''
     return toast.error(res.error)
