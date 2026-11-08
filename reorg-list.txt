@@ -1,0 +1,89 @@
+# 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
+#   MOVES    一行一条：旧路径 -> 新路径
+#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
+#            —— 这一段里不要写 # 注释行（会被当成文件路径）
+#   DELETES  一行一个路径（文件或目录都行）
+#   CHECKS   一行一条命令，非 0 即中止
+# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
+#
+# 这一批（state-doc）：AGENTS 改成「清单在 reorg-list.txt」，并给下一轮开工留一段「当前状态」。
+
+== MOVES ==
+# 这批没有要搬的文件
+
+== EDITS ==
+### AGENTS.md
+<<<<
+| 机械改动 / 大删除 | 写进 `reorg.yml` 清单（见第六节），我 dispatch 一次 |
+>>>>
+<<<<
+| 机械改动 / 大删除 | 写进 `reorg-list.txt` 清单（见第六节），我 dispatch 一次 |
+>>>>
+
+### AGENTS.md
+<<<<
+## 六、批量搬迁（临时 Action）
+>>>>
+<<<<
+## 六、批量搬迁（清单式 Action）
+>>>>
+
+### AGENTS.md
+<<<<
+机械改动（一批改名 / 挪位置 / 全站同一个字符串替换 / 删几个文件）**不用一个个文件去改** —— 交给 `.github/workflows/reorg.yml`（模板，清单直接写在文件里）；哪天不想留它也直接删，按下面几条重写就行。
+>>>>
+<<<<
+机械改动（一批改名 / 挪位置 / 全站同一个字符串替换 / 删几个文件）**不用一个个文件去改** —— 交给 `.github/workflows/reorg.yml`，**清单写在仓库根的 `reorg-list.txt`**（工作流本身常驻，改清单不用碰它）。
+>>>>
+
+### AGENTS.md
+<<<<
+**清单区（`env:` 里）四段**：
+>>>>
+<<<<
+**清单文件（`reorg-list.txt`）四段**（每段开头一行 `== 段名 ==`）：
+>>>>
+
+### AGENTS.md
+<<<<
+- **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
+>>>>
+<<<<
+- **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
+- **取数省成本（给 AI）**：开工先读这份 AGENTS 与清单文件，别现场探索；抓文件只抓要改的那几行、一次打印不超过 60 行；不打印整文件 diff；本地验证**最多一次**且只跑「原文唯一 + 自检」；**不要把自己上一轮给过的文件再读回来**。
+>>>>
+
+### AGENTS.md
+<<<<
+- **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
+>>>>
+<<<<
+- **跑法**：改 `reorg-list.txt` → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
+>>>>
+
+### AGENTS.md
+<<<<
+## 七、待办 / 下一步
+>>>>
+<<<<
+## 七、待办 / 下一步
+
+### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
+
+- **最后合并**：`danger-buttons` —— 全站删除按钮只剩两档：表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
+- **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
+- **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
+- **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
+>>>>
+
+== DELETES ==
+# 这批没有要删的文件
+
+== CHECKS ==
+grep -q 'reorg-list.txt' AGENTS.md
+! grep -q '批量搬迁（临时 Action）' AGENTS.md
+grep -q '清单文件（`reorg-list.txt`）四段' AGENTS.md
+grep -q '取数省成本' AGENTS.md
+grep -q '当前状态（每批合并后更新' AGENTS.md
+test -f reorg-list.txt
+grep -q '^== EDITS ==' reorg-list.txt
