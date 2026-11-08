@@ -1,126 +1,125 @@
-# 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
-#   MOVES    一行一条：旧路径 -> 新路径
-#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
-#            —— 这一段里不要写 # 注释行（会被当成文件路径）
-#   DELETES  一行一个路径（文件或目录都行）
-#   CHECKS   一行一条命令，非 0 即中止
-# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
-#
-# 这一批（traveler-element）：旅行者一家在字典里按元素分项（旅行者 / 旅行者·冰）。
-#   查字典前把名字按当前元素色补成「名字·元素」，查得到就用那一项、查不到退回原名。
-#   只在一图流里做（角色卡独有），封面工具与字典编辑器不动。
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 
-== MOVES ==
-# 这批没有要搬的文件
+const BASE = '/genshin-guide/'
 
-== EDITS ==
-### src/lib/guideStore.js
-<<<<
-const BASE = import.meta.env.BASE_URL
-const SAVE_DIR = `${BASE}saves/characters/`
-const ELEMENT_DIR = `${BASE}images/element/`
->>>>
-<<<<
-const BASE = import.meta.env.BASE_URL
-const SAVE_DIR = `${BASE}saves/characters/`
-const ELEMENT_DIR = `${BASE}images/element/`
+/* -------------------------------------------------------------------------
+ * 插件 1：把工具页里的 ../../shared/… 重写成站点绝对路径
+ * -------------------------------------------------------------------------
+ * 那些相对路径是按「工具页自己的层级」写的。搬进 SPA 后页面在仓库根，
+ * ../../ 会跑到域名根外面 —— 缩略图、图片字典、白名单文本会全 404。
+ *
+ * 工具页的脚本动辄上千行、手机上没法改，所以改在构建期重写。副作用是好的：
+ * 老 iframe 页面照样能用，因为绝对路径在「SPA 根目录」和「工具页子目录」
+ * 两种布局下都成立。
+ *
+ * shortcut: 只认「字符串 / url() 一开头就是 ../ 的 shared/」，把 ../ 写在
+ *           中途的不管；等工具文件挪进 src/lib/ 之后，收紧匹配条件。
+ * ---------------------------------------------------------------------- */
+function sharedPathFix() {
+  const RE = /(["'`(])(?:\.\.\/)+shared\//g
+  return {
+    name: 'gg-shared-path-fix',
+    enforce: 'pre',
+    transform(code, id) {
+      const f = id.replace(/\\/g, '/')
+      if (!f.includes('/tools/')) return null
+      if (!/\.(js|css)$/.test(f)) return null
 
-/* 名字 + 当前元素色 → 该拿去字典里查的名字。
-   旅行者一家在字典里按元素分项（旅行者 / 旅行者·冰），角色名写「旅行者」时要取
-   「旅行者·冰」那一项；字典里没有这一项（岩 / 水 … 还没录）就退回原版旅行者。
-   其它角色不受影响：拼出来的名字查不到，等于没拼 —— 加载器的第一遍就是逐字匹配。 */
-async function dictNameWithElement(name, theme) {
-  const base = String(name || '').trim()
-  const element = themeToElementName(theme)
-  if (!base || !element) return base
-  const combo = `${base}·${element}`
-  return (await dictEntry('characters', combo)) ? combo : base
+      const out = code.replace(RE, `$1${BASE}shared/`)
+      return out === code ? null : { code: out, map: null }
+    },
+  }
 }
->>>>
 
-### src/lib/guideStore.js
-<<<<
-export async function fetchRepoSave(name) {
-  const query = String(name || '').trim()
-  if (!query) return { error: '请先填角色名' }
+/* -------------------------------------------------------------------------
+ * 插件 2：把本仓库自己的两个共享脚本变成构建期虚拟模块
+ * -------------------------------------------------------------------------
+ *   shared/ui-icons.js            → virtual:gg-icons      （图标路径）
+ *   shared/image-loader.js      → virtual:gg-image-lib  （星级底色表）
+ *
+ * 目的：SPA 侧不再运行时加载这两个脚本、也不依赖 window 全局。
+ * 数据源仍是本仓库自己的文件（不是跨仓库），只是读取时机挪到构建期。
+ * 读取手法与旧工具页读共享脚本一样：把脚本跑一遍，取 window 上的结果。
+ *
+ * 两个必须知道的细节：
+ *   · image-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
+ *   · ui-icons.js 的 element / artifact 组存的是路径数据、不是 UI 图标，
+ *     这里只收「值是 <svg 开头的字符串」的条目，并顺手剥掉外层 <svg>
+ * ---------------------------------------------------------------------- */
+const ICONS_ID = 'virtual:gg-icons'
+const ICONS_RESOLVED = '\0' + ICONS_ID
+const LIB_ID = 'virtual:gg-image-lib'
+const LIB_RESOLVED = '\0' + LIB_ID
 
-  const entry = await dictEntry('characters', query)
-  if (!entry?.order) return { error: `字典里没有「${query}」，不确定存档编号` }
+/* 够 image-loader.js 在加载期跑完的最小 document 垫片 */
+const DOC_STUB = {
+  getElementsByTagName: () => [{ src: 'https://local/shared/image-loader.js' }],
+  createElement: () => ({ getContext: () => null, style: {}, setAttribute() {} }),
+  head: { appendChild() {} },
+  body: { appendChild() {} },
+  addEventListener() {},
+  removeEventListener() {},
+}
 
-  const file = `${String(entry.order).padStart(3, '0')}.${query}.json`
->>>>
-<<<<
-export async function fetchRepoSave(name, theme) {
-  const query = String(name || '').trim()
-  if (!query) return { error: '请先填角色名' }
+/* 把「挂全局」的共享脚本跑一遍，返回它写到 window 上的东西 */
+function runSharedScript(file) {
+  const win = {}
+  new Function('window', 'document', readFileSync(file, 'utf8'))(win, DOC_STUB)
+  return win
+}
 
-  /* 名字按元素补过再查；文件名用字典里的正式名 —— 旅行者·冰那份存的是
-     001.旅行者·冰.json，输英文代号（Furina）也照样找得到 */
-  const entry = await dictEntry('characters', await dictNameWithElement(query, theme))
-  if (!entry?.order) return { error: `字典里没有「${query}」，不确定存档编号` }
+function sharedModules() {
+  const path = (rel) => fileURLToPath(new URL(rel, import.meta.url))
 
-  const file = `${String(entry.order).padStart(3, '0')}.${entry.name || query}.json`
->>>>
+  return {
+    name: 'gg-shared-modules',
 
-### src/lib/guideStore.js
-<<<<
-  const entry = await dictEntry('characters', d.charName)
->>>>
-<<<<
-  /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
-  const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
->>>>
+    resolveId(id) {
+      if (id === ICONS_ID) return ICONS_RESOLVED
+      if (id === LIB_ID) return LIB_RESOLVED
+      return null
+    },
 
-### src/views/CharacterGuide.vue
-<<<<
-  const res = await fetchRepoSave(s.charName)
->>>>
-<<<<
-  const res = await fetchRepoSave(s.charName, s.theme)
->>>>
+    load(id) {
+      if (id === ICONS_RESOLVED) {
+        const file = path('public/shared/ui-icons.js')
+        this.addWatchFile(file)
 
-### CHANGELOG.md
-<<<<
-「载入在线存档」那条路仍是只补缺。
->>>>
-<<<<
-「载入在线存档」那条路仍是只补缺。**第三轮**：用户指出旅行者一家在字典里是按元素分项的（`旅行者` / `旅行者·冰`），原来只按名字查，永远是原版那一项。于是查字典前先把名字按当前元素色补成「名字·元素」，查得到就用它、查不到退回原名 —— 立绘 / 名片 / 头像与在线存档文件名都走这一套，其它角色因为拼出来的名字查不到，等于没拼。
->>>>
+        const win = runSharedScript(file)
+        const out = {}
+        for (const [group, bag] of Object.entries(win.ICONS || {})) {
+          if (!bag || typeof bag !== 'object') continue
+          for (const [key, value] of Object.entries(bag)) {
+            if (typeof value !== 'string' || !value.startsWith('<svg')) continue
+            out[`${group}.${key}`] = value.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+          }
+        }
+        return `export const ICONS = ${JSON.stringify(out)}`
+      }
 
-### CHANGELOG.md
-<<<<
-字典里查不到就回到占位图。
->>>>
-<<<<
-字典里查不到就回到占位图；旅行者按元素分项：角色名「旅行者」+ 元素冰，立绘 / 名片取「旅行者·冰」那一项，字典里没录的元素（岩 / 水 …）退回原版旅行者。
->>>>
+      if (id === LIB_RESOLVED) {
+        const file = path('public/shared/image-loader.js')
+        this.addWatchFile(file)
 
-### AGENTS.md
-<<<<
-- **最后合并**：`match-force` —— 「从字典补素材」走 `rematchMissing(s, true)`：**按钮 = 重算**（先清立绘 / 元素图 / 大背景与手删标记，再按名字与主题色算），**载入存档 = 只补缺**。上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。再上一批 `danger-buttons`：全站删除按钮只剩两档 —— 表单里 `danger` + `border border-danger/30`（同页多处抽 `DEL` 常量），浮在图上用 `float-danger`。
->>>>
-<<<<
-- **最后合并**：`traveler-element` —— 旅行者一家按元素分项：查字典前先把名字补成「名字·元素」（`dictNameWithElement()`），查不到退回原名；一图流独有。上一批 `match-force`：「从字典补素材」走 `rematchMissing(s, true)`（**按钮 = 重算**，**载入存档 = 只补缺**）。再上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。
->>>>
+        const win = runSharedScript(file)
+        const starColors = win.IMAGE_LIB?.starColors || {}
+        return `export const STAR_COLORS = ${JSON.stringify(starColors)}`
+      }
 
-### AGENTS.md
-<<<<
-### 图片字典的数据模型（`public/shared/image-dict.js`）
->>>>
-<<<<
-### 图片字典的数据模型（`public/shared/image-dict.js`）
+      return null
+    },
+  }
+}
 
-- **旅行者一家按元素分项**：字典里 `Traveler`（旅行者）与 `旅行者·冰` 是两条，各有自己的立绘，名片与编号相同（都是 `order: 1`）。查字典前先把名字按当前元素色补成「名字·元素」，查得到就用它、查不到退回原名 —— 加载器的第一遍本来就是逐字匹配，所以「旅行者·冰」不会被削回「旅行者」。这条**只在一图流里做**（`guideStore.js` 的 `dictNameWithElement()`：立绘 / 名片 / 头像 / 在线存档文件名都走它），封面工具与字典编辑器按名字匹配即可，队里那个旅行者也不知道什么元素。
->>>>
-
-== DELETES ==
-# 这批没有要删的文件
-
-== CHECKS ==
-grep -q 'async function dictNameWithElement' src/lib/guideStore.js
-test "$(grep -c 'dictNameWithElement(' src/lib/guideStore.js)" = 3
-grep -q 'entry.name || query' src/lib/guideStore.js
-grep -q 'fetchRepoSave(s.charName, s.theme)' src/views/CharacterGuide.vue
-grep -q '旅行者·冰' CHANGELOG.md
-grep -qF '旅行者一家按元素分项' AGENTS.md
-grep -qF '`traveler-element`' AGENTS.md
+export default defineConfig({
+  base: BASE,
+  plugins: [sharedPathFix(), sharedModules(), vue(), tailwindcss()],
+  build: {
+    outDir: 'dist',
+    target: 'es2020',
+  },
+})
