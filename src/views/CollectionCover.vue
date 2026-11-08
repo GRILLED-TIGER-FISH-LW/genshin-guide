@@ -235,16 +235,16 @@ onActivated(render)
         </p>
 
         <template #toolbar>
-          <!-- 底下是什么颜色不知道，所以用 float 变体；危险靠图标变红 -->
+          <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
           <Btn
-            variant="float"
+            variant="float-danger"
             size="md"
             square
             aria-label="清空合集封面"
             title="清空"
             @click.stop="askClear = true"
           >
-            <template #icon><Icon name="ui.trash" class="text-danger" /></template>
+            <template #icon><Icon name="ui.trash" /></template>
           </Btn>
         </template>
       </PreviewFrame>

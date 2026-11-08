@@ -24,7 +24,8 @@ import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, s
    两个和观感有关的坑，都记在这儿免得以后再踩：
    · danger 档的底色 #f8e9e7 贴在卡片底 #faf9f5 上对比只有 1.02:1，等于看不见 ——
      删除按钮一律补一条 border-danger/30（旧版也是靠那 1px 红边框区分）
-   · float 档自带 text-ink / border-line-3，想让它显示成危险色必须用 ! 强制覆盖 */
+   · 预览框右上角那颗「清空」用 Btn 的 float-danger 档（浮层外观 + 危险色），
+     别再拿 ! 去染档位颜色 */
 
 const s = reactive(guide.fresh())
 const toast = useToast()
@@ -502,11 +503,9 @@ function clearTeamCore() {
           <Btn variant="float" square aria-label="导入配置" @click="importInput?.click()">
             <template #icon><Icon name="ui.import" size="sm" /></template>
           </Btn>
-          <!-- float 自带 text-ink / border-line-3，要显示成危险色必须 ! 覆盖 -->
           <Btn
-            variant="float"
+            variant="float-danger"
             square
-            class="text-danger! border-danger/30!"
             aria-label="清空全部数据"
             @click="askClear"
           >

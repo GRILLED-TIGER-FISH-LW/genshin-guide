@@ -7,11 +7,14 @@ const props = defineProps({
      ghost     无底无边，工具栏用
      danger    危险操作
      float     悬浮在图片上的按钮：底色抬一档 + 重描边 + 投影，
-               给预览框右上角那种「底下是什么颜色都不知道」的场景用 */
+               给预览框右上角那种「底下是什么颜色都不知道」的场景用
+     float-danger 同上，但整颗泛红：图标与描边都走 danger，描边用 danger/30
+               （danger 的浅底贴在卡片上只有 1.02:1，删除按钮必须靠这条边区分 —— 见 AGENTS.md
+               第四节）—— 预览框右上角的删除 / 清空用它，别再各页自己拼颜色 */
   variant: {
     type: String,
     default: 'secondary',
-    validator: (v) => ['primary', 'secondary', 'ghost', 'danger', 'float'].includes(v),
+    validator: (v) => ['primary', 'secondary', 'ghost', 'danger', 'float', 'float-danger'].includes(v),
   },
   /* sm 紧凑（工具栏、列表行、卡片角）/ md 标准（表单、弹窗）/ lg 主操作（底部悬浮 CTA） */
   size: {
@@ -43,6 +46,7 @@ const VARIANTS = {
   ghost: 'bg-transparent text-body hover:bg-hover',
   danger: 'bg-danger-soft text-danger hover:bg-danger-soft/70',
   float: 'bg-surface-2 text-ink border border-line-3 shadow-float hover:bg-hover',
+  'float-danger': 'bg-surface-2 text-danger border border-danger/30 shadow-float hover:bg-hover',
 }
 
 const isDisabled = computed(() => props.disabled || props.loading)
