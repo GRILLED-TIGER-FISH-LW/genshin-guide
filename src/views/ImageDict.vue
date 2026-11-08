@@ -7,11 +7,11 @@ import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import Seg from '../components/Seg.vue'
 import SyncReport from '../components/SyncReport.vue'
-import { useIconDict } from '../composables/useIconDict.js'
+import { useImageDict } from '../composables/useImageDict.js'
 
-/* 图标字典编辑器 · 界面
+/* 图片字典编辑器 · 界面
  * -------------------------------------------------------------------------
- * 域逻辑全在 useIconDict.js，这里只管长得怎么样。
+ * 域逻辑全在 useImageDict.js，这里只管长得怎么样。
  *
  * 【顶部只留一个「新增」入口】
  *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
@@ -72,7 +72,7 @@ const {
   exportDict,
   LABELS,
   FILTERS,
-} = useIconDict()
+} = useImageDict()
 
 const TABS = [
   { value: 'characters', label: '角色' },
@@ -631,7 +631,7 @@ onMounted(init)
 /* 星级径向渐变底。
    starStyle() 只负责把 --star-color / --star-edge 塞进 style，
    真正画出渐变的是这条规则。
-   几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+   几何与 image-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
    的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
    正方形下正好也是 √2/2 × 边长。
    圆角不在这里写，在模板的 rounded-ctl 上。 */

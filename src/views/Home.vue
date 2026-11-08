@@ -6,7 +6,7 @@ import Icon from '../components/Icon.vue'
    三行结构（图标 / 标题 / 描述）+ 描述锁两行高，是卡片严格等高的前提。 */
 const DESC = {
   character: '武器 / 圣遗物 / 天赋 / 命座总览',
-  'icon-editor': '维护图标字典 · 查缺补漏',
+  'image-dict': '维护图片字典 · 查缺补漏',
   'video-cover': '视频封面 / 合集封面排版',
   'image-tools': '背景修改 / 双图羽化 / 图层拼接',
   chart: '雷达图 / 柱状图',

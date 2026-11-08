@@ -2,7 +2,7 @@
  * 视频封面 · 绘制与导出引擎
  * =========================================================================
  * 三块，都不碰界面：
- *   1. 数据与几何：状态默认值、模式表、图标字典里的序号 / 立绘 / 名片与 logos 解析、
+ *   1. 数据与几何：状态默认值、模式表、图片字典里的序号 / 立绘 / 名片与 logos 解析、
  *      胶囊与浮层几何、文本测量、签名栏
  *   2. 素材：模糊背景条（带缓存）、图片加载、URL → data URL
  *   3. 出图与存档：SVG 克隆烘焙 → PNG、配置导入导出、IndexedDB
@@ -161,14 +161,14 @@ export function artUrl(raw) {
   return m ? `${BASE}${String(raw).slice(m[0].length)}` : raw || ''
 }
 
-/* 数据来源换成图标字典（shared/gi-icons/icon-dict.js）：序号 / 立绘 / 名片都在里面，
+/* 数据来源换成图片字典（shared/image-dict.js）：序号 / 立绘 / 名片都在里面，
    原来那三张数据表从这一版起退休，本文件不再读 data/ 下的表（只剩 logos）。
    字典里「旅行者·冰」这类分元素条目是独立一条，所以编号与名片不会再丢。 */
 export async function loadData() {
   const [logoTxt] = await Promise.all([text('data/logos.txt')])
-  await iconLib()
+  await imageLib()
 
-  const dict = window.ICON_DICT || {}
+  const dict = window.IMAGE_DICT || {}
   const cardCfg = dict.config?.characters?.card
 
   const orders = {}
@@ -217,33 +217,33 @@ export function characterNo(dicts, name) {
 }
 
 /* =========================================================================
- * 3. 图标字典（Boss 头像）
+ * 3. 图片字典（Boss 头像）
  * ------------------------------------------------------------------------
- * 走图标字典编辑器那套：把共享脚本当全局挂上，再调它的 fromName。
+ * 走图片字典编辑器那套：把共享脚本当全局挂上，再调它的 fromName。
  * window 只在这里露一次面，不外溢。
  * ========================================================================= */
 export const logoUrl = (file) => `${LOGO_BASE}${file}`
 export const logoFileOf = (url) =>
   url && url.startsWith(LOGO_BASE) ? url.slice(LOGO_BASE.length) : ''
 
-let iconLibTask = null
+let imageLibTask = null
 
-function iconLib() {
-  if (!iconLibTask) {
-    iconLibTask = (async () => {
-      await loadGlobalScript('shared/gi-icons/icon-dict.js', 'ICON_DICT')
-      await loadGlobalScript('shared/gi-icons/icon-loader.js', 'ICON_LIB')
-      return window.ICON_LIB
+function imageLib() {
+  if (!imageLibTask) {
+    imageLibTask = (async () => {
+      await loadGlobalScript('shared/image-dict.js', 'IMAGE_DICT')
+      await loadGlobalScript('shared/image-loader.js', 'IMAGE_LIB')
+      return window.IMAGE_LIB
     })().catch((err) => {
-      iconLibTask = null /* 失败允许下次重试 */
+      imageLibTask = null /* 失败允许下次重试 */
       throw err
     })
   }
-  return iconLibTask
+  return imageLibTask
 }
 
 export async function findMonsterIcon(name) {
-  const lib = await iconLib()
+  const lib = await imageLib()
   if (!lib?.fromName) throw new Error('图标库缺少 fromName')
   const found = await lib.fromName('monsters', name)
   return found?.dataURL || ''

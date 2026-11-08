@@ -1,7 +1,7 @@
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-/* 同步报告 / 更新日志 —— 纯展示组件，数据从 useIconDict 来。
+/* 同步报告 / 更新日志 —— 纯展示组件，数据从 useImageDict 来。
    syncFromAmber() 直接算出 diff，所以旧版那套「从外面猜」的探测全部删掉了。 */
 
 const open = defineModel({ type: Boolean, default: false })

@@ -1,5 +1,5 @@
 /* ============================================================
- * 图标加载器 · 全站共享
+ * 图片加载器 · 全站共享
  * 四种模式（按优先级从高到低）：
  *   1. 本地：条目带 local: true，key 是文件名（如 UI_AvatarIcon_Traveler.webp），从 icons/ 根目录加载
  *      （老格式，新数据不写这个 —— 仓库里的图直接存站点绝对路径，走第 2 条）
@@ -54,7 +54,7 @@
     var scripts = document.getElementsByTagName("script");
     for (var i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || "";
-      if (src.indexOf("icon-loader.js") >= 0) return src.replace(/icon-loader\.js.*$/, "");
+      if (src.indexOf("image-loader.js") >= 0) return src.replace(/image-loader\.js.*$/, "");
     }
     return "icons/";
   })();
@@ -118,7 +118,7 @@
       var last = key.split("/").pop() || "";
       raw = stripExt(last);
     } else {
-      var dict = window.ICON_DICT;
+      var dict = window.IMAGE_DICT;
       if (dict && dict[type] && dict[type][key] && dict[type][key].local) {
         raw = stripExt(key);
       } else {
@@ -132,7 +132,7 @@
      字典里存的是代号（Ambor）。老调用方 / 老草稿里可能还存着全名
      （UI_AvatarIcon_Ambor），那就剥掉前缀再查一次。 */
   function resolveKey(type, key) {
-    var dict = window.ICON_DICT;
+    var dict = window.IMAGE_DICT;
     if (!dict || !dict[type]) return "";
     var k = String(key == null ? "" : key);
     if (dict[type][k]) return k;
@@ -143,7 +143,7 @@
 
   /* ============ 解析最终 URL ============ */
   function getPath(type, key) {
-    var dict = window.ICON_DICT;
+    var dict = window.IMAGE_DICT;
     var k = resolveKey(type, key);
     if (!k) return "";
     var item = dict[type][k];
@@ -165,7 +165,7 @@
 
   /* ============ 匹配 ============ */
   function match(type, query) {
-    var dict = window.ICON_DICT;
+    var dict = window.IMAGE_DICT;
     if (!dict || !dict[type]) return null;
     var q = String(query || "").trim();
     if (!q) return null;
@@ -212,7 +212,7 @@
   function ck(type, key) { return type + "::" + key; }
 
   async function load(type, key, opts) {
-    var dict = window.ICON_DICT;
+    var dict = window.IMAGE_DICT;
     var k = resolveKey(type, key);
     if (!k) throw new Error("未知图标：" + type + "/" + key);
     var c = ck(type, k);
@@ -268,7 +268,7 @@
   function openPicker(type, onSelect, opts) {
     opts = opts || {};
     ensureStyles();
-    var dict = window.ICON_DICT;
+    var dict = window.IMAGE_DICT;
     if (!dict || !dict[type]) return;
 
     var allItems = Object.keys(dict[type]).map(function (k) {
@@ -328,7 +328,7 @@
     requestAnimationFrame(function () { backdrop.classList.add("show"); picker.classList.add("show"); });
   }
 
-  window.ICON_LIB = {
+  window.IMAGE_LIB = {
     base: ICON_BASE,
     starColors: STAR_COLORS,
     match: match,

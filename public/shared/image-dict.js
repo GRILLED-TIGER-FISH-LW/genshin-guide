@@ -1,4 +1,4 @@
-window.ICON_DICT = {
+window.IMAGE_DICT = {
   config: {
     characters: { prefix: "https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/UI_AvatarIcon_", ext: ".png" }, card: { prefix: "https://api.lunaris.moe/data/assets/namecardpic/UI_NameCardPic_", ext: "_P.png", alt: { prefix: "https://gi.yatta.moe/assets/UI/namecard/UI_NameCardPic_", ext: "_P.png" } } },
     artifacts: { prefix: "https://api.lunaris.moe/data/assets/artifacts/UI_RelicIcon_", ext: ".webp", alt: { prefix: "https://gi.yatta.moe/assets/UI/reliquary/UI_RelicIcon_", ext: ".png" } },
