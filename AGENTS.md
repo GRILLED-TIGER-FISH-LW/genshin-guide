@@ -99,7 +99,7 @@
 | 文件 | 说明 |
 |---|---|
 | `src/styles/tokens.css` | 令牌唯一真源，**与另一仓库逐字节相同** |
-| `src/components/Btn.vue` | 档位 `sm/md/lg`；变体 `primary/secondary/ghost/danger/float`；纯图标用 `square` + **`#icon` 具名插槽** |
+| `src/components/Btn.vue` | 档位 `sm/md/lg`；变体 `primary/secondary/ghost/danger/float/float-danger`；纯图标用 `square` + **`#icon` 具名插槽** |
 | `src/components/{Field,Dropdown,Seg,Radios,Slider,Modal,Icon}` | 表单与控件 |
 | `src/components/{PreviewFrame,DockCta}` | 工具页外壳：预览框（16:9 + 右上角浮动工具栏 + 点一下淡出）、底部悬浮主操作 |
 | `src/components/{AppNav,AppDrawer,FrameLayer,ToastHost,SyncReport}` | 应用外壳 |
@@ -141,7 +141,7 @@
 | 裸 `1fr` | 用 `minmax(0, 1fr)` 或 Tailwind 的 `grid-cols-*` |
 | 单独用 `outline-none` | 杀掉焦点环，必须有 `focus:*` 替代 |
 | 布局用 `margin` | 用 `gap` |
-| 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg`）。**已知一处例外**：角色一图流右上角「清空」用 `text-danger! border-danger/30!` 把 `float` 染成危险色 —— 正解是给 `Btn` 加 float+danger 组合，等同步另一仓库那批一起做 |
+| 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg` / `float-danger`），别从外面染档位颜色 |
 
 ### 状态与文案
 
@@ -238,7 +238,7 @@
 - 手写 CSS 里直接写 `var(--color-x)` 而没有 utility 用到它 → Tailwind **不会输出这个变量**。
 - 整页横向溢出、要左右拖 → 容器是 grid 却没写列，隐式轨道被 `flex-wrap` 的 max-content 撑开。**加 `grid-cols-1`**。
 - **`inheritAttrs: false` 的组件**：`class` 会跟着 `$attrs` 落到它内部绑的那个元素上。`Field` 已经特殊处理（class 归外壳、其余归 input），所以给它传 `flex-1` 有效；自建组件别踩这个坑。
-- **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。
+- **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。一图流表单里这是 `DEL` 常量；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
 
 ### 点了没反应 / 全站都点不动
 
@@ -311,5 +311,5 @@
 ### 其他小事
 
 - `src/lib/assets.js` 已是资源层正本；`videoCover.js` / `collectionCover.js` 里还各留一份 `loadImage` / `urlToDataURL` / `download`（第三个用它的工具出现时抽过来的），下次动那两个文件时删掉、改从这里 import。
-- `Btn.vue` 的 `lg` / `float` 档位记得同步到 `adventurer-handbook`；顺带把「float + danger」加成正式组合（现在靠 `!` 覆盖，见第四节例外那条）。
+- `Btn.vue` 的 `lg` / `float` / `float-danger` 档位记得同步到 `adventurer-handbook`（那边连 `float` 都还没有）；`tokens.css` 新加的 `--color-preview` 也要同步 —— 这两个文件都要求两仓库逐字节相同。
 - `ToastHost` 的 `role="status"` + `aria-live="assertive"` 两仓库保持一致，知道不规范但故意保留。
