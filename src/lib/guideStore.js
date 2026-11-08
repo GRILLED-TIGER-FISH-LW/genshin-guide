@@ -16,6 +16,18 @@ const BASE = import.meta.env.BASE_URL
 const SAVE_DIR = `${BASE}saves/characters/`
 const ELEMENT_DIR = `${BASE}images/element/`
 
+/* 名字 + 当前元素色 → 该拿去字典里查的名字。
+   旅行者一家在字典里按元素分项（旅行者 / 旅行者·冰），角色名写「旅行者」时要取
+   「旅行者·冰」那一项；字典里没有这一项（岩 / 水 … 还没录）就退回原版旅行者。
+   其它角色不受影响：拼出来的名字查不到，等于没拼 —— 加载器的第一遍就是逐字匹配。 */
+async function dictNameWithElement(name, theme) {
+  const base = String(name || '').trim()
+  const element = themeToElementName(theme)
+  if (!base || !element) return base
+  const combo = `${base}·${element}`
+  return (await dictEntry('characters', combo)) ? combo : base
+}
+
 const IDB_KEY = 'genshin_card_db_v5'
 const STORE_NAME = 'card_store'
 const RECORD = 'current_state'
@@ -148,14 +160,16 @@ export async function clearDraft() {
 /* =========================================================================
  * 在线存档
  * ========================================================================= */
-export async function fetchRepoSave(name) {
+export async function fetchRepoSave(name, theme) {
   const query = String(name || '').trim()
   if (!query) return { error: '请先填角色名' }
 
-  const entry = await dictEntry('characters', query)
+  /* 名字按元素补过再查；文件名用字典里的正式名 —— 旅行者·冰那份存的是
+     001.旅行者·冰.json，输英文代号（Furina）也照样找得到 */
+  const entry = await dictEntry('characters', await dictNameWithElement(query, theme))
   if (!entry?.order) return { error: `字典里没有「${query}」，不确定存档编号` }
 
-  const file = `${String(entry.order).padStart(3, '0')}.${query}.json`
+  const file = `${String(entry.order).padStart(3, '0')}.${entry.name || query}.json`
   try {
     const res = await fetch(`${SAVE_DIR}${file}?t=${Date.now()}`)
     if (!res.ok) return { error: `没找到存档「${file}」` }
@@ -177,7 +191,8 @@ export async function fetchRepoSave(name) {
  * onlyEmpty 参数时一律覆盖），照抄成「只补缺」就会出现「改了角色名再按没反应」。
  * ========================================================================= */
 export async function rematchMissing(d, force = false) {
-  const entry = await dictEntry('characters', d.charName)
+  /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
+  const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
 
   if (force) {
     /* 先清空 + 清掉手删标记，下面几段就会按新名字重算；字典里查不到就留空（回到占位图） */
