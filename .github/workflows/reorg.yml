@@ -4,13 +4,14 @@ name: Reorg
 #   改清单 → Actions 里选 Reorg → Run workflow（清单名用默认的即可）
 #   → 它在 reorg-<清单名> 分支上做完、跑一次 npm run build → 你去 compare 页面合并。
 #   任一步失败都不会推分支、不会动 main。
+#   这份工作流常驻：跑完只推分支，自己不会消失，下次换掉 env 里那四段清单接着用。
 #
 # 清单格式
 #   ① MOVES    一行一条：旧路径 -> 新路径
 #   ② EDITS    一条一个块，格式固定四段：
 #                 ### 文件路径
 #                 <<<<
-#                 原文（可多行，逐字查找；找不到就中止）
+#                 原文（可多行，逐字查找；找不到就中止；同一文件里要唯一，多处就分几个块写）
 #                 >>>>
 #                 <<<<
 #                 新文
@@ -19,13 +20,14 @@ name: Reorg
 #   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
 #   经验：自检要查「实际读取」，别查名字 —— 新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
 #
-# 这一批（image-dict）：字典改名。它已经不只管图标。
-#   · 两个共享脚本搬出 gi-icons/：icon-dict.js → image-dict.js、icon-loader.js → image-loader.js
-#   · 全局变量 window.ICON_DICT / ICON_LIB → IMAGE_DICT / IMAGE_LIB
-#   · 虚拟模块 virtual:gg-icon-lib → virtual:gg-image-lib
-#   · 页面 / 路由 / 文案：图标字典 → 图片字典，路由 #/icon-editor → #/image-dict
-#   · 注意：EDITS 里的文件名一律写「搬完之后的路径」（工序是 MOVES → EDITS → DELETES → CHECKS）
-#   · 跨仓库：adventurer-handbook 的 4 个文件必须同批改（那边也有一个同样的机器人清单）
+# 这一批（float-danger）：预览框右上角的删除 / 清空按钮统一。
+#   · 现状三个工具各写各的：一图流用 `text-danger! border-danger/30!` 从外面覆盖 float 档颜色，
+#     两个封面只把图标染红（描边还是灰的）—— 同一个位置两种观感，就是「不统一」的根源
+#   · 给 Btn 加正式档位 float-danger（浮层外观 + 图标与描边都走 danger，自带 border-danger/30），
+#     一图流 / 视频封面 / 合集封面三处改成用它，AGENTS 里「已知例外」那条随之删掉
+#   · 顺手把 PreviewFrame 的裸 hex 深底（#121212）收进令牌 --color-preview（不随主题变，注释写明）
+#   · 不动 public/tools/ 的三个 iframe 老页面（等它们搬进 SPA 时一并改）
+#   · 跨仓库：`--color-preview` 和 tokens.css 的同步日期之后要同步到 adventurer-handbook（另有小清单）
 
 on:
   workflow_dispatch:
@@ -33,7 +35,7 @@ on:
       batch:
         description: 清单名（会建 reorg-<名字> 分支）
         required: true
-        default: image-dict
+        default: float-danger
 
 permissions:
   contents: write
@@ -41,594 +43,248 @@ permissions:
 env:
   # ---------- ① 搬文件 ----------
   MOVES: |
-    public/shared/gi-icons/icon-dict.js -> public/shared/image-dict.js
-    public/shared/gi-icons/icon-loader.js -> public/shared/image-loader.js
-    src/composables/useIconDict.js -> src/composables/useImageDict.js
-    src/views/IconEditor.vue -> src/views/ImageDict.vue
+    # 这批没有要搬的文件
 
   # ---------- ② 替换 ----------
   EDITS: |
-    ### src/composables/useImageDict.js
+    ### src/styles/tokens.css
     <<<<
-    import { STAR_COLORS } from 'virtual:gg-icon-lib'
+      /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+      --color-thumb: #e8e0d2;
     >>>>
     <<<<
-    import { STAR_COLORS } from 'virtual:gg-image-lib'
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-     * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js，这里是
-    >>>>
-    <<<<
-     * 注意：这不是「字典」本身。字典是 shared/image-dict.js，这里是
+      /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+      --color-thumb: #e8e0d2;
+      /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
+      --color-preview: #121212;
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/styles/tokens.css
     <<<<
-     *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
-     *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
+     * 两仓库逐字节相同，改动需同步；同步日期 2026-11-03
     >>>>
     <<<<
-     *   · 导出 image-dict.js 的逐字格式（它是被两个仓库读的文件）
-     *   · 星级底色 + 径向渐变：必须与 shared/image-loader.js 的
+     * 两仓库逐字节相同，改动需同步；同步日期 2026-11-08
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/components/PreviewFrame.vue
     <<<<
-    const STORAGE_KEY = 'icon_dict_editor_v4'
+    /* 预览框：16:9 深底 + 右上角浮动工具栏 + 点空白处淡出。
+       两个封面工具共用，所以留在共享层。
     >>>>
     <<<<
-    /* 本地存储键名保留旧名：改它会让已存在的本地字典读不到（AGENTS 里「键名 / 表名不能改」） */
-    const STORAGE_KEY = 'icon_dict_editor_v4'
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-    const DICT_SRC = 'shared/gi-icons/icon-dict.js'
-    >>>>
-    <<<<
-    const DICT_SRC = 'shared/image-dict.js'
+    /* 预览框：16:9 深底 + 右上角浮动工具栏 + 点空白处淡出。
+       深底是 --color-preview：图片 / 视频的衬底，不随主题变。
+       一图流与两个封面工具共用，所以留在共享层。
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/components/PreviewFrame.vue
     <<<<
-    图标字典
+        class="mx-auto w-full max-w-[720px] overflow-hidden rounded-panel border border-line bg-[#121212]"
     >>>>
     <<<<
-    图片字典
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-     * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
-    >>>>
-    <<<<
-     * 颜色：与 shared/image-loader.js 里的 darken() 逐式相同
+        class="mx-auto w-full max-w-[720px] overflow-hidden rounded-panel border border-line bg-preview"
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/components/Btn.vue
     <<<<
-     * 序列化：导出 icon-dict.js 的逐字格式
+        validator: (v) => ['primary', 'secondary', 'ghost', 'danger', 'float'].includes(v),
     >>>>
     <<<<
-     * 序列化：导出 image-dict.js 的逐字格式
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-    window.ICON_DICT
-    >>>>
-    <<<<
-    window.IMAGE_DICT
+        validator: (v) => ['primary', 'secondary', 'ghost', 'danger', 'float', 'float-danger'].includes(v),
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/components/Btn.vue
     <<<<
-    , 'ICON_DICT')
+         float     悬浮在图片上的按钮：底色抬一档 + 重描边 + 投影，
+                   给预览框右上角那种「底下是什么颜色都不知道」的场景用 */
     >>>>
     <<<<
-    , 'IMAGE_DICT')
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-        /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
-    >>>>
-    <<<<
-        /* 老格式：key 就是文件名（仓库里的图放 public/images/game/） */
+         float     悬浮在图片上的按钮：底色抬一档 + 重描边 + 投影，
+                   给预览框右上角那种「底下是什么颜色都不知道」的场景用
+         float-danger 同上，但整颗泛红：图标与描边都走 danger，描边用 danger/30
+                   （danger 的浅底贴在卡片上只有 1.02:1，删除按钮必须靠这条边区分 —— 见 AGENTS.md
+                   第四节）—— 预览框右上角的删除 / 清空用它，别再各页自己拼颜色 */
     >>>>
 
-    ### src/composables/useImageDict.js
+    ### src/components/Btn.vue
     <<<<
-    export function useIconDict() {
-    >>>>
-    <<<<
-    export function useImageDict() {
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-        a.download = 'icon-dict.js'
-    >>>>
-    <<<<
-        a.download = 'image-dict.js'
-    >>>>
-
-    ### src/composables/useImageDict.js
-    <<<<
-        toast.success('已导出 icon-dict.js')
-    >>>>
-    <<<<
-        toast.success('已导出 image-dict.js')
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-    useIconDict
-    >>>>
-    <<<<
-    useImageDict
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-    图标字典
-    >>>>
-    <<<<
-    图片字典
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-       几何与 icon-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
-    >>>>
-    <<<<
-       几何与 image-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
-    >>>>
-
-    ### src/composables/useIconLib.js
-    <<<<
-     * · shared/gi-icons/icon-dict.js + icon-loader.js：图标字典本体与查询
-    >>>>
-    <<<<
-     * · shared/image-dict.js + image-loader.js：图片字典本体与查询
-    >>>>
-
-    ### src/composables/useIconLib.js
-    <<<<
-          await sharedGlobal('shared/gi-icons/icon-dict.js', 'ICON_DICT')
-          await sharedGlobal('shared/gi-icons/icon-loader.js', 'ICON_LIB')
-          return window.ICON_LIB
-    >>>>
-    <<<<
-          await sharedGlobal('shared/image-dict.js', 'IMAGE_DICT')
-          await sharedGlobal('shared/image-loader.js', 'IMAGE_LIB')
-          return window.IMAGE_LIB
-    >>>>
-
-    ### src/composables/useIconLib.js
-    <<<<
-    window.ICON_DICT
-    >>>>
-    <<<<
-    window.IMAGE_DICT
-    >>>>
-
-    ### src/composables/useIconLib.js
-    <<<<
-    iconLib()
-    >>>>
-    <<<<
-    imageLib()
-    >>>>
-
-    ### src/composables/useIconLib.js
-    <<<<
+      float: 'bg-surface-2 text-ink border border-line-3 shadow-float hover:bg-hover',
     }
-
-    /* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 6 合并完删掉 */
-    export const loadArtifactIcons = async () => (await loadUiIcons())?.artifact || {}
     >>>>
     <<<<
+      float: 'bg-surface-2 text-ink border border-line-3 shadow-float hover:bg-hover',
+      'float-danger': 'bg-surface-2 text-danger border border-danger/30 shadow-float hover:bg-hover',
     }
     >>>>
 
-    ### src/lib/videoCover.js
+    ### src/views/CharacterGuide.vue
     <<<<
-    图标字典
+       · float 档自带 text-ink / border-line-3，想让它显示成危险色必须用 ! 强制覆盖 */
     >>>>
     <<<<
-    图片字典
-    >>>>
-
-    ### src/lib/videoCover.js
-    <<<<
-    （shared/gi-icons/icon-dict.js）
-    >>>>
-    <<<<
-    （shared/image-dict.js）
+       · 预览框右上角那颗「清空」用 Btn 的 float-danger 档（浮层外观 + 危险色），
+         别再拿 ! 去染档位颜色 */
     >>>>
 
-    ### src/lib/videoCover.js
+    ### src/views/CharacterGuide.vue
     <<<<
-          await loadGlobalScript('shared/gi-icons/icon-dict.js', 'ICON_DICT')
-          await loadGlobalScript('shared/gi-icons/icon-loader.js', 'ICON_LIB')
-          return window.ICON_LIB
+              <!-- float 自带 text-ink / border-line-3，要显示成危险色必须 ! 覆盖 -->
+              <Btn
+                variant="float"
+                square
+                class="text-danger! border-danger/30!"
+                aria-label="清空全部数据"
     >>>>
     <<<<
-          await loadGlobalScript('shared/image-dict.js', 'IMAGE_DICT')
-          await loadGlobalScript('shared/image-loader.js', 'IMAGE_LIB')
-          return window.IMAGE_LIB
-    >>>>
-
-    ### src/lib/videoCover.js
-    <<<<
-    window.ICON_DICT
-    >>>>
-    <<<<
-    window.IMAGE_DICT
+              <Btn
+                variant="float-danger"
+                square
+                aria-label="清空全部数据"
     >>>>
 
-    ### src/lib/videoCover.js
+    ### src/views/VideoCover.vue
     <<<<
-    iconLibTask
+              <!-- 底下是什么颜色不知道，所以用 float 变体；危险靠图标变红 -->
     >>>>
     <<<<
-    imageLibTask
-    >>>>
-
-    ### src/lib/videoCover.js
-    <<<<
-    iconLib()
-    >>>>
-    <<<<
-    imageLib()
+              <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
     >>>>
 
-    ### src/router.js
+    ### src/views/VideoCover.vue
     <<<<
-        key: 'icon-editor',
-        label: '图标字典编辑器',
+              <Btn
+                variant="float"
+                size="md"
+                square
+                aria-label="清空"
+                title="清空"
+                @click.stop="askClear = true"
+              >
+                <template #icon><Icon name="ui.trash" class="text-danger" /></template>
+              </Btn>
     >>>>
     <<<<
-        key: 'image-dict',
-        label: '图片字典编辑器',
-    >>>>
-
-    ### src/router.js
-    <<<<
-        component: () => import('./views/IconEditor.vue'),
-    >>>>
-    <<<<
-        component: () => import('./views/ImageDict.vue'),
-    >>>>
-
-    ### src/views/Home.vue
-    <<<<
-      'icon-editor': '维护图标字典 · 查缺补漏',
-    >>>>
-    <<<<
-      'image-dict': '维护图片字典 · 查缺补漏',
-    >>>>
-
-    ### public/shared/ui-icons.js
-    <<<<
-        // 空态 / 收件箱（替代 icon-editor 的 emoji 📭）
-    >>>>
-    <<<<
-        // 空态 / 收件箱（替代图片字典编辑器里那个 emoji 📭）
+              <Btn
+                variant="float-danger"
+                size="md"
+                square
+                aria-label="清空"
+                title="清空"
+                @click.stop="askClear = true"
+              >
+                <template #icon><Icon name="ui.trash" /></template>
+              </Btn>
     >>>>
 
-    ### src/components/SyncReport.vue
+    ### src/views/CollectionCover.vue
     <<<<
-    /* 同步报告 / 更新日志 —— 纯展示组件，数据从 useIconDict 来。
+              <!-- 底下是什么颜色不知道，所以用 float 变体；危险靠图标变红 -->
     >>>>
     <<<<
-    /* 同步报告 / 更新日志 —— 纯展示组件，数据从 useImageDict 来。
-    >>>>
-
-    ### src/components/FrameLayer.vue
-    <<<<
-     * （IconEditor 等）的点击全部吃掉 —— 表现为「点什么都没反应」。
-    >>>>
-    <<<<
-     * （图片字典等）的点击全部吃掉 —— 表现为「点什么都没反应」。
+              <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
     >>>>
 
-    ### vite.config.js
+    ### src/views/CollectionCover.vue
     <<<<
-     * ../../ 会跑到域名根外面 —— 缩略图、字典、白名单文本会全 404。
-     *
-     * app.js 动辄上千行、手机上没法改，所以改在构建期重写。副作用是好的：
+              <Btn
+                variant="float"
+                size="md"
+                square
+                aria-label="清空合集封面"
+                title="清空"
+                @click.stop="askClear = true"
+              >
+                <template #icon><Icon name="ui.trash" class="text-danger" /></template>
+              </Btn>
     >>>>
     <<<<
-     * ../../ 会跑到域名根外面 —— 缩略图、图片字典、白名单文本会全 404。
-     *
-     * 工具页的脚本动辄上千行、手机上没法改，所以改在构建期重写。副作用是好的：
-    >>>>
-
-    ### vite.config.js
-    <<<<
-     *   shared/gi-icons/icon-loader.js → virtual:gg-icon-lib   （星级底色表）
-    >>>>
-    <<<<
-     *   shared/image-loader.js      → virtual:gg-image-lib  （星级底色表）
-    >>>>
-
-    ### vite.config.js
-    <<<<
-     * 读取手法与 app.js 读 icon-dict.js 完全一样：把脚本跑一遍，取 window 上的结果。
-    >>>>
-    <<<<
-     * 读取手法与旧工具页读共享脚本一样：把脚本跑一遍，取 window 上的结果。
-    >>>>
-
-    ### vite.config.js
-    <<<<
-     *   · icon-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
-    >>>>
-    <<<<
-     *   · image-loader.js 在加载时就会摸 document（推自己的目录），所以要给垫片
-    >>>>
-
-    ### vite.config.js
-    <<<<
-    const LIB_ID = 'virtual:gg-icon-lib'
-    >>>>
-    <<<<
-    const LIB_ID = 'virtual:gg-image-lib'
-    >>>>
-
-    ### vite.config.js
-    <<<<
-    /* 够 icon-loader.js 在加载期跑完的最小 document 垫片 */
-    >>>>
-    <<<<
-    /* 够 image-loader.js 在加载期跑完的最小 document 垫片 */
-    >>>>
-
-    ### vite.config.js
-    <<<<
-      getElementsByTagName: () => [{ src: 'https://local/shared/gi-icons/icon-loader.js' }],
-    >>>>
-    <<<<
-      getElementsByTagName: () => [{ src: 'https://local/shared/image-loader.js' }],
-    >>>>
-
-    ### vite.config.js
-    <<<<
-            const file = path('public/shared/gi-icons/icon-loader.js')
-    >>>>
-    <<<<
-            const file = path('public/shared/image-loader.js')
-    >>>>
-
-    ### vite.config.js
-    <<<<
-            const starColors = win.ICON_LIB?.starColors || {}
-    >>>>
-    <<<<
-            const starColors = win.IMAGE_LIB?.starColors || {}
-    >>>>
-
-    ### public/shared/image-dict.js
-    <<<<
-    window.ICON_DICT = {
-    >>>>
-    <<<<
-    window.IMAGE_DICT = {
-    >>>>
-
-    ### public/shared/image-loader.js
-    <<<<
-     * 图标加载器 · 全站共享
-    >>>>
-    <<<<
-     * 图片加载器 · 全站共享
-    >>>>
-
-    ### public/shared/image-loader.js
-    <<<<
-          if (src.indexOf("icon-loader.js") >= 0) return src.replace(/icon-loader\.js.*$/, "");
-    >>>>
-    <<<<
-          if (src.indexOf("image-loader.js") >= 0) return src.replace(/image-loader\.js.*$/, "");
-    >>>>
-
-    ### public/shared/image-loader.js
-    <<<<
-    window.ICON_DICT
-    >>>>
-    <<<<
-    window.IMAGE_DICT
-    >>>>
-
-    ### public/shared/image-loader.js
-    <<<<
-      window.ICON_LIB = {
-    >>>>
-    <<<<
-      window.IMAGE_LIB = {
-    >>>>
-
-    ### README.md
-    <<<<
-    图标字典
-    >>>>
-    <<<<
-    图片字典
-    >>>>
-
-    ### README.md
-    <<<<
-    icon-dict.js
-    >>>>
-    <<<<
-    image-dict.js
-    >>>>
-
-    ### README.md
-    <<<<
-    #/icon-editor
-    >>>>
-    <<<<
-    #/image-dict
+              <Btn
+                variant="float-danger"
+                size="md"
+                square
+                aria-label="清空合集封面"
+                title="清空"
+                @click.stop="askClear = true"
+              >
+                <template #icon><Icon name="ui.trash" /></template>
+              </Btn>
     >>>>
 
     ### AGENTS.md
     <<<<
-        │   ├── composables/        useTheme · useToast · useData · useIconDict · useIconLib
+    | `src/components/Btn.vue` | 档位 `sm/md/lg`；变体 `primary/secondary/ghost/danger/float`；纯图标用 `square` + **`#icon` 具名插槽** |
     >>>>
     <<<<
-        │   ├── composables/        useTheme · useToast · useData · useImageDict · useIconLib
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-        │   └── views/              Home · CharacterGuide · IconEditor · VideoCover · CollectionCover
-    >>>>
-    <<<<
-        │   └── views/              Home · CharacterGuide · ImageDict · VideoCover · CollectionCover
+    | `src/components/Btn.vue` | 档位 `sm/md/lg`；变体 `primary/secondary/ghost/danger/float/float-danger`；纯图标用 `square` + **`#icon` 具名插槽** |
     >>>>
 
     ### AGENTS.md
     <<<<
-    - `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/gi-icons/icon-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'ICON_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。改名见待办。
+    | 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg`）。**已知一处例外**：角色一图流右上角「清空」用 `text-danger! border-danger/30!` 把 `float` 染成危险色 —— 正解是给 `Btn` 加 float+danger 组合，等同步另一仓库那批一起做 |
     >>>>
     <<<<
-    - `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/image-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'IMAGE_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。
-    - 图片字典页的图标键仍叫 `nav.iconEditor`（图标键名与另一个仓库共用，不随页面改名）。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    | `public/shared/gi-icons/icon-loader.js` | 图标加载器：`getPath` / `match` / `load` / `openPicker`。**两个仓库都在读** |
-    >>>>
-    <<<<
-    | `public/shared/image-loader.js` | 图片加载器：`getPath` / `match` / `load` / `openPicker`。本仓库运行时（`useIconLib.js`）与构建期虚拟模块在读，另一个仓库不读它 |
+    | 从外面用 `!` 覆盖组件档位 | 优先给共享组件加档位（如 `Btn` 的 `lg` / `float-danger`），别从外面染档位颜色 |
     >>>>
 
     ### AGENTS.md
     <<<<
-      - `virtual:gg-icon-lib` ← `public/shared/gi-icons/icon-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
+    - **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。
     >>>>
     <<<<
-      - `virtual:gg-image-lib` ← `public/shared/image-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - **跑法**：
-    >>>>
-    <<<<
-    - **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
-    - **跑法**：
+    - **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。一图流表单里这是 `DEL` 常量；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
     >>>>
 
     ### AGENTS.md
     <<<<
-    - **允许的运行时全局**：图片字典要用的 `window.ICON_DICT` / `window.ICON_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+    - `Btn.vue` 的 `lg` / `float` 档位记得同步到 `adventurer-handbook`；顺带把「float + danger」加成正式组合（现在靠 `!` 覆盖，见第四节例外那条）。
     >>>>
     <<<<
-    - **允许的运行时全局**：图片字典要用的 `window.IMAGE_DICT` / `window.IMAGE_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
-    - `composables/useIconLib.js` 的名字**故意不带 `image`**：它同时管 `ui-icons.js`（界面图标），改名会误导。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    ### 图片字典的数据模型（`public/shared/gi-icons/icon-dict.js`）
-    >>>>
-    <<<<
-    ### 图片字典的数据模型（`public/shared/image-dict.js`）
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`icon-loader.js` 也留着兼容分支。
-    >>>>
-    <<<<
-    - **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`image-loader.js` 也留着兼容分支。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致。
-    >>>>
-    <<<<
-    - 星级底色等渐变算法必须与 `image-loader.js` 的 `applyBackground` 一致。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    ### 接下来这两件（已定）
-
-    1. **字典改名**（跨仓库）
-       它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `public/shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图）、`icon-loader.js`、全局变量 `window.ICON_DICT` / `window.ICON_LIB`、虚拟模块 `virtual:gg-icon-lib`、编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**跨仓库**：`adventurer-handbook` 有 4 个文件按绝对 URL 读它（见第三节），每个文件两处，必须同一批改完。
-    2. **图片处理工具**
-       接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
-    >>>>
-    <<<<
-    ### 接下来这件（已定）
-
-    **图片处理工具**
-    接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    | 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 2 条） |
-    >>>>
-    <<<<
-    | 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面那条） |
+    - `Btn.vue` 的 `lg` / `float` / `float-danger` 档位记得同步到 `adventurer-handbook`（那边连 `float` 都还没有）；`tokens.css` 新加的 `--color-preview` 也要同步 —— 这两个文件都要求两仓库逐字节相同。
     >>>>
 
     ### CHANGELOG.md
-    <<<<
-    ### 2026-11-08 · 角色一图流搬进 SPA，四张 txt 退休
-    >>>>
     <<<<
     ### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，图标字典改名「图片字典」
     >>>>
-
-    ### CHANGELOG.md
     <<<<
-    全程用清单式临时 Action 在手机上完成。
-    >>>>
-    <<<<
-    全程用清单式临时 Action 在手机上完成。同一批还顺手把字典改名：它已经不只管图标，`icon-dict.js` / `icon-loader.js` 从 `shared/gi-icons/` 挪到 `shared/` 叫 `image-dict.js` / `image-loader.js`，全局变量与虚拟模块跟着叫 `IMAGE_DICT` / `IMAGE_LIB` / `virtual:gg-image-lib`，页面、路由（`#/image-dict`）与全站文案改成「图片字典」；另一个仓库那 4 处读法同批改完，两边名字才对齐。
+    ### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，字典改名，删除按钮收成一档
     >>>>
 
     ### CHANGELOG.md
     <<<<
-    站点只剩 3 个 iframe 旧工具。
+    另一个仓库那 4 处读法同批改完，两边名字才对齐。
     >>>>
     <<<<
-    站点只剩 3 个 iframe 旧工具；`shared/` 里只剩 `ui-icons.js` 与改名后的图片字典 / 加载器，`gi-icons/` 这个只放代码的目录消失。
+    另一个仓库那 4 处读法同批改完，两边名字才对齐。同日还把预览框右上角的删除 / 清空按钮收成一档：三个工具本来各写各的（一图流拿 `!` 覆盖档位颜色，两个封面只把图标染红，同一个位置两种观感），这次给 `Btn` 加了 `float-danger` 档，三处统一成「浮层外观 + 红图标红描边」，预览框那块裸 hex 深底也收进令牌 `--color-preview`（不随主题变）。
     >>>>
 
   # ---------- ③ 删文件 / 目录 ----------
   DELETES: |
-    # 这批没有要删的文件（`gi-icons/` 搬空后自己就没了，空目录 git 不记）
+    # 这批没有要删的文件
 
   # ---------- ④ 自检 ----------
   CHECKS: |
-    ! grep -rn 'ICON_DICT\|ICON_LIB\|icon-dict\|icon-loader\|gi-icons\|useIconDict\|IconEditor\|icon-editor\|gg-icon-lib\|图标字典' src public vite.config.js index.html README.md AGENTS.md
-    test -z "$(ls -A public/shared/gi-icons 2>/dev/null)"
+    test "$(grep -c 'float-danger' src/components/Btn.vue)" = 3
+    grep -q "'float-danger':" src/components/Btn.vue
+    grep -q "'float', 'float-danger'" src/components/Btn.vue
+    grep -q 'variant="float-danger"' src/views/CharacterGuide.vue
+    grep -q 'variant="float-danger"' src/views/VideoCover.vue
+    grep -q 'variant="float-danger"' src/views/CollectionCover.vue
+    ! grep -q 'text-danger!' src/views/CharacterGuide.vue
+    ! grep -q 'border-danger/30!' src/views/CharacterGuide.vue
+    ! grep -q 'class="text-danger"' src/views/CollectionCover.vue
+    ! grep -q 'bg-\[#121212\]' src/components/PreviewFrame.vue
+    grep -q 'bg-preview' src/components/PreviewFrame.vue
+    grep -q '一图流与两个封面工具共用' src/components/PreviewFrame.vue
+    grep -q -- '--color-preview: #121212;' src/styles/tokens.css
+    grep -q -- '同步日期 2026-11-08' src/styles/tokens.css
+    ! grep -q '已知一处例外' AGENTS.md
+    grep -q 'float-danger' AGENTS.md
+    grep -q -- '--color-preview' AGENTS.md
+    grep -q 'float-danger' CHANGELOG.md
     test -f public/shared/image-dict.js
-    test -f public/shared/image-loader.js
-    test -f src/composables/useImageDict.js
     test -f src/views/ImageDict.vue
-    grep -q "key: 'image-dict'" src/router.js
-    grep -q "import('./views/ImageDict.vue')" src/router.js
-    grep -q "'image-dict': '维护图片字典" src/views/Home.vue
-    grep -q "const DICT_SRC = 'shared/image-dict.js'" src/composables/useImageDict.js
-    grep -q "'window.IMAGE_DICT = {', '  config: {'" src/composables/useImageDict.js
-    grep -q "shared/image-dict.js', 'IMAGE_DICT'" src/composables/useIconLib.js
-    grep -q "shared/image-dict.js', 'IMAGE_DICT'" src/lib/videoCover.js
-    node --check src/composables/useImageDict.js && node --check src/composables/useIconLib.js && node --check src/lib/videoCover.js && node --check src/router.js && node --check vite.config.js && node --check public/shared/image-loader.js && node --check public/shared/image-dict.js
-    ! grep -q 'loadArtifactIcons' src/composables/useIconLib.js
-    node -e 'const fs=require("fs"),win={},doc={getElementsByTagName:()=>[{src:"https://x/shared/image-loader.js"}],createElement:()=>({getContext:()=>null,style:{},setAttribute(){}}),head:{appendChild(){}},body:{appendChild(){}},addEventListener(){},removeEventListener(){}};new Function("window","document",fs.readFileSync("public/shared/image-loader.js","utf8"))(win,doc);if(!win.IMAGE_LIB)throw new Error("加载器没挂 window.IMAGE_LIB");new Function("window",fs.readFileSync("public/shared/image-dict.js","utf8"))(win);if(!win.IMAGE_DICT)throw new Error("字典没挂 window.IMAGE_DICT");const n=Object.keys(win.IMAGE_DICT.characters).length;const hit=win.IMAGE_LIB.match("characters","安柏");if(!hit||!hit.key)throw new Error("加载器读不到字典："+JSON.stringify(hit));console.log("契约 ok：角色 "+n+" 条，match 安柏 → "+hit.key)'
 
 jobs:
   reorg:
@@ -720,6 +376,8 @@ jobs:
               text = p.read_text(encoding='utf-8')
               if src not in text:
                   die('没找到原文：' + path)
+              if text.count(src) != 1:
+                  die('原文在 %s 里出现 %d 次，不唯一：%s' % (path, text.count(src), src.split('\n')[0][:60]))
               p.write_text(text.replace(src, dst), encoding='utf-8')
               print('改了 ' + path)
 
