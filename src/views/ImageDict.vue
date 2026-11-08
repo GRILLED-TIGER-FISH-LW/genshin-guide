@@ -34,6 +34,9 @@ import { useImageDict } from '../composables/useImageDict.js'
  *             close export file guides import inbox reload reorder search textFont
  * ------------------------------------------------------------------------- */
 
+/* 删除按钮的红描边：danger 的浅底贴在卡片上只有 1.02:1，靠这 1px 红线区分（见 AGENTS.md 第四节） */
+const DEL = 'border border-danger/30'
+
 const {
   loading,
   tab,
@@ -415,7 +418,7 @@ onMounted(init)
                 />
               </span>
 
-              <Btn size="sm" variant="danger" square aria-label="删除" @click="removeRow(row)">
+              <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除" @click="removeRow(row)">
                 <template #icon><Icon name="ui.trash" size="sm" /></template>
               </Btn>
             </div>
@@ -544,7 +547,7 @@ onMounted(init)
           </div>
 
           <div class="flex justify-end">
-            <Btn size="sm" variant="danger" @click="removeRow(activeRow)">
+            <Btn size="sm" variant="danger" :class="DEL" @click="removeRow(activeRow)">
               <template #icon><Icon name="ui.trash" size="sm" /></template>
               删除这条
             </Btn>
@@ -563,7 +566,7 @@ onMounted(init)
     <!-- ---------------- 底部 ---------------- -->
     <footer class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-3 py-2">
       <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ infoText }}</p>
-      <Btn size="sm" variant="danger" :disabled="!sorted.length" @click="confirmOpen = true">
+      <Btn size="sm" variant="danger" :class="DEL" :disabled="!sorted.length" @click="confirmOpen = true">
         <template #icon><Icon name="ui.trash" size="sm" /></template>
         清空
       </Btn>
