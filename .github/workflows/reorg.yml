@@ -1,31 +1,16 @@
 name: Reorg
 
-# 机械改动 + 大删除的通用机器人（清单区就在下面 env 里）。
-#   改清单 → Actions 里选 Reorg → Run workflow（清单名用默认的即可）
-#   → 它在 reorg-<清单名> 分支上做完、跑一次 npm run build → 你去 compare 页面合并。
-#   任一步失败都不会推分支、不会动 main。
-#   这份工作流常驻：跑完只推分支，自己不会消失，下次换掉 env 里那四段清单接着用。
+# 清单式 Action：机械改动 / 大删除 / 全仓库同一个字符串替换 / 文档批量改 —— 都走这里。
+#   清单在仓库根的 `reorg-list.txt`（四段：MOVES / EDITS / DELETES / CHECKS，格式见那个文件顶部）。
+#   跑法：改 reorg-list.txt → 提交 → Actions → Reorg → Run workflow（清单名会变成分支名 reorg-<名字>）
+#        → 它在 reorg-<清单名> 分支上做完 + 跑一次 npm run build → 去 compare 页面合并。
+#   任一步失败都不推分支、不碰 main。
+#   **这份工作流常驻、不用再动**（清单不在它里面了）；两个仓库的这份文件逐字节相同。
 #
-# 清单格式
-#   ① MOVES    一行一条：旧路径 -> 新路径
-#   ② EDITS    一条一个块，格式固定四段：
-#                 ### 文件路径
-#                 <<<<
-#                 原文（可多行，逐字查找；找不到就中止；同一文件里要唯一，多处就分几个块写）
-#                 >>>>
-#                 <<<<
-#                 新文
-#                 >>>>
-#   ③ DELETES  一行一个路径（文件或目录都行）
-#   ④ CHECKS   一行一条命令，非 0 即中止（失败会打印该命令的输出）
-#   经验：自检要查「实际读取」，别查名字 —— 新文注释里顺手写个文件名就会把自己卡住（栽过一次）。
-#
-# 这一批（danger-buttons）：把剩下几处删除按钮补齐红描边（AGENTS 第四节那条规矩）。
-#   · 图片字典三处 `variant="danger"` 没带 `border-danger/30`（贴在卡片上等于没底）→ 抽 `DEL` 常量用上
-#   · 视频封面「浮动图片」行内那个删除按钮还是 secondary + 只染图标 → 改成 danger + 红描边 + 图标走 currentColor
-#   · AGENTS：机器人那段补一句新的中止条件（原文在同一文件里出现两次以上也中止）
-#   · CHANGELOG：并进 11-08 那条
-#   · 不动 public/tools/ 的三个 iframe 老页面（等它们搬进 SPA 时一并改）
+# 经验（都是栽过的）：
+#   · 自检要查「实际行为」，别查名字 —— 新文注释里顺手写个被检查的字符串会把自己卡住；
+#   · 原文在同一文件里出现不止一次也中止（否则 str.replace 会顺手改掉别处）；
+#   · EDITS 段里不要写 `#` 注释行（会被当成文件路径）；注释写在段外或 MOVES/DELETES/CHECKS 段里。
 
 on:
   workflow_dispatch:
@@ -33,133 +18,14 @@ on:
       batch:
         description: 清单名（会建 reorg-<名字> 分支）
         required: true
-        default: danger-buttons
+        default: reorg
+      list:
+        description: 清单文件路径
+        required: true
+        default: reorg-list.txt
 
 permissions:
   contents: write
-
-env:
-  # ---------- ① 搬文件 ----------
-  MOVES: |
-    # 这批没有要搬的文件
-
-  # ---------- ② 替换 ----------
-  EDITS: |
-    ### src/views/ImageDict.vue
-    <<<<
-     * ------------------------------------------------------------------------- */
-
-    const {
-      loading,
-    >>>>
-    <<<<
-     * ------------------------------------------------------------------------- */
-
-    /* 删除按钮的红描边：danger 的浅底贴在卡片上只有 1.02:1，靠这 1px 红线区分（见 AGENTS.md 第四节） */
-    const DEL = 'border border-danger/30'
-
-    const {
-      loading,
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-                  <Btn size="sm" variant="danger" square aria-label="删除" @click="removeRow(row)">
-    >>>>
-    <<<<
-                  <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除" @click="removeRow(row)">
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-                <Btn size="sm" variant="danger" @click="removeRow(activeRow)">
-    >>>>
-    <<<<
-                <Btn size="sm" variant="danger" :class="DEL" @click="removeRow(activeRow)">
-    >>>>
-
-    ### src/views/ImageDict.vue
-    <<<<
-          <Btn size="sm" variant="danger" :disabled="!sorted.length" @click="confirmOpen = true">
-    >>>>
-    <<<<
-          <Btn size="sm" variant="danger" :class="DEL" :disabled="!sorted.length" @click="confirmOpen = true">
-    >>>>
-
-    ### src/views/VideoCover.vue
-    <<<<
-                    <Btn
-                      variant="secondary"
-                      size="sm"
-                      square
-                      aria-label="删除"
-                      @click="s.floatImg.splice(i, 1)"
-                    >
-                      <template #icon><Icon name="ui.trash" class="text-danger" /></template>
-                    </Btn>
-    >>>>
-    <<<<
-                    <Btn
-                      variant="danger"
-                      size="sm"
-                      square
-                      class="border border-danger/30"
-                      aria-label="删除"
-                      @click="s.floatImg.splice(i, 1)"
-                    >
-                      <template #icon><Icon name="ui.trash" /></template>
-                    </Btn>
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。一图流表单里这是 `DEL` 常量；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
-    >>>>
-    <<<<
-    - **危险色在小尺寸图标按钮上「看不见」**：`danger` 的底色 `#f8e9e7` 与卡片底 `#faf9f5` 对比只有 1.02:1，所以删除按钮一律补一条 `border border-danger/30`（旧版也是靠那 1px 红线区分）。同一页出现两次以上就抽个 `DEL = 'border border-danger/30'` 常量（一图流、图片字典都这么写），只出现一次就直接写进 class（视频封面的浮动图片行）；预览框右上角那种悬浮按钮一律用 `Btn` 的 `float-danger` 档（自带这条红边），三个工具别再各写各的。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - **铁律**：只推 `reorg-<名字>` 分支，**永远不碰 main**；任一步失败都不推；替换找不到原文就中止；自检失败就中止。
-    >>>>
-    <<<<
-    - **铁律**：只推 `reorg-<名字>` 分支，**永远不碰 main**；任一步失败都不推；替换找不到原文就中止；**原文在同一文件里出现不止一次也中止**（否则 `str.replace` 会顺手改掉别处）；自检失败就中止。
-    >>>>
-
-    ### AGENTS.md
-    <<<<
-    - `Btn.vue` 的 `lg` / `float` / `float-danger` 档位记得同步到 `adventurer-handbook`（那边连 `float` 都还没有）；`tokens.css` 新加的 `--color-preview` 也要同步 —— 这两个文件都要求两仓库逐字节相同。
-    >>>>
-    <<<<
-    - `adventurer-handbook` 的 `Btn.vue` 还缺 `lg` / `float` / `float-danger` 三档 —— 那边现在没有预览框、也没有底部悬浮主操作，用不到；等哪页真用上再同步。`tokens.css` 要求两仓库逐字节相同，改动一律两边同时改（`--color-preview` 与同步日期已于 2026-11-08 对齐）。
-    >>>>
-
-    ### CHANGELOG.md
-    <<<<
-    预览框那块裸 hex 深底也收进令牌 `--color-preview`（不随主题变）。
-    >>>>
-    <<<<
-    预览框那块裸 hex 深底也收进令牌 `--color-preview`（不随主题变）；表单里剩下那几处删除按钮（视频封面的浮动图片行、图片字典三处）也补齐了 `border-danger/30` —— 全站删除按钮现在只剩两种写法：表单里 `danger` + 红描边，浮在图上 `float-danger`。
-    >>>>
-
-  # ---------- ③ 删文件 / 目录 ----------
-  DELETES: |
-    # 这批没有要删的文件
-
-  # ---------- ④ 自检 ----------
-  CHECKS: |
-    test "$(grep -c 'const DEL' src/views/ImageDict.vue)" = 1
-    test "$(grep -c ':class="DEL"' src/views/ImageDict.vue)" = 3
-    test "$(grep -c 'variant="danger"' src/views/ImageDict.vue)" = 3
-    grep -q 'class="border border-danger/30"' src/views/VideoCover.vue
-    ! grep -q 'ui.trash" class="text-danger"' src/views/VideoCover.vue
-    grep -q '原文在同一文件里出现不止一次也中止' AGENTS.md
-    grep -q '只出现一次就直接写进 class' AGENTS.md
-    grep -q '那边现在没有预览框、也没有底部悬浮主操作' AGENTS.md
-    grep -q 'border-danger/30' CHANGELOG.md
-    grep -q 'variant="float-danger"' src/views/CharacterGuide.vue
-    test -f src/styles/tokens.css
 
 jobs:
   reorg:
@@ -172,10 +38,23 @@ jobs:
           node-version: 20
 
       - name: 按清单区改
+        env:
+          LIST_FILE: ${{ inputs.list }}
         run: |
           python3 - <<'PY'
           import os, re, subprocess, sys
           from pathlib import Path
+
+          list_path = Path(os.environ['LIST_FILE'])
+          if not list_path.is_file():
+              print('中止：找不到清单文件 ' + str(list_path))
+              sys.exit(1)
+          LIST = list_path.read_text(encoding='utf-8')
+
+          def section(name):
+              # 取 == NAME == 与下一个 == … == 之间的内容；段外的行一律忽略
+              m = re.search(r'^==\s*%s\s*==\s*$(.*?)(?=^==\s*\w+\s*==\s*$|\Z)' % name, LIST, re.S | re.M)
+              return m.group(1) if m else ''
 
           def pick(text):
               return [l.strip() for l in text.split('\n') if l.strip() and not l.strip().startswith('#')]
@@ -225,8 +104,21 @@ jobs:
               print('中止：' + msg)
               sys.exit(1)
 
+          moves = pick(section('MOVES'))
+          records = split_records(section('EDITS'))
+          deletes = pick(section('DELETES'))
+          checks = pick(section('CHECKS'))
+
+          print('清单文件 %s：MOVES %d 条 / EDITS %d 块 / DELETES %d 条 / CHECKS %d 条'
+                % (list_path, len(moves), len(records), len(deletes), len(checks)))
+
+          if not (moves or records or deletes):
+              die('清单四段里没有要做的改动')
+          if not checks:
+              die('清单里没有 CHECKS：每批都要有自检')
+
           # ① 搬
-          for entry in pick(os.environ.get('MOVES', '')):
+          for entry in moves:
               from_, sep, to = entry.partition(' -> ')
               if not sep:
                   die('MOVES 这行没有 -> ：' + entry)
@@ -234,10 +126,6 @@ jobs:
               print('mv %s -> %s' % (from_, to))
 
           # ② 替换
-          edits = os.environ.get('EDITS', '')
-          records = split_records(edits)
-          if edits.strip() and not records:
-              die('EDITS 里没有 ### 头')
           for rec in records:
               lines = rec.split('\n')
               path = lines[0].strip()
@@ -257,12 +145,12 @@ jobs:
               print('改了 ' + path)
 
           # ③ 删
-          for path in pick(os.environ.get('DELETES', '')):
+          for path in deletes:
               subprocess.run(['git', 'rm', '-r', '-q', '--ignore-unmatch', path], check=True)
               print('rm ' + path)
 
           # ④ 自检：失败时把命令输出也打出来
-          for check in pick(os.environ.get('CHECKS', '')):
+          for check in checks:
               print('check: ' + check)
               r = subprocess.run(['bash', '-c', check], capture_output=True, text=True)
               if r.returncode != 0:
