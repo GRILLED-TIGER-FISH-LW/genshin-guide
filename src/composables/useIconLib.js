@@ -3,7 +3,7 @@ import { loadGlobalScript } from './useData.js'
 /* =========================================================================
  * 共享脚本 · 取图入口
  * -------------------------------------------------------------------------
- * · shared/gi-icons/icon-dict.js + icon-loader.js：图标字典本体与查询
+ * · shared/image-dict.js + image-loader.js：图片字典本体与查询
  * · shared/ui-icons.js：本仓库的图标真源。SPA 界面的图标走构建期虚拟模块
  *   （vite.config.js 的 virtual:gg-icons），但那个模块只收「值是 <svg 字符串」
  *   的条目 —— element / artifact / card 三组存的是路径数据，界面用不到、
@@ -22,12 +22,12 @@ function sharedGlobal(path, name) {
   })()
 }
 
-function iconLib() {
+function imageLib() {
   if (!dictTask) {
     dictTask = (async () => {
-      await sharedGlobal('shared/gi-icons/icon-dict.js', 'ICON_DICT')
-      await sharedGlobal('shared/gi-icons/icon-loader.js', 'ICON_LIB')
-      return window.ICON_LIB
+      await sharedGlobal('shared/image-dict.js', 'IMAGE_DICT')
+      await sharedGlobal('shared/image-loader.js', 'IMAGE_LIB')
+      return window.IMAGE_LIB
     })().catch((err) => {
       dictTask = null /* 失败不缓存，下次还能重试 */
       throw err
@@ -42,7 +42,7 @@ export async function matchIcon(type, name) {
   const query = String(name || '').trim()
   if (!query) return ''
   try {
-    const hit = await (await iconLib()).fromName(type, query)
+    const hit = await (await imageLib()).fromName(type, query)
     return hit?.dataURL || ''
   } catch {
     return ''
@@ -55,8 +55,8 @@ export async function dictEntry(type, name) {
   const query = String(name || '').trim()
   if (!query) return null
   try {
-    const hit = (await iconLib()).match(type, query)
-    return hit ? window.ICON_DICT?.[type]?.[hit.key] || null : null
+    const hit = (await imageLib()).match(type, query)
+    return hit ? window.IMAGE_DICT?.[type]?.[hit.key] || null : null
   } catch {
     return null
   }
@@ -66,8 +66,8 @@ export async function dictEntry(type, name) {
    card / art 各有一组。字典条目只记代号，地址按这套规则拼 */
 export async function dictConfig(type) {
   try {
-    await iconLib()
-    return window.ICON_DICT?.config?.[type] || null
+    await imageLib()
+    return window.IMAGE_DICT?.config?.[type] || null
   } catch {
     return null
   }
@@ -84,6 +84,3 @@ export function loadUiIcons() {
   }
   return uiTask
 }
-
-/* shortcut: 上一版页面用的是这个只取 artifact 组的名字，等批 6 合并完删掉 */
-export const loadArtifactIcons = async () => (await loadUiIcons())?.artifact || {}

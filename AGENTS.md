@@ -53,11 +53,11 @@
     │   ├── main.js router.js App.vue
     │   ├── styles/             tokens.css（令牌唯一真源）· base.css · app.css
     │   ├── components/         通用控件
-    │   ├── composables/        useTheme · useToast · useData · useIconDict · useIconLib
+    │   ├── composables/        useTheme · useToast · useData · useImageDict · useIconLib
     │   ├── lib/                纯绘制 / 导出 / 存档引擎（不碰界面）
     │   │                       videoCover · collectionCover · guideChart · guideConsts
     │   │                       guideStore · assets · fonts
-    │   └── views/              Home · CharacterGuide · IconEditor · VideoCover · CollectionCover
+    │   └── views/              Home · CharacterGuide · ImageDict · VideoCover · CollectionCover
     └── public/                 整目录照搬进 dist（不走打包）
         ├── shared/             UI 图标库 + 图片字典 / 加载器 —— 真共享，只有这两样
         ├── tools/              旧工具页（图片处理 / 图表 / 角色梯队）
@@ -86,7 +86,8 @@
 
 **只剩 1 个，且只有单向**：
 
-- `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/gi-icons/icon-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'ICON_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。改名见待办。
+- `adventurer-handbook` → 绝对 URL 读本仓库的 `public/shared/image-dict.js`（**图片字典**）。**已知 4 个文件在读**：`src/views/{GiftSet,GiftSetEditor,Tales,TalesEditor}.vue`，每个文件两处（URL 常量 + `loadGlobalScript(..., 'IMAGE_DICT')`），都带 `.catch(() => null)`，所以断了只是没图标、不白屏。
+- 图片字典页的图标键仍叫 `nav.iconEditor`（图标键名与另一个仓库共用，不随页面改名）。
 - **反向禁止**：本仓库不依赖 `adventurer-handbook`；图标一律来自本仓库自己的 `public/shared/ui-icons.js`。
 
 ---
@@ -104,7 +105,7 @@
 | `src/components/{AppNav,AppDrawer,FrameLayer,ToastHost,SyncReport}` | 应用外壳 |
 | `src/lib/fonts.js` | 字体：清单 / 取字节 / 装进文档 / 导出用的 `@font-face` 文本 |
 | `src/lib/assets.js` | 资源层：图片尺寸 / 远程图转 dataURL / 存文件 / SVG→PNG |
-| `public/shared/gi-icons/icon-loader.js` | 图标加载器：`getPath` / `match` / `load` / `openPicker`。**两个仓库都在读** |
+| `public/shared/image-loader.js` | 图片加载器：`getPath` / `match` / `load` / `openPicker`。本仓库运行时（`useIconLib.js`）与构建期虚拟模块在读，另一个仓库不读它 |
 
 **先看有没有现成的**：控件一律用共享层，不新写本地样式、不用浏览器原生外观。
 
@@ -155,13 +156,14 @@
   （没搬的旧工具页仍写着 `../../shared/`，由 `vite.config.js` 里的插件在构建时改写成带仓库前缀的 `shared/`。）
 - 图标走**构建期虚拟模块**，运行时不再加载图标脚本：
   - `virtual:gg-icons` ← `public/shared/ui-icons.js`（只收值是 `<svg` 开头的条目，剥掉外层 `<svg>`，键名 `组.名字`，如 `ui.trash`）
-  - `virtual:gg-icon-lib` ← `public/shared/gi-icons/icon-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
+  - `virtual:gg-image-lib` ← `public/shared/image-loader.js`（只取 `STAR_COLORS`；它在加载时会摸 `document`，插件里给了 `DOC_STUB` 垫片）
   - **代价**：虚拟模块只给 24 视框能用的界面图标；`element` / `artifact` 两组是 **1024 视框的路径数据**，用 `Icon.vue` 会画到画面外（它外框写死 24）。要用就自己套 `viewBox="0 0 1024 1024"`（`CharacterGuide.vue` 里的 `elementIcon()` 就是这么干的）。
-- **允许的运行时全局**：图片字典要用的 `window.ICON_DICT` / `window.ICON_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+- **允许的运行时全局**：图片字典要用的 `window.IMAGE_DICT` / `window.IMAGE_LIB`，走 `useData.js` 的 `loadGlobalScript()` 载入；`src/lib/` 与 `composables/useIconLib.js` 里各有一处 `window`，**不外溢**。
+- `composables/useIconLib.js` 的名字**故意不带 `image`**：它同时管 `ui-icons.js`（界面图标），改名会误导。
 - 本地草稿一律 IndexedDB，**库名 / 表名 / 键名不能改**：`video_cover_db` / `video_state`、`collection_state`、`icon_dict_editor_v4`、`genshin_card_db_v5` / `card_store` / `current_state`。
 - **字典是角色数据的唯一真源**：序号（`order`）、立绘（`art.url`）、名片（`card.key` + `config.characters.card` 规则）。封面与一图流都从这里取，不再有 txt。
 
-### 图片字典的数据模型（`public/shared/gi-icons/icon-dict.js`）
+### 图片字典的数据模型（`public/shared/image-dict.js`）
 
 - **地址 = 规则 + 代号**。`config[分类]` 放两组源规则：主源（lunaris）用 `prefix` / `ext`，备用源（Amber）在同级的 `alt`。条目 key 是**代号**（`Ambor` / `10001_4` / `Sword_Blunt`），不是图标全名。
 - 条目字段：`name` / `order` / `star` / `url` / `alt` / `lock` / `card` / `art`。
@@ -169,8 +171,8 @@
   - `card` / `art` 是槽位对象（`{ key, url, alt }`）；`key` 是那一格的代号 —— 头像代号和名片代号**可以不一样**（绮良良：Momoka / Kirara）。
   - **名片地址要拼 `config.characters.card` 那一组规则**（顶层 `prefix` / `ext` 是头像规则，拿它去拼 `card.key` 会拼出头像）。
   - `lock: true`：这一条同步整条不碰。**其余情况下同步按槽位算**：头像槽 / 名片槽带 `url` 或 `alt` 就留用户的，名字 / 星级 / 序号永远跟源走。
-- **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`icon-loader.js` 也留着兼容分支。
-- 星级底色等渐变算法必须与 `icon-loader.js` 的 `applyBackground` 一致。
+- **导出格式逐字不能变**（两个仓库都在读）；老格式（全名 key、`local: true`）载入时会被自动归一，`image-loader.js` 也留着兼容分支。
+- 星级底色等渐变算法必须与 `image-loader.js` 的 `applyBackground` 一致。
 
 ### 绘制与导出
 
@@ -278,6 +280,7 @@
 | `CHECKS` | 一行一条命令，非 0 即中止（失败会打印该命令的输出） |
 
 - **多行块必须用 python 解析**：bash 的 `while read` 是按行读的，会把多行块拆成一堆假清单（第一版就这么栽的，清单里已经写着这句）。
+- **行首 `###` 只在标记区外当头**：原文 / 新文里出现行首 `###`（比如改文档里的小标题）不会被切错。
 - **跑法**：改清单 → 提交（一次提交）→ `Actions` → 左侧 `Reorg` → `Run workflow`（从 `main` 跑，清单名会变成分支名 `reorg-<名字>`）→ 日志里那段 `git status --short` 就是这次动了哪些文件。
 - **验收**：`https://github.com/GRILLED-TIGER-FISH-LW/<仓库>/compare/main...reorg-<名字>` → 开 PR → Merge → 删临时分支。GitHub 推的分支在手机上看不到「recent pushes」横幅，直接用这条链接。
 - **顺序铁律**：`EDITS` → `DELETES` → `CHECKS` → 构建 → 才提交推送。所以「先改代码、再删它读的文件」在一个清单里是安全的。
@@ -289,18 +292,16 @@
 
 ## 七、待办 / 下一步
 
-### 接下来这两件（已定）
+### 接下来这件（已定）
 
-1. **字典改名**（跨仓库）
-   它已经是「原神图片通用字典」，再叫图标字典不合适。要一起动的：文件名 `public/shared/gi-icons/icon-dict.js`（建议挪出 `gi-icons/` —— 那个目录本该只放仓库里的图）、`icon-loader.js`、全局变量 `window.ICON_DICT` / `window.ICON_LIB`、虚拟模块 `virtual:gg-icon-lib`、编辑器页面 / 路由 / 抽屉 / README 里所有「图标字典」字样。**跨仓库**：`adventurer-handbook` 有 4 个文件按绝对 URL 读它（见第三节），每个文件两处，必须同一批改完。
-2. **图片处理工具**
-   接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
+**图片处理工具**
+接下来要搬 / 改的是它，但**不整体拆**：留几个子功能、删几个，具体留哪些待定。
 
 ### 还没搬进 SPA 的 3 个工具（按建议顺序）
 
 | 工具 | 说明 |
 |---|---|
-| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面第 2 条） |
+| 图片处理 | 7 个子功能，共用父页面靠 postMessage 切；滑杆很多，`Slider` 已备好（见上面那条） |
 | 图表 | 雷达图 / 柱状图 |
 | 角色梯队 | 单页，最简单，可以拿来当收尾 |
 

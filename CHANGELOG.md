@@ -19,11 +19,11 @@
 
 ## 2026 年 11 月
 
-### 2026-11-08 · 角色一图流搬进 SPA，四张 txt 退休
+### 2026-11-08 · 角色一图流搬进 SPA；四张 txt 退休，图标字典改名「图片字典」
 
 - **起因**：角色一图流是最后一块「旧界面」大工具（`public/tools/character/`，consts / svg / app 三层，`app.js` 74KB）；它的数据还分散在 `characters.txt` / `character-art.txt` / `namecards.txt` 三张文本表里，与图片字典两套并存 —— 表现就是「旅行者·冰」这类分元素角色在视频封面里只有立绘，编号与名片是空的。
-- **经过**：卡片按旧版骨架 1:1 复刻进 Vue（九个分区、组头可收起展开、散搭左右并排、备选左缩进竖线、缩略图 40px 对齐输入框）；坐标与配色进 `guideConsts.js`，绘制引擎原样进 `guideChart.js`（拼字符串 + `v-html`，改动量最小），草稿 / 在线存档 / 从字典补齐素材进 `guideStore.js`，资源层抽成 `assets.js`（图片尺寸 / 远程图转 dataURL / 存文件 / SVG→PNG）；封面工具的 `loadData()` 与字典编辑器的序号表、立绘清单改成现算自字典，三张 txt 与 `public/tools/character/` 一并删除。全程用清单式临时 Action 在手机上完成。
-- **结果**：字典成为角色数据的唯一真源，`public/data/` 只剩 `logos.txt`；卡片支持自动草稿、载入仓库存档、字体选择、导出 3840×2160 PNG；「旅行者·冰」这类角色的编号与名片不再缺；站点只剩 3 个 iframe 旧工具。
+- **经过**：卡片按旧版骨架 1:1 复刻进 Vue（九个分区、组头可收起展开、散搭左右并排、备选左缩进竖线、缩略图 40px 对齐输入框）；坐标与配色进 `guideConsts.js`，绘制引擎原样进 `guideChart.js`（拼字符串 + `v-html`，改动量最小），草稿 / 在线存档 / 从字典补齐素材进 `guideStore.js`，资源层抽成 `assets.js`（图片尺寸 / 远程图转 dataURL / 存文件 / SVG→PNG）；封面工具的 `loadData()` 与字典编辑器的序号表、立绘清单改成现算自字典，三张 txt 与 `public/tools/character/` 一并删除。全程用清单式临时 Action 在手机上完成。同一批还顺手把字典改名：它已经不只管图标，`icon-dict.js` / `icon-loader.js` 从 `shared/gi-icons/` 挪到 `shared/` 叫 `image-dict.js` / `image-loader.js`，全局变量与虚拟模块跟着叫 `IMAGE_DICT` / `IMAGE_LIB` / `virtual:gg-image-lib`，页面、路由（`#/image-dict`）与全站文案改成「图片字典」；另一个仓库那 4 处读法同批改完，两边名字才对齐。
+- **结果**：字典成为角色数据的唯一真源，`public/data/` 只剩 `logos.txt`；卡片支持自动草稿、载入仓库存档、字体选择、导出 3840×2160 PNG；「旅行者·冰」这类角色的编号与名片不再缺；站点只剩 3 个 iframe 旧工具；`shared/` 里只剩 `ui-icons.js` 与改名后的图片字典 / 加载器，`gi-icons/` 这个只放代码的目录消失。
 
 ### 2026-11-07 · 字典扩成「原神图片通用字典」，仓库目录跟着归位
 

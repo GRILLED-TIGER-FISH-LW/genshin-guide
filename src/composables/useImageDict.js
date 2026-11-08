@@ -1,17 +1,17 @@
 import { computed, reactive, ref } from 'vue'
-import { STAR_COLORS } from 'virtual:gg-icon-lib'
+import { STAR_COLORS } from 'virtual:gg-image-lib'
 import { useToast } from './useToast.js'
 import { loadGlobalScript } from './useData.js'
 
 /* =========================================================================
  * 图片字典 · 域逻辑
  * -------------------------------------------------------------------------
- * 注意：这不是「字典」本身。字典是 shared/gi-icons/icon-dict.js，这里是
+ * 注意：这不是「字典」本身。字典是 shared/image-dict.js，这里是
  * 编辑器页面的逻辑（载入 / 合并 / 序列化 / 颜色）。
  *
  * 【绝不能动的东西】
- *   · 导出 icon-dict.js 的逐字格式（它是被两个仓库读的文件）
- *   · 星级底色 + 径向渐变：必须与 shared/gi-icons/icon-loader.js 的
+ *   · 导出 image-dict.js 的逐字格式（它是被两个仓库读的文件）
+ *   · 星级底色 + 径向渐变：必须与 shared/image-loader.js 的
  *     applyBackground 一致
  *
  * 【地址 = config 里的规则 + 代号】
@@ -52,11 +52,12 @@ import { loadGlobalScript } from './useData.js'
  * ========================================================================= */
 
 const BASE = import.meta.env.BASE_URL
+/* 本地存储键名保留旧名：改它会让已存在的本地字典读不到（AGENTS 里「键名 / 表名不能改」） */
 const STORAGE_KEY = 'icon_dict_editor_v4'
 const LOG_KEY = 'genshin_icon_editor_sync_log_v1'
 const MAX_LOG = 10
-const DICT_SRC = 'shared/gi-icons/icon-dict.js'
-/* 角色序号与立绘都从图标字典现算（DICT_SRC），那两张 txt 已退休 */
+const DICT_SRC = 'shared/image-dict.js'
+/* 角色序号与立绘都从图片字典现算（DICT_SRC），那两张 txt 已退休 */
 
 const LU = 'https://api.lunaris.moe/data/assets/'
 const AMBER = 'https://gi.yatta.moe/assets/UI/'
@@ -198,7 +199,7 @@ function sameAsset(a, b) {
 }
 
 /* =========================================================================
- * 颜色：与 shared/gi-icons/icon-loader.js 里的 darken() 逐式相同
+ * 颜色：与 shared/image-loader.js 里的 darken() 逐式相同
  * ========================================================================= */
 
 function hexToHsl(hex) {
@@ -265,7 +266,7 @@ function darkenHex(hex, percent) {
 }
 
 /* =========================================================================
- * 序列化：导出 icon-dict.js 的逐字格式
+ * 序列化：导出 image-dict.js 的逐字格式
  * ========================================================================= */
 
 function escJs(s) {
@@ -306,7 +307,7 @@ function litRow(row) {
 }
 
 function serializeDict(config, data) {
-  const lines = ['window.ICON_DICT = {', '  config: {']
+  const lines = ['window.IMAGE_DICT = {', '  config: {']
 
   TYPES.forEach((type, ti) => {
     const cfg = config[type] || DEFAULT_CONFIG[type]
@@ -359,7 +360,7 @@ function readSlot(o) {
    「其实是源拼得出来的链接」那部分交给 tidyRow（要用到 config，得在实例里做） */
 function migrateRow(row, type) {
   if (row.local) {
-    /* 老格式：key 就是 shared/gi-icons/ 里的文件名 */
+    /* 老格式：key 就是文件名（仓库里的图放 public/images/game/） */
     if (!row.url) row.url = `${BASE}images/game/${row.key}`
     delete row.local
   } else if (row.url && !/^https?:\/\//i.test(row.url)) {
@@ -411,7 +412,7 @@ function readLog() {
 
 /* ========================================================================= */
 
-export function useIconDict() {
+export function useImageDict() {
   const toast = useToast()
 
   const loading = ref(true)
@@ -432,7 +433,7 @@ export function useIconDict() {
   const amberIndex = {}
   /* { byRoute, byCode } —— 名片表索引，只收 bond 类 */
   let cardMap = null
-  /* 立绘列表（由图标字典现算，见 fetchPortraits） */
+  /* 立绘列表（由图片字典现算，见 fetchPortraits） */
   let portraitList = null
 
   /* ---------------- 存储 ---------------- */
@@ -482,12 +483,12 @@ export function useIconDict() {
 
   /* ---------------- 资源 ---------------- */
 
-  /* 序号表改从图标字典现算：字典里「旅行者·冰」这类分元素条目是独立一条，
+  /* 序号表改从图片字典现算：字典里「旅行者·冰」这类分元素条目是独立一条，
      序号 1 还是只认第一个登记的那个，跟 txt 那版行为一致 */
   async function loadCharOrder() {
     try {
-      if (!window.ICON_DICT) await fetchDict()
-      const dict = window.ICON_DICT?.characters || {}
+      if (!window.IMAGE_DICT) await fetchDict()
+      const dict = window.IMAGE_DICT?.characters || {}
 
       for (const k of Object.keys(orderToName)) delete orderToName[k]
       for (const k of Object.keys(nameToOrder)) delete nameToOrder[k]
@@ -504,14 +505,14 @@ export function useIconDict() {
     }
   }
 
-  /* 立绘清单改成从图标字典现算：字典的 art.url 就是要用的地址，
+  /* 立绘清单改成从图片字典现算：字典的 art.url 就是要用的地址，
      条目自己没记代号时按地址反推一个（codeFrom），与 txt 那版一致。 */
   async function fetchPortraits() {
     if (portraitList) return portraitList
-    if (!window.ICON_DICT) await fetchDict()
+    if (!window.IMAGE_DICT) await fetchDict()
 
     const list = []
-    for (const [key, item] of Object.entries(window.ICON_DICT?.characters || {})) {
+    for (const [key, item] of Object.entries(window.IMAGE_DICT?.characters || {})) {
       const addr = item.art?.url
       if (!addr) continue
       list.push({
@@ -526,8 +527,8 @@ export function useIconDict() {
   }
 
   async function fetchDict() {
-    delete window.ICON_DICT
-    return loadGlobalScript(`${DICT_SRC}?t=${Date.now()}`, 'ICON_DICT')
+    delete window.IMAGE_DICT
+    return loadGlobalScript(`${DICT_SRC}?t=${Date.now()}`, 'IMAGE_DICT')
   }
 
   async function loadDict() {
@@ -1372,7 +1373,7 @@ export function useIconDict() {
       }
     }
 
-    /* ---- 立绘：从图标字典灌进来 ----
+    /* ---- 立绘：从图片字典灌进来 ----
        「有差异就更新」：字典是立绘的唯一来源，要改某张图就改字典。
        按名字对；名字对不上、而这个序号只有一个角色时才退到按序号对。 */
     busy.value = '正在导入立绘对照…'
@@ -1500,7 +1501,7 @@ export function useIconDict() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'icon-dict.js'
+    a.download = 'image-dict.js'
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -1508,7 +1509,7 @@ export function useIconDict() {
 
     dirty.value = false
     writeLocal()
-    toast.success('已导出 icon-dict.js')
+    toast.success('已导出 image-dict.js')
   }
 
   /* ---------------- 启动 ---------------- */

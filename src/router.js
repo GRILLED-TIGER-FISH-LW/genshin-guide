@@ -23,12 +23,12 @@ export const TOOLS = [
     component: () => import('./views/CharacterGuide.vue'),
   },
   {
-    key: 'icon-editor',
-    label: '图标字典编辑器',
+    key: 'image-dict',
+    label: '图片字典编辑器',
     icon: 'nav.iconEditor',
     /* 已搬进 SPA：用真组件，不再走 iframe。
        故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
-    component: () => import('./views/IconEditor.vue'),
+    component: () => import('./views/ImageDict.vue'),
   },
   {
     key: 'video-cover',

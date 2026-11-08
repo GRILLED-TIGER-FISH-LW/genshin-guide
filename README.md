@@ -27,7 +27,7 @@
 | 做一张世界 Boss 封面 | 同上，切到「Boss攻略」模式，第一行填 Boss 名 |
 | 做一张角色攻略一图流 | 进「角色一图流」，九个分区依次填；填完点底部「导出图片」 |
 | 做一张合集封面 | 进「封面制作 → 合集封面」，上传背景图 + 填标题 |
-| 维护图片字典 | 进「图标字典编辑器」，一键从 Amber 同步 |
+| 维护图片字典 | 进「图片字典编辑器」，一键从 Amber 同步 |
 | 换手机、换浏览器 | 先导出配置 / 存档，到新设备导入（见[数据保存](#save)） |
 | 夜间使用 | 点右上角图标切换深浅色 |
 
@@ -42,7 +42,7 @@
 |---|---|---|
 | 首页 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/) | — |
 | 角色一图流 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/character) | ✅ 新界面 |
-| 图标字典编辑器 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/icon-editor) | ✅ 新界面 |
+| 图片字典编辑器 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/image-dict) | ✅ 新界面 |
 | 封面制作 · 视频封面 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/video-cover/video) | ✅ 新界面 |
 | 封面制作 · 合集封面 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/video-cover/collection) | ✅ 新界面 |
 | 图片处理 | [打开](https://grilled-tiger-fish-lw.github.io/genshin-guide/#/image-tools) | 🟡 旧版界面 |
@@ -114,12 +114,12 @@
 
 ---
 
-## 🔤 图标字典编辑器
+## 🔤 图片字典编辑器
 
 - **一键同步**：从 Amber 拉最新数据，合并进本地字典。
 - **硬规则**（武器非五位数 / 28 开头怪物 / 官方旅行者图）会跳过并记进「跳过」，同时清掉本地同 key 的条目；**软规则只加不删**。
 - **粘贴 URL** 会自动补名字、星级、序号。
-- **导出 `icon-dict.js`**：格式被两个仓库读取，改动前想清楚。
+- **导出 `image-dict.js`**：格式被两个仓库读取，改动前想清楚。
 - 有未导出的改动时，导出按钮会变红提醒。
 
 > 字典里现在存着角色的**头像 / 名片 / 立绘**三样，以及圣遗物 / 武器 / 怪物图标，是全站图片的唯一真源 —— 角色一图流与封面工具都从这里取图，序号也从这里取。
@@ -133,14 +133,14 @@
 
 | 内容 | 存在哪 |
 |---|---|
-| 图标字典编辑器的编辑内容 | 浏览器本地存储（`icon_dict_editor_v4`） |
+| 图片字典编辑器的编辑内容 | 浏览器本地存储（`icon_dict_editor_v4`） |
 | 角色一图流草稿 | 浏览器 IndexedDB（`genshin_card_db_v5` → `card_store`） |
 | 视频封面配置 | 浏览器 IndexedDB（`video_cover_db` → `video_state`） |
 | 合集封面配置 | 浏览器 IndexedDB（`video_cover_db` → `collection_state`） |
 | 深浅色选择 | 浏览器本地存储 |
 
 > ⚠️ 封面的「清空」与一图流的「清空全部数据」都是**立即生效且不可撤销**的，里面有二次确认；清空前建议先「导出配置」备份。
-> 换手机时：封面与一图流用**导出配置 JSON** 搬，图标字典用**导出 `icon-dict.js`** 搬。
+> 换手机时：封面与一图流用**导出配置 JSON** 搬，图片字典用**导出 `image-dict.js`** 搬。
 
 ---
 
@@ -180,7 +180,7 @@
     │   ├── components/           通用控件（按钮 / 输入 / 下拉 / 弹窗 / 预览框 / 底部主操作…）
     │   ├── composables/          主题 / 提示队列 / 数据加载 / 图片字典
     │   ├── lib/                  纯引擎：绘制导出 / 草稿存档 / 字体 / 资源
-    │   └── views/                页面（首页 / 角色一图流 / 图标字典 / 两个封面）
+    │   └── views/                页面（首页 / 角色一图流 / 图片字典 / 两个封面）
     └── public/                   整个目录原样搬到网站根
         ├── shared/               真共享的两样：UI 图标库 + 图片字典与加载器
         ├── tools/                还没搬进新界面的 3 个旧工具页
