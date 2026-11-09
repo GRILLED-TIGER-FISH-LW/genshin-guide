@@ -180,6 +180,8 @@
 
 ### 绘制与导出
 
+- **导出图里的字体靠内嵌 @font-face**：SVG 当图片渲染时摸不到页面的 `document.fonts`，所以字体 CSS 必须在**克隆出来的节点**上用 `document.createElementNS('…svg', 'style')` 塞进 `<defs>`（角色一图流与视频封面同一套写法）。视频封面曾让 Vue 渲染这个 `<style>`，导出图一直是默认字体（2026-11-10）。几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
+
 - 两种都允许，按改动量选：
   - **视频封面 / 合集封面**：预览用模板里那份真正的 `<svg>`，导出克隆同一份节点。
   - **角色一图流**：引擎拼 SVG 字符串（`guideChart.js`，坐标走 `guideConsts.js`），预览 `v-html` 塞进去；导出时从 DOM 取那份 `<svg>` 克隆。它 30KB 的坐标代码搬进模板不划算，所以保持字符串。
@@ -299,7 +301,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`font-filename` —— 视频封面选字体时必须写 `s.fontFileName`（否则草稿剔掉 base64 后就再也找不回字体，导出永远默认）；`ensureFont()` 支持「只记得名字就按名字找」。上一批 `video-cover-fixes`：草稿深拷贝进 IDB、字体重取、Logo 旧路径自愈、参考线不进导出图。再上一批 `traveler-element` 是旅行者按元素分项。
+- **最后合并**：`font-embed` —— 视频封面的字体改成导出时用 `createElementNS` 内嵌进克隆的 `<defs>`，并先出小图预热字体缓存；提示里带字体名。上一批 `font-filename`：选字体时写 `s.fontFileName`、`ensureFont()` 支持按名字找回。再上一批 `video-cover-fixes`：草稿深拷贝进 IDB、Logo 旧路径自愈、参考线不进导出图。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
