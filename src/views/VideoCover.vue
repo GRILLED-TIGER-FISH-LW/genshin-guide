@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Btn from '../components/Btn.vue'
 import DockCta from '../components/DockCta.vue'
 import Dropdown from '../components/Dropdown.vue'
@@ -367,10 +367,7 @@ function healLogo() {
 /* ------------------------------------------------------------------ 导出 / 配置 */
 
 const exporting = ref(false)
-const embedFont = ref(false)
 const importInput = ref(null)
-
-const embedFontCss = computed(() => fonts.fontFaceCss(s.fontName, s.fontData))
 
 async function exportPng() {
   const svg = svgEl.value
@@ -383,25 +380,21 @@ async function exportPng() {
        拿不到就明说，别静默给一张默认字体的图 */
     if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
 
-    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体必须内嵌。
-       只在导出的这一瞬间挂上，预览里就不必把同一份字体再解析一遍。 */
-    if (s.fontName && s.fontData) {
-      embedFont.value = true
-      await nextTick()
-      await document.fonts?.ready
-    } else if (s.fontName || s.fontFileName) {
+    /* 字体跟着 SVG 一起进导出图：CSS 在 bakeSvg 里用 createElementNS 内嵌 */
+    const fontCss = s.fontName && s.fontData ? fonts.fontFaceCss(s.fontName, s.fontData) : ''
+    if (!fontCss && (s.fontName || s.fontFileName)) {
       toast.error('字体没能加载，这次导出用的是默认字体')
     }
 
-    const { blob, lost } = await cover.svgToPng(svg)
+    const { blob, lost, font } = await cover.svgToPng(svg, fontCss)
     if (!blob) throw new Error('画布导出失败')
     cover.download(blob, cover.pngName(s))
     if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
+    else if (font) toast.success(`导出成功（已嵌入字体：${s.fontName}）`)
     else toast.success('导出成功')
   } catch (err) {
     toast.error(`导出失败：${err.message}`)
   } finally {
-    embedFont.value = false
     exporting.value = false
   }
 }
@@ -491,8 +484,6 @@ onMounted(async () => {
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            <!-- 导出的 SVG 是独立文档，字体只能内嵌；预览时这段不存在 -->
-            <style v-if="embedFont" v-text="embedFontCss" />
 
             <linearGradient id="midMask" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stop-color="#fff" />

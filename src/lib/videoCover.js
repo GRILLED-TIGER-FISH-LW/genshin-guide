@@ -547,11 +547,21 @@ export function guideLines(s) {
  * 不再有「备份 state → 改成 data URL → buildSVG(forExport) → 还原」那一套：
  * 直接克隆当前这份 SVG 节点，把里面的远程图换成 data URL 就完事。
  * ========================================================================= */
-async function bakeSvg(svgEl) {
+async function bakeSvg(svgEl, fontCss) {
   const clone = svgEl.cloneNode(true)
 
   /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
   for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
+
+  /* 字体：导出的 SVG 是独立文档，摸不到页面的 document.fonts，@font-face 只能内嵌。
+     用 createElementNS 建这个 <style>（和角色一图流同一套）—— 别让它以别的命名空间
+     进树，那样 XMLSerializer 会给它补另一个 xmlns，这段 CSS 就白写了。 */
+  if (fontCss) {
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = fontCss
+    const host = clone.querySelector('defs') || clone
+    host.prepend(style)
+  }
 
   /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
   let lost = 0
@@ -576,28 +586,42 @@ async function bakeSvg(svgEl) {
   return { svg: new XMLSerializer().serializeToString(clone), lost }
 }
 
-/* 出图：返回 { blob, lost }，lost = 没能烘进去的图张数（0 表示与预览一致） */
-export async function svgToPng(svgEl) {
-  const baked = await bakeSvg(svgEl)
+/* 把同一份 SVG 画到指定尺寸的 canvas 上。
+   SVG 是矢量的：同一个 URL 画几次就重新栅格化几次，所以可以先出小图预热字体。 */
+async function rasterize(url, w, h) {
+  const img = new Image()
+  await new Promise((resolve, reject) => {
+    img.onload = resolve
+    img.onerror = () => reject(new Error('SVG 渲染失败'))
+    img.src = url
+  })
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, w, h)
+  return canvas
+}
+
+/* 出图：返回 { blob, lost, font }，lost = 没能烘进去的图张数（0 表示与预览一致） */
+export async function svgToPng(svgEl, fontCss) {
+  const baked = await bakeSvg(svgEl, fontCss)
   const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
 
   try {
-    const img = new Image()
-    await new Promise((resolve, reject) => {
-      img.onload = resolve
-      img.onerror = () => reject(new Error('SVG 渲染失败'))
-      img.src = url
-    })
+    /* 字体的 data URL 是几兆，第一次栅格化常常在它加载完之前就出图了（导出图退回
+       默认字体）。先用同一张 SVG 出一张 320×180 的小图，把字体喂进浏览器的缓存，
+       再出大图 —— 小图那点代价可以忽略。 */
+    if (fontCss) {
+      await rasterize(url, 320, 180)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
 
-    const canvas = document.createElement('canvas')
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, 0, 0, W, H)
-
+    const canvas = await rasterize(url, W, H)
     const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
-    return { blob: out, lost: baked.lost }
+    return { blob: out, lost: baked.lost, font: !!fontCss }
   } finally {
     URL.revokeObjectURL(url)
   }
