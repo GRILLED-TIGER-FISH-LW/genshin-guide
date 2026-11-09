@@ -276,6 +276,7 @@ watch(fontFile, async (file) => {
     loaded.value = ''
     s.fontData = ''
     s.fontName = ''
+    s.fontFileName = ''
     fontStatus.value = ''
     return
   }
@@ -289,6 +290,8 @@ watch(fontFile, async (file) => {
     if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
     s.fontData = data
     s.fontName = item.name
+    /* 必须记下「是哪个文件」：几兆的 base64 不进草稿，下次进页面就靠这个字段取回来 */
+    s.fontFileName = file
     loaded.value = file
     fontStatus.value = ''
   } catch (err) {
@@ -296,6 +299,7 @@ watch(fontFile, async (file) => {
     loaded.value = ''
     s.fontData = ''
     s.fontName = ''
+    s.fontFileName = ''
     fontStatus.value = 'error'
     toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
   }
@@ -303,26 +307,31 @@ watch(fontFile, async (file) => {
 
 /* ------------------------------------------------------------------ 字体重取 */
 
-/* 草稿只记得「选了哪个字体」（几兆的 base64 不进草稿），
-   进页面与导出前都按文件名去 public/fonts/ 取回来再装 —— 名字以清单为准，不信草稿 */
+/* 草稿只留「选了哪个字体」（几兆的 base64 不进草稿）：
+   优先按 fontFileName 找；老草稿只记了名字就按名字找 —— 名字与文件名都以 fonts.json 为准 */
 async function ensureFont() {
   if (s.fontName && s.fontData) return true
-  const file = s.fontFileName
-  if (!file) return false
+
+  try {
+    if (!fontList.value.length) fontList.value = await fonts.fetchFontList()
+  } catch {
+    /* 清单取不到就先按手头的信息试，实在没有就由调用方提示 */
+  }
+
+  const item = fontList.value.find((f) => f.file === s.fontFileName)
+    || fontList.value.find((f) => f.name === s.fontName)
+  if (!item) return false
 
   fontStatus.value = 'loading'
   try {
-    if (!fontList.value.length) fontList.value = await fonts.fetchFontList()
-    const item = fontList.value.find((f) => f.file === file)
-    if (!item) throw new Error('字体清单里没有这个文件')
-
-    const data = await fonts.fetchFontData(file)
+    const data = await fonts.fetchFontData(item.file)
     if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
 
+    s.fontFileName = item.file
     s.fontName = item.name
     s.fontData = data
-    loaded.value = file
-    fontFile.value = file
+    loaded.value = item.file
+    fontFile.value = item.file
     fontStatus.value = ''
     return true
   } catch (err) {
@@ -330,7 +339,7 @@ async function ensureFont() {
     s.fontData = ''
     s.fontName = ''
     fontStatus.value = 'error'
-    toast.error(`字体「${file}」没能加载：${err.message}，导出会用默认字体`)
+    toast.error(`字体「${item.name}」没能加载：${err.message}，导出会用默认字体`)
     return false
   }
 }
