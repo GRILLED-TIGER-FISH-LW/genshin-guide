@@ -202,6 +202,7 @@ grep -q 's.fontFileName = file' src/views/VideoCover.vue
 test "$(grep -c "s.fontFileName = ''" src/views/VideoCover.vue)" = 2
 grep -q 's.fontFileName = item.file' src/views/VideoCover.vue
 grep -qF 'find((f) => f.name === s.fontName)' src/views/VideoCover.vue
-grep -q '第二遍：上线后用户回来说' CHANGELOG.md
+grep -qF '上线后用户回来说「导出的图还是默认字体」' CHANGELOG.md
+grep -qF '老草稿里哪怕只留着字体名' CHANGELOG.md
 grep -qF '`font-filename`' AGENTS.md
 grep -q '落进草稿的该是' AGENTS.md
