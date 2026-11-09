@@ -550,9 +550,21 @@ export function guideLines(s) {
 async function bakeSvg(svgEl) {
   const clone = svgEl.cloneNode(true)
 
+  /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
+  for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
+
+  /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
+  let lost = 0
   for (const img of clone.querySelectorAll('image')) {
     const href = img.getAttribute('href')
-    if (href && !/^data:/i.test(href)) img.setAttribute('href', await urlToDataURL(href))
+    if (!href || /^data:/i.test(href)) continue
+    const baked = await urlToDataURL(href)
+    if (/^data:/i.test(baked)) img.setAttribute('href', baked)
+    else {
+      /* 网络 / 跨域拿不到：留着也是空白，删掉并记账，由调用方提示用户 */
+      img.remove()
+      lost += 1
+    }
   }
 
   /* 预览靠 CSS 撑满，节点本身没有宽高；导出必须给上，
@@ -561,13 +573,13 @@ async function bakeSvg(svgEl) {
   clone.setAttribute('width', String(W))
   clone.setAttribute('height', String(H))
 
-  return new XMLSerializer().serializeToString(clone)
+  return { svg: new XMLSerializer().serializeToString(clone), lost }
 }
 
+/* 出图：返回 { blob, lost }，lost = 没能烘进去的图张数（0 表示与预览一致） */
 export async function svgToPng(svgEl) {
-  const url = URL.createObjectURL(
-    new Blob([await bakeSvg(svgEl)], { type: 'image/svg+xml;charset=utf-8' }),
-  )
+  const baked = await bakeSvg(svgEl)
+  const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
 
   try {
     const img = new Image()
@@ -584,7 +596,8 @@ export async function svgToPng(svgEl) {
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(img, 0, 0, W, H)
 
-    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
+    return { blob: out, lost: baked.lost }
   } finally {
     URL.revokeObjectURL(url)
   }
@@ -710,7 +723,13 @@ export function save(s) {
     saveTimer = null
     try {
       const conn = await openDb()
-      conn.transaction(STORE, 'readwrite').objectStore(STORE).put({ ...s }, KEY)
+      /* reactive 代理不能直接进 IDB：嵌套的数组 / 对象还是 Proxy，structured
+         clone 抛 DataCloneError，被下面那句 catch 吞掉就是「草稿永远不更新」——
+         每次进页面读到的都是上一次成功写入的旧草稿。先过一次 JSON 变纯数据。
+         字体的几兆 base64 不进草稿，进页面按文件名重新取（见 ensureFont）。 */
+      const plain = JSON.parse(JSON.stringify(s))
+      plain.fontData = ''
+      conn.transaction(STORE, 'readwrite').objectStore(STORE).put(plain, KEY)
     } catch {
       /* 存不下就算了：这是本地草稿，不是用户的数据源 */
     }

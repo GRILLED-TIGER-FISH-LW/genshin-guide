@@ -301,6 +301,40 @@ watch(fontFile, async (file) => {
   }
 })
 
+/* ------------------------------------------------------------------ 字体重取 */
+
+/* 草稿只记得「选了哪个字体」（几兆的 base64 不进草稿），
+   进页面与导出前都按文件名去 public/fonts/ 取回来再装 —— 名字以清单为准，不信草稿 */
+async function ensureFont() {
+  if (s.fontName && s.fontData) return true
+  const file = s.fontFileName
+  if (!file) return false
+
+  fontStatus.value = 'loading'
+  try {
+    if (!fontList.value.length) fontList.value = await fonts.fetchFontList()
+    const item = fontList.value.find((f) => f.file === file)
+    if (!item) throw new Error('字体清单里没有这个文件')
+
+    const data = await fonts.fetchFontData(file)
+    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+
+    s.fontName = item.name
+    s.fontData = data
+    loaded.value = file
+    fontFile.value = file
+    fontStatus.value = ''
+    return true
+  } catch (err) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    fontStatus.value = 'error'
+    toast.error(`字体「${file}」没能加载：${err.message}，导出会用默认字体`)
+    return false
+  }
+}
+
 /* ------------------------------------------------------------------ Logo */
 
 const logoFile = computed({
@@ -311,6 +345,15 @@ const logoFile = computed({
 })
 
 const logoOptions = computed(() => dicts.logos.map((l) => ({ value: l.file, label: l.name })))
+
+/* 草稿里的 Logo 可能是工具页时代的旧路径（shared/assets/video-cover/…），
+   按文件名对回当前目录；对不上就用清单里第一个（默认原神） */
+function healLogo() {
+  const files = dicts.logos.map((l) => l.file)
+  if (!files.length) return
+  const file = String(s.capLogo || '').split('/').pop()
+  s.capLogo = cover.logoUrl(files.includes(file) ? file : files[0])
+}
 
 /* ------------------------------------------------------------------ 导出 / 配置 */
 
@@ -327,18 +370,25 @@ async function exportPng() {
 
   try {
     await document.fonts?.ready
+    /* 字体字节不进草稿，进页面时可能没取成功 —— 导出前再确认一次，
+       拿不到就明说，别静默给一张默认字体的图 */
+    if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
+
     /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体必须内嵌。
        只在导出的这一瞬间挂上，预览里就不必把同一份字体再解析一遍。 */
     if (s.fontName && s.fontData) {
       embedFont.value = true
       await nextTick()
       await document.fonts?.ready
+    } else if (s.fontName || s.fontFileName) {
+      toast.error('字体没能加载，这次导出用的是默认字体')
     }
 
-    const blob = await cover.svgToPng(svg)
+    const { blob, lost } = await cover.svgToPng(svg)
     if (!blob) throw new Error('画布导出失败')
     cover.download(blob, cover.pngName(s))
-    toast.success('导出成功')
+    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
+    else toast.success('导出成功')
   } catch (err) {
     toast.error(`导出失败：${err.message}`)
   } finally {
@@ -361,15 +411,8 @@ async function importJson(e) {
     const raw = JSON.parse(await file.text())
     Object.assign(s, cover.normalizeImported(raw, s))
 
-    if (s.fontFileName) fontFile.value = s.fontFileName
-    if (s.fontName && s.fontData) {
-      if (!(await fonts.installFont({ name: s.fontName, data: s.fontData }))) {
-        s.fontData = ''
-        s.fontName = ''
-      } else {
-        loaded.value = s.fontFileName
-      }
-    }
+    /* 配置里只存了字体文件名（导出时就是这么存的），字节按名字重新取 */
+    if (s.fontFileName) await ensureFont()
 
     if (!s.capLogo && dicts.logos.length) s.capLogo = cover.logoUrl(dicts.logos[0].file)
     await reloadBg()
@@ -412,17 +455,10 @@ onMounted(async () => {
   const saved = await cover.loadSaved()
   if (saved) Object.assign(s, saved)
 
-  if (!s.capLogo && dicts.logos.length) s.capLogo = cover.logoUrl(dicts.logos[0].file)
+  healLogo()
 
-  if (s.fontFileName && s.fontData) {
-    if (await fonts.installFont({ name: s.fontName, data: s.fontData })) {
-      loaded.value = s.fontFileName
-      fontFile.value = s.fontFileName
-    } else {
-      s.fontData = ''
-      s.fontName = ''
-    }
-  }
+  /* 字体：草稿只记得「选的是哪个」，字节一律按文件名重新取 */
+  if (s.fontFileName) await ensureFont()
 
   /* 角色 / Boss 模式的主标题与标签是模式自带的，与旧版一致 */
   if (s.guideType === 'character' || s.guideType === 'boss') {
@@ -690,7 +726,7 @@ onMounted(async () => {
           </g>
 
           <!-- 安全区参考线 -->
-          <g v-if="guides.length" pointer-events="none">
+          <g v-if="guides.length" data-guides="1" pointer-events="none">
             <line
               v-for="x in guides"
               :key="x"

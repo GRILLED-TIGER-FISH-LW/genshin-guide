@@ -151,6 +151,8 @@
 
 ### 加载与数据
 
+- **进 IndexedDB 前必须深拷贝**：`reactive` 的状态直接 `put()` 会 `DataCloneError`（嵌套数组 / 对象都是 Proxy），被 catch 吞掉就是「草稿永远不更新，每次进来读旧数据」—— 一图流早就用 `JSON.parse(JSON.stringify(toRaw(data)))` 绕过了，视频封面 2026-11-10 才补上。几兆的字体 base64 一律不进草稿，进页面按文件名重取。
+
 - **所有动态资源走时间戳**（`?t=`），路径一律 `import.meta.env.BASE_URL + 'shared/…'`。
   工具页时代那种 `../../shared/` 在 SPA 里会跑到域名根外面，必须换掉。
   （没搬的旧工具页仍写着 `../../shared/`，由 `vite.config.js` 里的插件在构建时改写成带仓库前缀的 `shared/`。）
@@ -297,7 +299,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`traveler-element` —— 旅行者一家按元素分项：查字典前先把名字补成「名字·元素」（`dictNameWithElement()`），查不到退回原名；一图流独有。上一批 `match-force`：「从字典补素材」走 `rematchMissing(s, true)`（**按钮 = 重算**，**载入存档 = 只补缺**）。再上一批 `match-style` 把这颗按钮加回来（旧版叫「匹配样式图」）。
+- **最后合并**：`video-cover-fixes` —— 视频封面四处：草稿深拷贝进 IDB、字体按文件名重取（`ensureFont()`）、Logo 旧路径自愈（`healLogo()`）、参考线不进导出图（`data-guides`）。上一批 `traveler-element` 是旅行者按元素分项（`dictNameWithElement()`）。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
@@ -324,3 +326,4 @@
 - `src/lib/assets.js` 已是资源层正本；`videoCover.js` / `collectionCover.js` 里还各留一份 `loadImage` / `urlToDataURL` / `download`（第三个用它的工具出现时抽过来的），下次动那两个文件时删掉、改从这里 import。
 - `adventurer-handbook` 的 `Btn.vue` 还缺 `lg` / `float` / `float-danger` 三档 —— 那边现在没有预览框、也没有底部悬浮主操作，用不到；等哪页真用上再同步。`tokens.css` 要求两仓库逐字节相同，改动一律两边同时改（`--color-preview` 与同步日期已于 2026-11-08 对齐）。
 - `ToastHost` 的 `role="status"` + `aria-live="assertive"` 两仓库保持一致，知道不规范但故意保留。
+- **合集封面同款隐患（没改）**：它的草稿是一次次把字体的几兆 base64 写进 IDB（改个标题就写几兆），字体装不上时也是静默回默认。哪天动 `CollectionCover.vue` 时照视频封面这批改：草稿不带 `fontData` + `ensureFont()` 式的重取。
