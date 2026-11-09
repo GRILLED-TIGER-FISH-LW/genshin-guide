@@ -6,203 +6,251 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 这一批（font-filename）：视频封面从来没往状态里写 fontFileName —— 选中字体只写了
-#   fontName + 几兆的 base64。上一批把 base64 从草稿里剔掉之后，草稿就再也找不回
-#   字体了（导出永远是默认）。两处补上：选字体时写入 fontFileName；ensureFont 加
-#   「只记得名字就按名字找」的兜底，老草稿也能自愈。
+# 这一批（font-embed）：状态是对的（预览有字体），坏在「字体进导出图」这一步：
+#   ① <style> 原来是 Vue 渲染进 SVG 的，导出时用 createElementNS 塞进克隆节点更稳
+#      （和角色一图流同一套）；② 几兆的字体 data URL，第一次栅格化常常赶不上，
+#      出大图前先用同一份 SVG 出一张 320×180 的小图把字体预热；③ 导出提示里
+#      带上字体名，一眼能看出这次到底嵌没嵌上。
 
 == MOVES ==
 # 这批没有要搬的文件
 
 == EDITS ==
-### src/views/VideoCover.vue
+### src/lib/videoCover.js
 <<<<
-watch(fontFile, async (file) => {
-  if (file === loaded.value) return
+async function bakeSvg(svgEl) {
+  const clone = svgEl.cloneNode(true)
 
-  if (!file) {
-    fonts.dropFont()
-    loaded.value = ''
-    s.fontData = ''
-    s.fontName = ''
-    fontStatus.value = ''
-    return
-  }
+  /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
+  for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
 
-  const item = fontList.value.find((f) => f.file === file)
-  if (!item) return
-
-  fontStatus.value = 'loading'
-  try {
-    const data = await fonts.fetchFontData(file)
-    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
-    s.fontData = data
-    s.fontName = item.name
-    loaded.value = file
-    fontStatus.value = ''
-  } catch (err) {
-    fonts.dropFont()
-    loaded.value = ''
-    s.fontData = ''
-    s.fontName = ''
-    fontStatus.value = 'error'
-    toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
-  }
-})
+  /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
 >>>>
 <<<<
-watch(fontFile, async (file) => {
-  if (file === loaded.value) return
+async function bakeSvg(svgEl, fontCss) {
+  const clone = svgEl.cloneNode(true)
 
-  if (!file) {
-    fonts.dropFont()
-    loaded.value = ''
-    s.fontData = ''
-    s.fontName = ''
-    s.fontFileName = ''
-    fontStatus.value = ''
-    return
+  /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
+  for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
+
+  /* 字体：导出的 SVG 是独立文档，摸不到页面的 document.fonts，@font-face 只能内嵌。
+     用 createElementNS 建这个 <style>（和角色一图流同一套）—— 别让它以别的命名空间
+     进树，那样 XMLSerializer 会给它补另一个 xmlns，这段 CSS 就白写了。 */
+  if (fontCss) {
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = fontCss
+    const host = clone.querySelector('defs') || clone
+    host.prepend(style)
   }
 
-  const item = fontList.value.find((f) => f.file === file)
-  if (!item) return
-
-  fontStatus.value = 'loading'
-  try {
-    const data = await fonts.fetchFontData(file)
-    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
-    s.fontData = data
-    s.fontName = item.name
-    /* 必须记下「是哪个文件」：几兆的 base64 不进草稿，下次进页面就靠这个字段取回来 */
-    s.fontFileName = file
-    loaded.value = file
-    fontStatus.value = ''
-  } catch (err) {
-    fonts.dropFont()
-    loaded.value = ''
-    s.fontData = ''
-    s.fontName = ''
-    s.fontFileName = ''
-    fontStatus.value = 'error'
-    toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
-  }
-})
+  /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
 >>>>
 
-### src/views/VideoCover.vue
+### src/lib/videoCover.js
 <<<<
-/* 草稿只记得「选了哪个字体」（几兆的 base64 不进草稿），
-   进页面与导出前都按文件名去 public/fonts/ 取回来再装 —— 名字以清单为准，不信草稿 */
-async function ensureFont() {
-  if (s.fontName && s.fontData) return true
-  const file = s.fontFileName
-  if (!file) return false
+/* 出图：返回 { blob, lost }，lost = 没能烘进去的图张数（0 表示与预览一致） */
+export async function svgToPng(svgEl) {
+  const baked = await bakeSvg(svgEl)
+  const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
 
-  fontStatus.value = 'loading'
   try {
-    if (!fontList.value.length) fontList.value = await fonts.fetchFontList()
-    const item = fontList.value.find((f) => f.file === file)
-    if (!item) throw new Error('字体清单里没有这个文件')
+    const img = new Image()
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = () => reject(new Error('SVG 渲染失败'))
+      img.src = url
+    })
 
-    const data = await fonts.fetchFontData(file)
-    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, 0, 0, W, H)
 
-    s.fontName = item.name
-    s.fontData = data
-    loaded.value = file
-    fontFile.value = file
-    fontStatus.value = ''
-    return true
-  } catch (err) {
-    fonts.dropFont()
-    s.fontData = ''
-    s.fontName = ''
-    fontStatus.value = 'error'
-    toast.error(`字体「${file}」没能加载：${err.message}，导出会用默认字体`)
-    return false
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
+    return { blob: out, lost: baked.lost }
+  } finally {
+    URL.revokeObjectURL(url)
   }
 }
 >>>>
 <<<<
-/* 草稿只留「选了哪个字体」（几兆的 base64 不进草稿）：
-   优先按 fontFileName 找；老草稿只记了名字就按名字找 —— 名字与文件名都以 fonts.json 为准 */
-async function ensureFont() {
-  if (s.fontName && s.fontData) return true
+/* 把同一份 SVG 画到指定尺寸的 canvas 上。
+   SVG 是矢量的：同一个 URL 画几次就重新栅格化几次，所以可以先出小图预热字体。 */
+async function rasterize(url, w, h) {
+  const img = new Image()
+  await new Promise((resolve, reject) => {
+    img.onload = resolve
+    img.onerror = () => reject(new Error('SVG 渲染失败'))
+    img.src = url
+  })
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, w, h)
+  return canvas
+}
+
+/* 出图：返回 { blob, lost, font }，lost = 没能烘进去的图张数（0 表示与预览一致） */
+export async function svgToPng(svgEl, fontCss) {
+  const baked = await bakeSvg(svgEl, fontCss)
+  const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
 
   try {
-    if (!fontList.value.length) fontList.value = await fonts.fetchFontList()
-  } catch {
-    /* 清单取不到就先按手头的信息试，实在没有就由调用方提示 */
-  }
+    /* 字体的 data URL 是几兆，第一次栅格化常常在它加载完之前就出图了（导出图退回
+       默认字体）。先用同一张 SVG 出一张 320×180 的小图，把字体喂进浏览器的缓存，
+       再出大图 —— 小图那点代价可以忽略。 */
+    if (fontCss) {
+      await rasterize(url, 320, 180)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
 
-  const item = fontList.value.find((f) => f.file === s.fontFileName)
-    || fontList.value.find((f) => f.name === s.fontName)
-  if (!item) return false
-
-  fontStatus.value = 'loading'
-  try {
-    const data = await fonts.fetchFontData(item.file)
-    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
-
-    s.fontFileName = item.file
-    s.fontName = item.name
-    s.fontData = data
-    loaded.value = item.file
-    fontFile.value = item.file
-    fontStatus.value = ''
-    return true
-  } catch (err) {
-    fonts.dropFont()
-    s.fontData = ''
-    s.fontName = ''
-    fontStatus.value = 'error'
-    toast.error(`字体「${item.name}」没能加载：${err.message}，导出会用默认字体`)
-    return false
+    const canvas = await rasterize(url, W, H)
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
+    return { blob: out, lost: baked.lost, font: !!fontCss }
+  } finally {
+    URL.revokeObjectURL(url)
   }
 }
 >>>>
 
-### CHANGELOG.md
+### src/views/VideoCover.vue
 <<<<
-导出前从克隆出来的 SVG 里删掉（模板上打 `data-guides` 标记）。
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 >>>>
 <<<<
-导出前从克隆出来的 SVG 里删掉（模板上打 `data-guides` 标记）。**第二遍**：上线后用户回来说「导出的图还是默认字体」—— 根因是**从来没有人往状态里写 `fontFileName`**（选中字体时只写了名字与几兆的 base64），上一遍又把 base64 从草稿里剔掉，于是草稿里既没有字节也没有「去哪找字节」的线索。选字体那一处补上写入，`ensureFont()` 也加了兜底：草稿只记得名字，就按名字去 `fonts.json` 里认回来。
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+>>>>
+
+### src/views/VideoCover.vue
+<<<<
+const exporting = ref(false)
+const embedFont = ref(false)
+const importInput = ref(null)
+
+const embedFontCss = computed(() => fonts.fontFaceCss(s.fontName, s.fontData))
+>>>>
+<<<<
+const exporting = ref(false)
+const importInput = ref(null)
+>>>>
+
+### src/views/VideoCover.vue
+<<<<
+    /* 字体字节不进草稿，进页面时可能没取成功 —— 导出前再确认一次，
+       拿不到就明说，别静默给一张默认字体的图 */
+    if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
+
+    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体必须内嵌。
+       只在导出的这一瞬间挂上，预览里就不必把同一份字体再解析一遍。 */
+    if (s.fontName && s.fontData) {
+      embedFont.value = true
+      await nextTick()
+      await document.fonts?.ready
+    } else if (s.fontName || s.fontFileName) {
+      toast.error('字体没能加载，这次导出用的是默认字体')
+    }
+
+    const { blob, lost } = await cover.svgToPng(svg)
+    if (!blob) throw new Error('画布导出失败')
+    cover.download(blob, cover.pngName(s))
+    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
+    else toast.success('导出成功')
+>>>>
+<<<<
+    /* 字体字节不进草稿，进页面时可能没取成功 —— 导出前再确认一次，
+       拿不到就明说，别静默给一张默认字体的图 */
+    if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
+
+    /* 字体跟着 SVG 一起进导出图：CSS 在 bakeSvg 里用 createElementNS 内嵌 */
+    const fontCss = s.fontName && s.fontData ? fonts.fontFaceCss(s.fontName, s.fontData) : ''
+    if (!fontCss && (s.fontName || s.fontFileName)) {
+      toast.error('字体没能加载，这次导出用的是默认字体')
+    }
+
+    const { blob, lost, font } = await cover.svgToPng(svg, fontCss)
+    if (!blob) throw new Error('画布导出失败')
+    cover.download(blob, cover.pngName(s))
+    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
+    else if (font) toast.success(`导出成功（已嵌入字体：${s.fontName}）`)
+    else toast.success('导出成功')
+>>>>
+
+### src/views/VideoCover.vue
+<<<<
+  } finally {
+    embedFont.value = false
+    exporting.value = false
+  }
+}
+>>>>
+<<<<
+  } finally {
+    exporting.value = false
+  }
+}
+>>>>
+
+### src/views/VideoCover.vue
+<<<<
+          <defs>
+            <!-- 导出的 SVG 是独立文档，字体只能内嵌；预览时这段不存在 -->
+            <style v-if="embedFont" v-text="embedFontCss" />
+>>>>
+<<<<
+          <defs>
 >>>>
 
 ### CHANGELOG.md
 <<<<
-而不是默默给一张缺图的成品。
+选字体那一处补上写入，`ensureFont()` 也加了兜底：草稿只记得名字，就按名字去 `fonts.json` 里认回来。
 >>>>
 <<<<
-而不是默默给一张缺图的成品。第二遍的兜底：老草稿里哪怕只留着字体名，也照样能把字体取回来装上。
+选字体那一处补上写入，`ensureFont()` 也加了兜底：草稿只记得名字，就按名字去 `fonts.json` 里认回来。**第三遍**：字体状态是对的（预览就是选的字体），坏在「进导出图」这一步，两个嫌疑 —— `<style>` 原来由 Vue 渲染进预览的那份 SVG（命名空间不对的话，序列化时会被补上别的 `xmlns`，这段 CSS 就白写），以及几兆的字体 data URL 第一次栅格化赶不上。改法：字体 CSS 改成导出时用 `createElementNS` 塞进克隆出来的 `<defs>`（和角色一图流同一套），出大图前先用同一张 SVG 出张 320×180 的小图把字体喂进缓存，导出成功的提示里带上字体名。
+>>>>
+
+### CHANGELOG.md
+<<<<
+第二遍的兜底：老草稿里哪怕只留着字体名，也照样能把字体取回来装上。
+>>>>
+<<<<
+第二遍的兜底：老草稿里哪怕只留着字体名，也照样能把字体取回来装上。第三遍之后，字体要么真进了导出图，要么提示里明确写着这次用的是默认字体 —— 不再有「看不出来」的情况。
 >>>>
 
 ### AGENTS.md
 <<<<
-- **最后合并**：`video-cover-fixes` —— 视频封面四处：草稿深拷贝进 IDB、字体按文件名重取（`ensureFont()`）、Logo 旧路径自愈（`healLogo()`）、参考线不进导出图（`data-guides`）。上一批 `traveler-element` 是旅行者按元素分项（`dictNameWithElement()`）。
+### 绘制与导出
 >>>>
+<<<<
+### 绘制与导出
+
+- **导出图里的字体靠内嵌 @font-face**：SVG 当图片渲染时摸不到页面的 `document.fonts`，所以字体 CSS 必须在**克隆出来的节点**上用 `document.createElementNS('…svg', 'style')` 塞进 `<defs>`（角色一图流与视频封面同一套写法）。视频封面曾让 Vue 渲染这个 `<style>`，导出图一直是默认字体（2026-11-10）。几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
+>>>>
+
+### AGENTS.md
 <<<<
 - **最后合并**：`font-filename` —— 视频封面选字体时必须写 `s.fontFileName`（否则草稿剔掉 base64 后就再也找不回字体，导出永远默认）；`ensureFont()` 支持「只记得名字就按名字找」。上一批 `video-cover-fixes`：草稿深拷贝进 IDB、字体重取、Logo 旧路径自愈、参考线不进导出图。再上一批 `traveler-element` 是旅行者按元素分项。
 >>>>
-
-### AGENTS.md
 <<<<
-几兆的字体 base64 一律不进草稿，进页面按文件名重取。
->>>>
-<<<<
-几兆的字体 base64 一律不进草稿，进页面按文件名重取。**落进草稿的该是「怎么找回来」，不是「东西本身」**：视频封面第一批只存了字体名与 base64、忘了写 `fontFileName`，base64 一剔就找不回来了 —— 凡是「重取」的字段，写入的地方与读回的地方要能对上。
+- **最后合并**：`font-embed` —— 视频封面的字体改成导出时用 `createElementNS` 内嵌进克隆的 `<defs>`，并先出小图预热字体缓存；提示里带字体名。上一批 `font-filename`：选字体时写 `s.fontFileName`、`ensureFont()` 支持按名字找回。再上一批 `video-cover-fixes`：草稿深拷贝进 IDB、Logo 旧路径自愈、参考线不进导出图。
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -q 's.fontFileName = file' src/views/VideoCover.vue
-test "$(grep -c "s.fontFileName = ''" src/views/VideoCover.vue)" = 2
-grep -q 's.fontFileName = item.file' src/views/VideoCover.vue
-grep -qF 'find((f) => f.name === s.fontName)' src/views/VideoCover.vue
-grep -qF '上线后用户回来说「导出的图还是默认字体」' CHANGELOG.md
-grep -qF '老草稿里哪怕只留着字体名' CHANGELOG.md
-grep -qF '`font-filename`' AGENTS.md
-grep -q '落进草稿的该是' AGENTS.md
+grep -q 'async function bakeSvg(svgEl, fontCss)' src/lib/videoCover.js
+grep -qF "document.createElementNS('http://www.w3.org/2000/svg', 'style')" src/lib/videoCover.js
+grep -q 'await rasterize(url, 320, 180)' src/lib/videoCover.js
+grep -q 'return { blob: out, lost: baked.lost, font: !!fontCss }' src/lib/videoCover.js
+grep -q 'const { blob, lost, font } = await cover.svgToPng(svg, fontCss)' src/views/VideoCover.vue
+test "$(grep -c 'embedFont' src/views/VideoCover.vue)" = 0
+test "$(grep -c 'nextTick' src/views/VideoCover.vue)" = 0
+grep -q '已嵌入字体' src/views/VideoCover.vue
+grep -qF '导出图里的字体靠内嵌 @font-face' AGENTS.md
+grep -qF '`font-embed`' AGENTS.md
+grep -q '第三遍' CHANGELOG.md
