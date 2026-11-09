@@ -151,7 +151,7 @@
 
 ### 加载与数据
 
-- **进 IndexedDB 前必须深拷贝**：`reactive` 的状态直接 `put()` 会 `DataCloneError`（嵌套数组 / 对象都是 Proxy），被 catch 吞掉就是「草稿永远不更新，每次进来读旧数据」—— 一图流早就用 `JSON.parse(JSON.stringify(toRaw(data)))` 绕过了，视频封面 2026-11-10 才补上。几兆的字体 base64 一律不进草稿，进页面按文件名重取。
+- **进 IndexedDB 前必须深拷贝**：`reactive` 的状态直接 `put()` 会 `DataCloneError`（嵌套数组 / 对象都是 Proxy），被 catch 吞掉就是「草稿永远不更新，每次进来读旧数据」—— 一图流早就用 `JSON.parse(JSON.stringify(toRaw(data)))` 绕过了，视频封面 2026-11-10 才补上。几兆的字体 base64 一律不进草稿，进页面按文件名重取。**落进草稿的该是「怎么找回来」，不是「东西本身」**：视频封面第一批只存了字体名与 base64、忘了写 `fontFileName`，base64 一剔就找不回来了 —— 凡是「重取」的字段，写入的地方与读回的地方要能对上。
 
 - **所有动态资源走时间戳**（`?t=`），路径一律 `import.meta.env.BASE_URL + 'shared/…'`。
   工具页时代那种 `../../shared/` 在 SPA 里会跑到域名根外面，必须换掉。
@@ -299,7 +299,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`video-cover-fixes` —— 视频封面四处：草稿深拷贝进 IDB、字体按文件名重取（`ensureFont()`）、Logo 旧路径自愈（`healLogo()`）、参考线不进导出图（`data-guides`）。上一批 `traveler-element` 是旅行者按元素分项（`dictNameWithElement()`）。
+- **最后合并**：`font-filename` —— 视频封面选字体时必须写 `s.fontFileName`（否则草稿剔掉 base64 后就再也找不回字体，导出永远默认）；`ensureFont()` 支持「只记得名字就按名字找」。上一批 `video-cover-fixes`：草稿深拷贝进 IDB、字体重取、Logo 旧路径自愈、参考线不进导出图。再上一批 `traveler-element` 是旅行者按元素分项。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
