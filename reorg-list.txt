@@ -6,251 +6,298 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 这一批（font-embed）：状态是对的（预览有字体），坏在「字体进导出图」这一步：
-#   ① <style> 原来是 Vue 渲染进 SVG 的，导出时用 createElementNS 塞进克隆节点更稳
-#      （和角色一图流同一套）；② 几兆的字体 data URL，第一次栅格化常常赶不上，
-#      出大图前先用同一份 SVG 出一张 320×180 的小图把字体预热；③ 导出提示里
-#      带上字体名，一眼能看出这次到底嵌没嵌上。
+# 这一批（slider-inputs）：① Slider 的数字框一聚焦就被清空（:value 绑到 undefined），
+#   打字、拖动条也不会互相同步；② 画布背景把整行包在 <label> 里，点哪都弹选图。
+#   视频封面 + 合集封面 + Slider 一起改（角色一图流的缩略图本来就是「只有图是热区」）。
 
 == MOVES ==
 # 这批没有要搬的文件
 
 == EDITS ==
-### src/lib/videoCover.js
+### src/components/Slider.vue
 <<<<
-async function bakeSvg(svgEl) {
-  const clone = svgEl.cloneNode(true)
-
-  /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
-  for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
-
-  /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
+import { computed, ref, useId } from 'vue'
 >>>>
 <<<<
-async function bakeSvg(svgEl, fontCss) {
-  const clone = svgEl.cloneNode(true)
-
-  /* 参考线（虚线）是预览里对齐用的，导出图一律不要 —— 跟预览开没开无关 */
-  for (const el of clone.querySelectorAll('[data-guides]')) el.remove()
-
-  /* 字体：导出的 SVG 是独立文档，摸不到页面的 document.fonts，@font-face 只能内嵌。
-     用 createElementNS 建这个 <style>（和角色一图流同一套）—— 别让它以别的命名空间
-     进树，那样 XMLSerializer 会给它补另一个 xmlns，这段 CSS 就白写了。 */
-  if (fontCss) {
-    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
-    style.textContent = fontCss
-    const host = clone.querySelector('defs') || clone
-    host.prepend(style)
-  }
-
-  /* 自包含：外链图一张都不能留 —— SVG 当图片渲染时不加载任何外部资源 */
+import { ref, useId, watch } from 'vue'
 >>>>
 
-### src/lib/videoCover.js
+### src/components/Slider.vue
 <<<<
-/* 出图：返回 { blob, lost }，lost = 没能烘进去的图张数（0 表示与预览一致） */
-export async function svgToPng(svgEl) {
-  const baked = await bakeSvg(svgEl)
-  const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
+/* 数字框在编辑期间不回灌 —— 否则输 9999 会被立刻改成 3840，光标也跳 */
+const editing = ref(false)
 
-  try {
-    const img = new Image()
-    await new Promise((resolve, reject) => {
-      img.onload = resolve
-      img.onerror = () => reject(new Error('SVG 渲染失败'))
-      img.src = url
-    })
+const clamp = (n) => Math.min(props.max, Math.max(props.min, n))
 
-    const canvas = document.createElement('canvas')
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, 0, 0, W, H)
-
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
-    return { blob: out, lost: baked.lost }
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+function onNumber(e) {
+  const raw = e.target.value
+  if (raw === '' || raw === '-') return
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return
+  model.value = clamp(n)
 }
+
+/* 失焦才把框里归位到真正生效的值 */
+function endEdit(e) {
+  editing.value = false
+  e.target.value = model.value
+}
+
+const box = computed(() => (editing.value ? undefined : model.value))
 >>>>
 <<<<
-/* 把同一份 SVG 画到指定尺寸的 canvas 上。
-   SVG 是矢量的：同一个 URL 画几次就重新栅格化几次，所以可以先出小图预热字体。 */
-async function rasterize(url, w, h) {
-  const img = new Image()
-  await new Promise((resolve, reject) => {
-    img.onload = resolve
-    img.onerror = () => reject(new Error('SVG 渲染失败'))
-    img.src = url
-  })
+const clamp = (n) => Math.min(props.max, Math.max(props.min, Number(n) || 0))
 
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, 0, 0, w, h)
-  return canvas
+/* 数字框里显示什么由 text 说了算（绑 undefined 会把输入框清空，那就成了「打什么都看不见」）：
+   · 拖拖动条 / 外部改值 → 回灌，但正在打字时不回灌，否则输到一半会被改掉
+   · 自己在打字 → 原样显示，半截（空 / 只有一个减号）或超范围也先显示着
+   · 失焦才归位 —— 输 9999 会显示成真正生效的 3840，打字期间不跳 */
+const text = ref('')
+const typing = ref(false)
+
+watch(model, (v) => {
+  if (!typing.value) text.value = String(v ?? '')
+}, { immediate: true })
+
+function onType(e) {
+  const raw = e.target.value
+  text.value = raw
+  if (raw === '' || raw === '-') return
+  const n = Number(raw)
+  if (Number.isFinite(n)) model.value = clamp(n)
 }
 
-/* 出图：返回 { blob, lost, font }，lost = 没能烘进去的图张数（0 表示与预览一致） */
-export async function svgToPng(svgEl, fontCss) {
-  const baked = await bakeSvg(svgEl, fontCss)
-  const url = URL.createObjectURL(new Blob([baked.svg], { type: 'image/svg+xml;charset=utf-8' }))
-
-  try {
-    /* 字体的 data URL 是几兆，第一次栅格化常常在它加载完之前就出图了（导出图退回
-       默认字体）。先用同一张 SVG 出一张 320×180 的小图，把字体喂进浏览器的缓存，
-       再出大图 —— 小图那点代价可以忽略。 */
-    if (fontCss) {
-      await rasterize(url, 320, 180)
-      await new Promise((resolve) => setTimeout(resolve, 150))
-    }
-
-    const canvas = await rasterize(url, W, H)
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1))
-    return { blob: out, lost: baked.lost, font: !!fontCss }
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+function onBlur() {
+  typing.value = false
+  text.value = String(model.value ?? '')
 }
+>>>>
+
+### src/components/Slider.vue
+<<<<
+        <input
+          :value="box"
+          type="number"
+          :min="min"
+          :max="max"
+          :step="step"
+          :disabled="disabled"
+          class="min-w-0 flex-1 bg-transparent text-right text-xs text-ink outline-none"
+          @input="onNumber"
+          @focus="editing = true"
+          @blur="endEdit"
+        />
+>>>>
+<<<<
+        <input
+          :value="text"
+          type="number"
+          :min="min"
+          :max="max"
+          :step="step"
+          :disabled="disabled"
+          class="min-w-0 flex-1 bg-transparent text-right text-xs text-ink outline-none"
+          @input="onType"
+          @focus="typing = true"
+          @blur="onBlur"
+        />
 >>>>
 
 ### src/views/VideoCover.vue
 <<<<
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+const bgLabel = computed(() => (s.bg ? '已载入背景图（点击更换）' : '点击上传背景图'))
 >>>>
 <<<<
-import { computed, onMounted, reactive, ref, watch } from 'vue'
->>>>
-
-### src/views/VideoCover.vue
-<<<<
-const exporting = ref(false)
-const embedFont = ref(false)
-const importInput = ref(null)
-
-const embedFontCss = computed(() => fonts.fontFaceCss(s.fontName, s.fontData))
->>>>
-<<<<
-const exporting = ref(false)
-const importInput = ref(null)
+const bgLabel = computed(() => (s.bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图'))
 >>>>
 
 ### src/views/VideoCover.vue
 <<<<
-    /* 字体字节不进草稿，进页面时可能没取成功 —— 导出前再确认一次，
-       拿不到就明说，别静默给一张默认字体的图 */
-    if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
-
-    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体必须内嵌。
-       只在导出的这一瞬间挂上，预览里就不必把同一份字体再解析一遍。 */
-    if (s.fontName && s.fontData) {
-      embedFont.value = true
-      await nextTick()
-      await document.fonts?.ready
-    } else if (s.fontName || s.fontFileName) {
-      toast.error('字体没能加载，这次导出用的是默认字体')
-    }
-
-    const { blob, lost } = await cover.svgToPng(svg)
-    if (!blob) throw new Error('画布导出失败')
-    cover.download(blob, cover.pngName(s))
-    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
-    else toast.success('导出成功')
+const floatInput = ref(null)
+const replacingId = ref('')
 >>>>
 <<<<
-    /* 字体字节不进草稿，进页面时可能没取成功 —— 导出前再确认一次，
-       拿不到就明说，别静默给一张默认字体的图 */
-    if ((s.fontName || s.fontFileName) && !s.fontData) await ensureFont()
+const floatInput = ref(null)
+const replacingId = ref('')
 
-    /* 字体跟着 SVG 一起进导出图：CSS 在 bakeSvg 里用 createElementNS 内嵌 */
-    const fontCss = s.fontName && s.fontData ? fonts.fontFaceCss(s.fontName, s.fontData) : ''
-    if (!fontCss && (s.fontName || s.fontFileName)) {
-      toast.error('字体没能加载，这次导出用的是默认字体')
-    }
-
-    const { blob, lost, font } = await cover.svgToPng(svg, fontCss)
-    if (!blob) throw new Error('画布导出失败')
-    cover.download(blob, cover.pngName(s))
-    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
-    else if (font) toast.success(`导出成功（已嵌入字体：${s.fontName}）`)
-    else toast.success('导出成功')
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
 >>>>
 
 ### src/views/VideoCover.vue
 <<<<
-  } finally {
-    embedFont.value = false
-    exporting.value = false
-  }
-}
+          <label
+            class="grid min-h-9 cursor-pointer grid-cols-[auto_1fr] items-center gap-3 rounded-ctl focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
+          >
+            <img
+              v-if="s.bg"
+              :src="s.bg"
+              alt=""
+              class="size-9 rounded-ctl border border-line-2 object-cover"
+            />
+            <span
+              v-else
+              class="size-9 rounded-ctl border border-dashed border-line-2 bg-canvas"
+              aria-hidden="true"
+            ></span>
+
+            <span class="min-w-0 truncate text-xs" :class="s.bg ? 'text-body' : 'text-muted'">
+              {{ bgLabel }}
+            </span>
+
+            <input type="file" accept="image/*" class="sr-only" @change="pickBg" />
+          </label>
 >>>>
 <<<<
-  } finally {
-    exporting.value = false
-  }
-}
+          <div class="flex min-h-9 items-center gap-3">
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="s.bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="s.bg" :src="s.bg" alt="" class="size-full object-cover" />
+            </button>
+
+            <span class="min-w-0 truncate text-xs" :class="s.bg ? 'text-body' : 'text-muted'">
+              {{ bgLabel }}
+            </span>
+
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
 >>>>
 
-### src/views/VideoCover.vue
+### src/views/CollectionCover.vue
 <<<<
-          <defs>
-            <!-- 导出的 SVG 是独立文档，字体只能内嵌；预览时这段不存在 -->
-            <style v-if="embedFont" v-text="embedFontCss" />
+const bg = ref('')
 >>>>
 <<<<
-          <defs>
+const bg = ref('')
+
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
+>>>>
+
+### src/views/CollectionCover.vue
+<<<<
+          <label
+            class="grid min-h-9 cursor-pointer grid-cols-[auto_1fr] items-center gap-3 rounded-ctl focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
+          >
+            <img
+              v-if="bg"
+              :src="bg"
+              alt=""
+              class="size-9 rounded-ctl border border-line-2 object-cover"
+            />
+            <span
+              v-else
+              class="size-9 rounded-ctl border border-dashed border-line-2 bg-canvas"
+              aria-hidden="true"
+            ></span>
+
+            <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
+              {{ bg ? '已载入背景图（点击更换）' : '点击上传背景图' }}
+            </span>
+
+            <input type="file" accept="image/*" class="sr-only" @change="pickBg" />
+          </label>
+>>>>
+<<<<
+          <div class="flex min-h-9 items-center gap-3">
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="bg" :src="bg" alt="" class="size-full object-cover" />
+            </button>
+
+            <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
+              {{ bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图' }}
+            </span>
+
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
 >>>>
 
 ### CHANGELOG.md
 <<<<
-选字体那一处补上写入，`ensureFont()` 也加了兜底：草稿只记得名字，就按名字去 `fonts.json` 里认回来。
+### 2026-11-10 · 视频封面四修：草稿存不进、字体不重取、Logo 旧路径、参考线进了导出
 >>>>
 <<<<
-选字体那一处补上写入，`ensureFont()` 也加了兜底：草稿只记得名字，就按名字去 `fonts.json` 里认回来。**第三遍**：字体状态是对的（预览就是选的字体），坏在「进导出图」这一步，两个嫌疑 —— `<style>` 原来由 Vue 渲染进预览的那份 SVG（命名空间不对的话，序列化时会被补上别的 `xmlns`，这段 CSS 就白写），以及几兆的字体 data URL 第一次栅格化赶不上。改法：字体 CSS 改成导出时用 `createElementNS` 塞进克隆出来的 `<defs>`（和角色一图流同一套），出大图前先用同一张 SVG 出张 320×180 的小图把字体喂进缓存，导出成功的提示里带上字体名。
+### 2026-11-10 · 视频封面四修：草稿存不进、字体不重取、Logo 旧路径、参考线进了导出；滑块数值框空白、背景整行都是热区
 >>>>
 
 ### CHANGELOG.md
 <<<<
-第二遍的兜底：老草稿里哪怕只留着字体名，也照样能把字体取回来装上。
+改法：字体 CSS 改成导出时用 `createElementNS` 塞进克隆出来的 `<defs>`（和角色一图流同一套），出大图前先用同一张 SVG 出张 320×180 的小图把字体喂进缓存，导出成功的提示里带上字体名。
 >>>>
 <<<<
-第二遍的兜底：老草稿里哪怕只留着字体名，也照样能把字体取回来装上。第三遍之后，字体要么真进了导出图，要么提示里明确写着这次用的是默认字体 —— 不再有「看不出来」的情况。
+改法：字体 CSS 改成导出时用 `createElementNS` 塞进克隆出来的 `<defs>`（和角色一图流同一套），出大图前先用同一张 SVG 出张 320×180 的小图把字体喂进缓存，导出成功的提示里带上字体名。**第四轮**：用户报三件事 —— 拖动条右边的数值框点进去就空白、拖动条与数值框不互相同步、画布背景整行都能弹选图。数值框的根因是 `:value` 绑到了 `undefined`（一聚焦就把输入框清空，打什么都看不见），改成「显示文本自己管」：打字期间不回灌、半截输入也照显示、失焦才归位；背景那行拆成「缩略图是唯一热区 + 文字只说明」，视频封面与合集封面一起改，共用的 `Slider` 顺带修好（角色一图流也用同一个组件）。
+>>>>
+
+### CHANGELOG.md
+<<<<
+第三遍之后，字体要么真进了导出图，要么提示里明确写着这次用的是默认字体 —— 不再有「看不出来」的情况。
+>>>>
+<<<<
+第三遍之后，字体要么真进了导出图，要么提示里明确写着这次用的是默认字体 —— 不再有「看不出来」的情况。滑块数值框与拖动条现在双向对得上（打字期间不跳、失焦归位），选图热区只剩缩略图。
 >>>>
 
 ### AGENTS.md
 <<<<
-### 绘制与导出
+### 共享层（改这些要两个仓库一起改）
 >>>>
 <<<<
-### 绘制与导出
+### 共享层（改这些要两个仓库一起改）
 
-- **导出图里的字体靠内嵌 @font-face**：SVG 当图片渲染时摸不到页面的 `document.fonts`，所以字体 CSS 必须在**克隆出来的节点**上用 `document.createElementNS('…svg', 'style')` 塞进 `<defs>`（角色一图流与视频封面同一套写法）。视频封面曾让 Vue 渲染这个 `<style>`，导出图一直是默认字体（2026-11-10）。几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
+- **数字框的显示文本自己管**：`Slider` 的数字框用「本地 `text` + 打字期间不回灌 + 失焦归位」，**不要**把 `:value` 绑成 `undefined` —— 那会把输入框清空，成了「点进去打什么都看不见」（2026-11-10 修过）。拖动条与数字框靠同一个 `model` 双向同步。
+- **选图的热区只有缩略图**：缩略图写 `<button type="button" @click="el?.click()">` + 一个 `sr-only` 的 `<input type="file">`，**别**把整行包进 `<label>` —— 那样点文字、点空白都会弹选图（视频封面 / 合集封面的背景行 2026-11-10 改过；角色一图流的缩略图本来就是这种写法）。
 >>>>
 
 ### AGENTS.md
-<<<<
-- **最后合并**：`font-filename` —— 视频封面选字体时必须写 `s.fontFileName`（否则草稿剔掉 base64 后就再也找不回字体，导出永远默认）；`ensureFont()` 支持「只记得名字就按名字找」。上一批 `video-cover-fixes`：草稿深拷贝进 IDB、字体重取、Logo 旧路径自愈、参考线不进导出图。再上一批 `traveler-element` 是旅行者按元素分项。
->>>>
 <<<<
 - **最后合并**：`font-embed` —— 视频封面的字体改成导出时用 `createElementNS` 内嵌进克隆的 `<defs>`，并先出小图预热字体缓存；提示里带字体名。上一批 `font-filename`：选字体时写 `s.fontFileName`、`ensureFont()` 支持按名字找回。再上一批 `video-cover-fixes`：草稿深拷贝进 IDB、Logo 旧路径自愈、参考线不进导出图。
+>>>>
+<<<<
+- **最后合并**：`slider-inputs` —— `Slider` 数字框修好（聚焦不再空白、与拖动条双向同步）；视频封面 / 合集封面的背景行改成「只有缩略图是热区」。上一批 `font-embed`：字体用 `createElementNS` 内嵌进克隆的 `<defs>` + 小图预热。再上一批 `font-filename`：选字体时写 `s.fontFileName`。
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -q 'async function bakeSvg(svgEl, fontCss)' src/lib/videoCover.js
-grep -qF "document.createElementNS('http://www.w3.org/2000/svg', 'style')" src/lib/videoCover.js
-grep -q 'await rasterize(url, 320, 180)' src/lib/videoCover.js
-grep -q 'return { blob: out, lost: baked.lost, font: !!fontCss }' src/lib/videoCover.js
-grep -q 'const { blob, lost, font } = await cover.svgToPng(svg, fontCss)' src/views/VideoCover.vue
-test "$(grep -c 'embedFont' src/views/VideoCover.vue)" = 0
-test "$(grep -c 'nextTick' src/views/VideoCover.vue)" = 0
-grep -q '已嵌入字体' src/views/VideoCover.vue
-grep -qF '导出图里的字体靠内嵌 @font-face' AGENTS.md
-grep -qF '`font-embed`' AGENTS.md
-grep -q '第三遍' CHANGELOG.md
+grep -q 'const typing = ref(false)' src/components/Slider.vue
+grep -qF ':value="text"' src/components/Slider.vue
+grep -q 'function onBlur() {' src/components/Slider.vue
+test "$(grep -c 'computed' src/components/Slider.vue)" = 0
+grep -q 'const bgInput = ref(null)' src/views/VideoCover.vue
+grep -q 'const bgInput = ref(null)' src/views/CollectionCover.vue
+test "$(grep -c 'bgInput?.click()' src/views/VideoCover.vue)" = 1
+test "$(grep -c 'bgInput?.click()' src/views/CollectionCover.vue)" = 1
+test "$(grep -c 'type="file"' src/views/VideoCover.vue)" = 3
+test "$(grep -c 'type="file"' src/views/CollectionCover.vue)" = 1
+grep -q '点左侧小图' src/views/VideoCover.vue
+grep -q '点左侧小图' src/views/CollectionCover.vue
+grep -qF '选图的热区只有缩略图' AGENTS.md
+grep -qF '`slider-inputs`' AGENTS.md
+grep -q '第四轮' CHANGELOG.md
