@@ -31,7 +31,9 @@ const s = reactive(guide.fresh())
 const toast = useToast()
 
 const uiIcons = ref({})
-const svg = computed(() => guide.buildGuideSVG(s, uiIcons.value))
+/* 卡片里有几处坐标按文字宽度算（配队标题、副词条标签、散搭的标签）——
+   读一次 fonts.fontRev：字体异步装好之后，这些位置会自己重算 */
+const svg = computed(() => (fonts.fontRev.value, guide.buildGuideSVG(s, uiIcons.value)))
 const PLACEHOLDER = guide.placeholder()
 
 const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))

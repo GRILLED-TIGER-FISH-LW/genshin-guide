@@ -52,10 +52,12 @@ async function reloadBg() {
 
 const viewBox = `0 0 ${W} ${H}`
 const font = computed(() => cover.fontFamily(s.fontName))
-const cap = computed(() => cover.capsule(s))
+/* 胶囊标签、底部签名是按「文字宽度」定位置的，量出来的宽度取决于当时装的是哪套字体。
+   字体是异步装好的，所以这两个 computed 读一次 fonts.fontRev —— 装好就重算。 */
+const cap = computed(() => (fonts.fontRev.value, cover.capsule(s)))
 const capText = computed(() => cover.capsuleText(s))
 const guides = computed(() => cover.guideLines(s))
-const sig = computed(() => cover.signature(s))
+const sig = computed(() => (fonts.fontRev.value, cover.signature(s)))
 
 const placed = computed(() =>
   cover.collectFloats(s).map((o) => {
