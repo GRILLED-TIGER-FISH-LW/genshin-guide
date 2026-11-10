@@ -16,6 +16,9 @@ const cv = ref(null)
 const title = ref('')
 const subtitle = ref('')
 const bg = ref('')
+
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
 const fontList = ref([])
 
 /* fontFile 是「选了哪个」，loaded 是「装进 document.fonts 的是哪个」。
@@ -255,27 +258,31 @@ onActivated(render)
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
         <div class="rounded-panel border border-line bg-surface p-3">
-          <label
-            class="grid min-h-9 cursor-pointer grid-cols-[auto_1fr] items-center gap-3 rounded-ctl focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
-          >
-            <img
-              v-if="bg"
-              :src="bg"
-              alt=""
-              class="size-9 rounded-ctl border border-line-2 object-cover"
-            />
-            <span
-              v-else
-              class="size-9 rounded-ctl border border-dashed border-line-2 bg-canvas"
-              aria-hidden="true"
-            ></span>
+          <div class="flex min-h-9 items-center gap-3">
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="bg" :src="bg" alt="" class="size-full object-cover" />
+            </button>
 
             <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
-              {{ bg ? '已载入背景图（点击更换）' : '点击上传背景图' }}
+              {{ bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图' }}
             </span>
 
-            <input type="file" accept="image/*" class="sr-only" @change="pickBg" />
-          </label>
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
         </div>
       </section>
 

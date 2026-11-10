@@ -96,6 +96,9 @@
 
 ### 共享层（改这些要两个仓库一起改）
 
+- **数字框的显示文本自己管**：`Slider` 的数字框用「本地 `text` + 打字期间不回灌 + 失焦归位」，**不要**把 `:value` 绑成 `undefined` —— 那会把输入框清空，成了「点进去打什么都看不见」（2026-11-10 修过）。拖动条与数字框靠同一个 `model` 双向同步。
+- **选图的热区只有缩略图**：缩略图写 `<button type="button" @click="el?.click()">` + 一个 `sr-only` 的 `<input type="file">`，**别**把整行包进 `<label>` —— 那样点文字、点空白都会弹选图（视频封面 / 合集封面的背景行 2026-11-10 改过；角色一图流的缩略图本来就是这种写法）。
+
 | 文件 | 说明 |
 |---|---|
 | `src/styles/tokens.css` | 令牌唯一真源，**与另一仓库逐字节相同** |
@@ -301,7 +304,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`font-embed` —— 视频封面的字体改成导出时用 `createElementNS` 内嵌进克隆的 `<defs>`，并先出小图预热字体缓存；提示里带字体名。上一批 `font-filename`：选字体时写 `s.fontFileName`、`ensureFont()` 支持按名字找回。再上一批 `video-cover-fixes`：草稿深拷贝进 IDB、Logo 旧路径自愈、参考线不进导出图。
+- **最后合并**：`slider-inputs` —— `Slider` 数字框修好（聚焦不再空白、与拖动条双向同步）；视频封面 / 合集封面的背景行改成「只有缩略图是热区」。上一批 `font-embed`：字体用 `createElementNS` 内嵌进克隆的 `<defs>` + 小图预热。再上一批 `font-filename`：选字体时写 `s.fontFileName`。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。
