@@ -111,7 +111,7 @@ const sub1Readonly = computed(() => s.guideType === 'character')
 
 /* ------------------------------------------------------------------ 背景图 */
 
-const bgLabel = computed(() => (s.bg ? '已载入背景图（点击更换）' : '点击上传背景图'))
+const bgLabel = computed(() => (s.bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图'))
 
 async function pickBg(e) {
   const file = e.target.files?.[0]
@@ -195,6 +195,9 @@ async function matchBoss() {
 
 const floatInput = ref(null)
 const replacingId = ref('')
+
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
 
 function addFloat() {
   replacingId.value = ''
@@ -910,27 +913,31 @@ onMounted(async () => {
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">画布背景</h2>
         <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
-          <label
-            class="grid min-h-9 cursor-pointer grid-cols-[auto_1fr] items-center gap-3 rounded-ctl focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent"
-          >
-            <img
-              v-if="s.bg"
-              :src="s.bg"
-              alt=""
-              class="size-9 rounded-ctl border border-line-2 object-cover"
-            />
-            <span
-              v-else
-              class="size-9 rounded-ctl border border-dashed border-line-2 bg-canvas"
-              aria-hidden="true"
-            ></span>
+          <div class="flex min-h-9 items-center gap-3">
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="s.bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="s.bg" :src="s.bg" alt="" class="size-full object-cover" />
+            </button>
 
             <span class="min-w-0 truncate text-xs" :class="s.bg ? 'text-body' : 'text-muted'">
               {{ bgLabel }}
             </span>
 
-            <input type="file" accept="image/*" class="sr-only" @change="pickBg" />
-          </label>
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
 
           <Slider v-model="s.midBrightness" label="背景亮度" :min="-100" :max="100" unit="%" />
           <Slider v-model="s.midBlur" label="背景模糊" :min="0" :max="100" unit="%" />
