@@ -184,6 +184,7 @@
 ### 绘制与导出
 
 - **导出图里的字体靠内嵌 @font-face**：SVG 当图片渲染时摸不到页面的 `document.fonts`，所以字体 CSS 必须在**克隆出来的节点**上用 `document.createElementNS('…svg', 'style')` 塞进 `<defs>`（角色一图流与视频封面同一套写法）。视频封面曾让 Vue 渲染这个 `<style>`，导出图一直是默认字体（2026-11-10）。几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
+- **文字度量会写进 computed，字体装好要让它重算**：`fonts.js` 的 `installFont` / `dropFont` 成功时自增 `fontRev`；凡是**按文字宽度定位**的 computed（视频封面的胶囊标签 / 底部签名、一图流的配队标题 / 副词条 / 散搭标签）都要读一次 `fonts.fontRev`。漏了就是「重进页面时位置是偏的，动一下 / 删掉再添一个才正」—— 因为把 `s.fontName` 设成同一个值不触发重算（2026-11-10 修过）。
 
 - 两种都允许，按改动量选：
   - **视频封面 / 合集封面**：预览用模板里那份真正的 `<svg>`，导出克隆同一份节点。
@@ -304,7 +305,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`slider-inputs` —— `Slider` 数字框修好（聚焦不再空白、与拖动条双向同步）；视频封面 / 合集封面的背景行改成「只有缩略图是热区」。上一批 `font-embed`：字体用 `createElementNS` 内嵌进克隆的 `<defs>` + 小图预热。再上一批 `font-filename`：选字体时写 `s.fontFileName`。
+- **最后合并**：`font-metrics` —— `fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。再上一批 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。

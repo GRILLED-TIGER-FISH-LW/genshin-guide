@@ -6,6 +6,8 @@
  * 工具页那种 ../../ 在这里会跑到域名根外面。
  * ========================================================================= */
 
+import { ref } from 'vue'
+
 export const withTs = (url) => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
 
 const asset = (path) => withTs(`${import.meta.env.BASE_URL}${path}`)
@@ -42,6 +44,13 @@ export const fontFaceCss = (name, data) =>
 
 let installed = null
 
+/* 装好 / 卸掉字体 = 文字度量变了。
+   那些「按文字宽度算位置」的几何都写在 computed 里（胶囊标签、底部签名、一图流的配队标题…），
+   而 computed 只认它读过的响应式字段 —— 把 s.fontName 设成同一个值不会触发重算，
+   于是成了「重进页面时位置是偏的，动一下 / 删掉再添一个才正」。所以装 / 卸成功都自增一下，
+   量过文字的 computed 里读一次 fontRev 就行（不要另建机制，这是唯一入口）。 */
+export const fontRev = ref(0)
+
 export async function installFont({ name, data } = {}) {
   dropFont()
   if (!name || !data) return false
@@ -49,6 +58,7 @@ export async function installFont({ name, data } = {}) {
     const face = await new FontFace(name, `url("${data}")`).load()
     document.fonts.add(face)
     installed = face
+    fontRev.value += 1
     return true
   } catch {
     return false
@@ -63,4 +73,5 @@ export function dropFont() {
     /* 老浏览器没有 FontFaceSet.delete，忽略即可 */
   }
   installed = null
+  fontRev.value += 1
 }
