@@ -1,174 +1,251 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
-#   MOVES    一行一条：旧路径 -> 新路径
-#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
-#            —— 这一段里不要写 # 注释行（会被当成文件路径）
-#   DELETES  一行一个路径（文件或目录都行）
-#   CHECKS   一行一条命令，非 0 即中止
-# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 这一批（font-metrics）：重进页面后「按文字宽度算位置」的地方是偏的（动一下 / 删掉再添一个才正）。
-#   根因：字体是异步装进 document.fonts 的，装好时把 s.fontName 设成同一个值不会触发重算，
-#   量过文字的 computed 就僵在那份回退字体的度量上。fonts.js 里加 fontRev，装/卸成功就自增，
-#   量过文字的 computed 读一次它。视频封面（胶囊标签、签名）与角色一图流（配队标题等）一起修。
+# 这一批（lunaris-index）：把「默认源」真正做成 lunaris。
+#   现状：图片地址早就是 lunaris 优先（DEFAULT_CONFIG.prefix），但匹配用的索引用的是 Amber ——
+#         ensureAmberIndex 和 syncFromAmber（就是界面上那个「从源匹配」）都调 fetchAmber，
+#         lunaris 一次都没被当索引用过。所以未实装角色（Amber 表里没有）必然匹配不到，不是版本旧。
+#   改法：加 lunaris 清单加载 + fetchIndex（lunaris 覆盖，Amber 只补 lunaris 没有的），
+#         两个调用点换成 fetchIndex；顺手把「只有 Amber 有的条目」的图切到备用源。
+#   已核对：四个分类、所有共同 id 的图标代号 0 处不一致 → 覆盖不会换代号、不会产生重复行。
 
 == MOVES ==
 # 这批没有要搬的文件
 
 == EDITS ==
-### src/lib/fonts.js
+### src/composables/useImageDict.js
 <<<<
-export const withTs = (url) => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
+  /* ---------------- Amber ---------------- */
 >>>>
 <<<<
-import { ref } from 'vue'
+  /* ---------------- 源优先级：lunaris（默认） > Amber（备用） ---------------- */
 
-export const withTs = (url) => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
->>>>
-
-### src/lib/fonts.js
-<<<<
-let installed = null
-
-export async function installFont({ name, data } = {}) {
-  dropFont()
-  if (!name || !data) return false
-  try {
-    const face = await new FontFace(name, `url("${data}")`).load()
-    document.fonts.add(face)
-    installed = face
-    return true
-  } catch {
-    return false
+  /* 四个分类在 lunaris 的清单文件名 */
+  const LU_LISTS = {
+    characters: 'charlist',
+    weapons: 'weaponlist',
+    artifacts: 'artifactlist',
+    monsters: 'monsterlist',
   }
-}
->>>>
-<<<<
-let installed = null
 
-/* 装好 / 卸掉字体 = 文字度量变了。
-   那些「按文字宽度算位置」的几何都写在 computed 里（胶囊标签、底部签名、一图流的配队标题…），
-   而 computed 只认它读过的响应式字段 —— 把 s.fontName 设成同一个值不会触发重算，
-   于是成了「重进页面时位置是偏的，动一下 / 删掉再添一个才正」。所以装 / 卸成功都自增一下，
-   量过文字的 computed 里读一次 fontRev 就行（不要另建机制，这是唯一入口）。 */
-export const fontRev = ref(0)
-
-export async function installFont({ name, data } = {}) {
-  dropFont()
-  if (!name || !data) return false
-  try {
-    const face = await new FontFace(name, `url("${data}")`).load()
-    document.fonts.add(face)
-    installed = face
-    fontRev.value += 1
-    return true
-  } catch {
-    return false
+  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档 */
+  const QUALITY_RANK = {
+    QUALITY_ORANGE: 5,
+    QUALITY_PURPLE: 4,
+    QUALITY_BLUE: 3,
+    QUALITY_GREEN: 2,
+    QUALITY_GRAY: 1,
   }
-}
->>>>
 
-### src/lib/fonts.js
-<<<<
-export function dropFont() {
-  if (!installed) return
-  try {
-    document.fonts.delete(installed)
-  } catch {
-    /* 老浏览器没有 FontFaceSet.delete，忽略即可 */
+  /* 各分类的图标字段名（角色的 CardImg 是 UI_Gacha_AvatarIcon_，要换成头像那套前缀） */
+  const LU_ICON = {
+    characters: (c) => String(c.CardImg || '').replace(/^UI_Gacha_AvatarIcon_/, 'UI_AvatarIcon_'),
+    weapons: (c) => String(c.weaponIcon || ''),
+    artifacts: (c) => String(c.setIcon || ''),
+    monsters: (c) => String(c.icon || ''),
   }
-  installed = null
-}
->>>>
-<<<<
-export function dropFont() {
-  if (!installed) return
-  try {
-    document.fonts.delete(installed)
-  } catch {
-    /* 老浏览器没有 FontFaceSet.delete，忽略即可 */
+
+  /* 版本号必须现读：lunaris 的清单路径带版本（现在 7.2.51），写死就永远停在旧版 */
+  let lunarisVer = ''
+  async function lunarisVersion() {
+    if (lunarisVer) return lunarisVer
+    const res = await fetch('https://api.lunaris.moe/data/version.json', { cache: 'no-store' })
+    lunarisVer = (await res.json()).version
+    return lunarisVer
   }
-  installed = null
-  fontRev.value += 1
-}
+
+  /* lunaris 清单 → 与 Amber 同形状的条目（多一个 source 标记，供备用源判定用） */
+  async function fetchLunarisList(type) {
+    const res = await fetch(
+      `https://api.lunaris.moe/data/${await lunarisVersion()}/${LU_LISTS[type]}.json`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const list = await res.json()
+    const out = {}
+    Object.keys(list).forEach((id) => {
+      const c = list[id] || {}
+      const icon = LU_ICON[type](c)
+      if (!icon) return
+      out[id] = {
+        id: Number(String(id).split('_')[0]) || 0,
+        name: c.chsName,
+        icon,
+        rank: QUALITY_RANK[c.qualityType] || null,
+        route: c.enName || '',
+        source: 'lunaris',
+      }
+    })
+    return out
+  }
+
+  /* 取条目：lunaris 有就用 lunaris（含未实装），它没有的才落 Amber。
+     两边 id 与图标代号逐条核对过，完全一致，所以覆盖不会产生重复行。 */
+  async function fetchIndex(type) {
+    const [lu, am] = await Promise.all([
+      fetchLunarisList(type).catch(() => null),
+      fetchAmber(type).catch(() => null),
+    ])
+    const merged = Object.assign({}, am || {})
+    if (lu) Object.assign(merged, lu)
+    if (!Object.keys(merged).length) throw new Error('两个源都没拿到' + LABELS[type])
+    return merged
+  }
+
+  /* ---------------- Amber（备用源） ---------------- */
 >>>>
 
-### src/views/VideoCover.vue
+### src/composables/useImageDict.js
 <<<<
-const cap = computed(() => cover.capsule(s))
-const capText = computed(() => cover.capsuleText(s))
-const guides = computed(() => cover.guideLines(s))
-const sig = computed(() => cover.signature(s))
+    const [items, cards] = await Promise.all([
+      fetchAmber(type),
+      type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
+    ])
 >>>>
 <<<<
-/* 胶囊标签、底部签名是按「文字宽度」定位置的，量出来的宽度取决于当时装的是哪套字体。
-   字体是异步装好的，所以这两个 computed 读一次 fonts.fontRev —— 装好就重算。 */
-const cap = computed(() => (fonts.fontRev.value, cover.capsule(s)))
-const capText = computed(() => cover.capsuleText(s))
-const guides = computed(() => cover.guideLines(s))
-const sig = computed(() => (fonts.fontRev.value, cover.signature(s)))
+    const [items, cards] = await Promise.all([
+      fetchIndex(type),
+      type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
+    ])
 >>>>
 
-### src/views/CharacterGuide.vue
+### src/composables/useImageDict.js
 <<<<
-const svg = computed(() => guide.buildGuideSVG(s, uiIcons.value))
+        const picked = transformAmber(
+          type,
+          await fetchAmber(type),
+          type === 'characters' ? cards : null,
+        )
 >>>>
 <<<<
-/* 卡片里有几处坐标按文字宽度算（配队标题、副词条标签、散搭的标签）——
-   读一次 fonts.fontRev：字体异步装好之后，这些位置会自己重算 */
-const svg = computed(() => (fonts.fontRev.value, guide.buildGuideSVG(s, uiIcons.value)))
->>>>
-
-### CHANGELOG.md
-<<<<
-### 2026-11-10 · 视频封面四修：草稿存不进、字体不重取、Logo 旧路径、参考线进了导出；滑块数值框空白、背景整行都是热区
->>>>
-<<<<
-### 2026-11-10 · 视频封面四修：草稿存不进、字体不重取、Logo 旧路径、参考线进了导出；滑块数值框空白、背景整行都是热区；重进页面按文字宽度定位的地方会偏
+        const picked = transformAmber(
+          type,
+          await fetchIndex(type),
+          type === 'characters' ? cards : null,
+        )
 >>>>
 
-### CHANGELOG.md
+### src/composables/useImageDict.js
 <<<<
-共用的 `Slider` 顺带修好（角色一图流也用同一个组件）。
+    if (type === 'artifacts') {
+      const star =
+        Array.isArray(item.levelList) && item.levelList.length
+          ? Math.max.apply(null, item.levelList)
+          : 5
 >>>>
 <<<<
-共用的 `Slider` 顺带修好（角色一图流也用同一个组件）。**第五轮**：用户报「重进页面时标签文字位置是偏的，删掉再添加才正常」—— 根因不在状态，而在**度量**：胶囊标签与底部签名的位置是按文字宽度算的，量宽度用的字体是异步装进 `document.fonts` 的，装好时把 `s.fontName` 设成同一个值**不会**触发 computed 重算，那几个坐标就一直停在回退字体的度量上，直到你动了别的状态（删一个浮动素材）才刷新。改法：`fonts.js` 加一个 `fontRev`，`installFont` / `dropFont` 成功就自增；凡是按文字宽度定位的 computed（胶囊标签、签名、一图流的配队标题 / 副词条 / 散搭标签）读一次它。合集封面不受影响 —— 它每次绘制前都 `await document.fonts?.ready`，且 `loaded` 一变就重画。
->>>>
-
-### CHANGELOG.md
-<<<<
-滑块数值框与拖动条现在双向对得上（打字期间不跳、失焦归位），选图热区只剩缩略图。
->>>>
-<<<<
-滑块数值框与拖动条现在双向对得上（打字期间不跳、失焦归位），选图热区只剩缩略图；重进页面后按文字宽度定位的地方（标签 / 签名 / 配队标题）不再偏，不用再靠「删掉再添加」去刷新。
->>>>
-
-### AGENTS.md
-<<<<
-几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
->>>>
-<<<<
-几兆的 data URL 还要「先出一张 320×180 的小图预热」，否则第一次栅格化常常赶在字体加载完之前。
-- **文字度量会写进 computed，字体装好要让它重算**：`fonts.js` 的 `installFont` / `dropFont` 成功时自增 `fontRev`；凡是**按文字宽度定位**的 computed（视频封面的胶囊标签 / 底部签名、一图流的配队标题 / 副词条 / 散搭标签）都要读一次 `fonts.fontRev`。漏了就是「重进页面时位置是偏的，动一下 / 删掉再添一个才正」—— 因为把 `s.fontName` 设成同一个值不触发重算（2026-11-10 修过）。
+    if (type === 'artifacts') {
+      /* lunaris 的圣遗物不给 levelList，只给 qualityType —— 落到 rank */
+      const star =
+        Array.isArray(item.levelList) && item.levelList.length
+          ? Math.max.apply(null, item.levelList)
+          : item.rank || 5
 >>>>
 
-### AGENTS.md
+### src/composables/useImageDict.js
 <<<<
-- **最后合并**：`slider-inputs` —— `Slider` 数字框修好（聚焦不再空白、与拖动条双向同步）；视频封面 / 合集封面的背景行改成「只有缩略图是热区」。上一批 `font-embed`：字体用 `createElementNS` 内嵌进克隆的 `<defs>` + 小图预热。再上一批 `font-filename`：选字体时写 `s.fontFileName`。
+    if (row.star == null && item?.rank) {
+      row.star = item.rank
+      changed = true
+    }
 >>>>
 <<<<
-- **最后合并**：`font-metrics` —— `fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。再上一批 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
+    if (row.star == null && item?.rank) {
+      row.star = item.rank
+      changed = true
+    }
+
+    /* 这条只有备用源（Amber）有 → 图也走备用源，否则拼出来的是主源的 404 */
+    if (item?.source === 'amber' && !row.alt && !row.url) {
+      row.alt = true
+      changed = true
+    }
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+    const f = deriveFields(type, item)
+    const row = {
+      key: codeFrom(item.icon, type),
+      name: f.name || n,
+      order: f.order || 0,
+      star: f.star,
+    }
+    if (f.card) row.card = { ...f.card }
+    data[type].push(row)
+>>>>
+<<<<
+    const f = deriveFields(type, item)
+    const row = {
+      key: codeFrom(item.icon, type),
+      name: f.name || n,
+      order: f.order || 0,
+      star: f.star,
+    }
+    /* 源里这条只有备用源有 → 图也走备用源 */
+    if (item.source === 'amber') row.alt = true
+    if (f.card) row.card = { ...f.card }
+    data[type].push(row)
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+      kept[code] = deriveFields(type, item, cards)
+>>>>
+<<<<
+      /* source 带上：只有 Amber 有的条目，建行时要把图切到备用源 */
+      kept[code] = { ...deriveFields(type, item, cards), source: item.source }
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+        if (!prev) {
+          merged[code] = item
+          return
+        }
+>>>>
+<<<<
+        if (!prev) {
+          /* 新行：source 是源标记，不进字典；只有 Amber 有的条目图走备用源 */
+          const row = { ...item }
+          delete row.source
+          if (item.source === 'amber') row.alt = true
+          merged[code] = row
+          return
+        }
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+        const next = cloneRow(prev)
+        if (item.name) next.name = item.name
+>>>>
+<<<<
+        const next = cloneRow(prev)
+        /* 这条只有备用源有，而本地这行还没定图 → 图走备用源 */
+        if (item.source === 'amber' && !prev.url && !prev.alt) next.alt = true
+        if (item.name) next.name = item.name
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal })
+>>>>
+<<<<
+      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal, cache: 'no-store' })
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -q 'import { ref } from' src/lib/fonts.js
-grep -q 'export const fontRev = ref(0)' src/lib/fonts.js
-test "$(grep -c 'fontRev.value += 1' src/lib/fonts.js)" = 2
-grep -q 'fonts.fontRev.value, cover.capsule(s)' src/views/VideoCover.vue
-grep -q 'fonts.fontRev.value, cover.signature(s)' src/views/VideoCover.vue
-grep -q 'fonts.fontRev.value, guide.buildGuideSVG' src/views/CharacterGuide.vue
-grep -q '第五轮' CHANGELOG.md
-grep -qF '`font-metrics`' AGENTS.md
-grep -q '文字度量会写进 computed' AGENTS.md
+grep -qF 'fetchLunarisList' src/composables/useImageDict.js
+grep -qF 'api.lunaris.moe/data/version.json' src/composables/useImageDict.js
+grep -qF "item?.source === 'amber'" src/composables/useImageDict.js
+grep -qF "if (item.source === 'amber') row.alt = true" src/composables/useImageDict.js
+grep -qF 'kept[code] = { ...deriveFields(type, item, cards), source: item.source }' src/composables/useImageDict.js
+grep -qF 'QUALITY_ORANGE' src/composables/useImageDict.js
+grep -qF 'item.rank || 5' src/composables/useImageDict.js
+test "$(grep -c 'fetchLunarisList(type)' src/composables/useImageDict.js)" = 2
+test "$(grep -c 'fetchIndex(type)' src/composables/useImageDict.js)" = 3
+test "$(grep -c 'fetchAmber(type)' src/composables/useImageDict.js)" = 2
+test "$(grep -c "cache: 'no-store'" src/composables/useImageDict.js)" = 3
