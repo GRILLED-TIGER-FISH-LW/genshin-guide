@@ -878,12 +878,24 @@ export function useImageDict() {
   }
 
   /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档 */
+  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档。
+     ⚠ QUALITY_GREEN 同时盖住 1 星和 2 星（无锋剑 11101 与 银剑 11201 都是这一档），
+        所以武器一律改用 id 里的星数（weaponStar），这张表只给其余分类用。 */
   const QUALITY_RANK = {
     QUALITY_ORANGE: 5,
+    QUALITY_ORANGE_SP: 5,
     QUALITY_PURPLE: 4,
     QUALITY_BLUE: 3,
-    QUALITY_GREEN: 2,
+    QUALITY_GREEN: 1, /* 这一档有歧义（1★/2★ 都落在这里），武器不用它；别的分类暂时用不到 */
     QUALITY_GRAY: 1,
+  }
+
+  /* Genshin 武器 id = 1 + 武器类型 + 星数 + 序号：
+     11101 无锋剑(1★) / 11201 银剑(2★) / 11419 「一心传」名刀(4★) / 11517 银昼(5★)。
+     260 把武器逐条与 Amber 的 rank 对过：共同 id 253/253 一致，只有 lunaris 有的 7 把也自洽。 */
+  const weaponStar = (id) => {
+    const s = String(id)
+    return s.length === 5 && s[0] === '1' ? Number(s[2]) || null : null
   }
 
   /* 各分类的图标字段名（角色的 CardImg 是 UI_Gacha_AvatarIcon_，要换成头像那套前缀） */
@@ -920,7 +932,7 @@ export function useImageDict() {
         id: Number(String(id).split('_')[0]) || 0,
         name: c.chsName,
         icon,
-        rank: QUALITY_RANK[c.qualityType] || null,
+        rank: (type === 'weapons' ? weaponStar(id) : null) || QUALITY_RANK[c.qualityType] || null,
         route: c.enName || '',
         source: 'lunaris',
       }
@@ -936,7 +948,14 @@ export function useImageDict() {
       fetchAmber(type).catch(() => null),
     ])
     const merged = Object.assign({}, am || {})
-    if (lu) Object.assign(merged, lu)
+    /* 星级以 Amber 的自报 rank 为准（它是精确星数；lunaris 的 qualityType 在低星档有歧义），
+       Amber 没有这条时才用 lunaris 推出来的 rank */
+    if (lu) {
+      Object.keys(lu).forEach((id) => {
+        const prev = merged[id]
+        merged[id] = prev && prev.rank != null ? { ...lu[id], rank: prev.rank } : lu[id]
+      })
+    }
     if (!Object.keys(merged).length) throw new Error('两个源都没拿到' + LABELS[type])
     return merged
   }
