@@ -867,13 +867,87 @@ export function useImageDict() {
     markDirty()
   }
 
-  /* ---------------- Amber ---------------- */
+  /* ---------------- 源优先级：lunaris（默认） > Amber（备用） ---------------- */
+
+  /* 四个分类在 lunaris 的清单文件名 */
+  const LU_LISTS = {
+    characters: 'charlist',
+    weapons: 'weaponlist',
+    artifacts: 'artifactlist',
+    monsters: 'monsterlist',
+  }
+
+  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档 */
+  const QUALITY_RANK = {
+    QUALITY_ORANGE: 5,
+    QUALITY_PURPLE: 4,
+    QUALITY_BLUE: 3,
+    QUALITY_GREEN: 2,
+    QUALITY_GRAY: 1,
+  }
+
+  /* 各分类的图标字段名（角色的 CardImg 是 UI_Gacha_AvatarIcon_，要换成头像那套前缀） */
+  const LU_ICON = {
+    characters: (c) => String(c.CardImg || '').replace(/^UI_Gacha_AvatarIcon_/, 'UI_AvatarIcon_'),
+    weapons: (c) => String(c.weaponIcon || ''),
+    artifacts: (c) => String(c.setIcon || ''),
+    monsters: (c) => String(c.icon || ''),
+  }
+
+  /* 版本号必须现读：lunaris 的清单路径带版本（现在 7.2.51），写死就永远停在旧版 */
+  let lunarisVer = ''
+  async function lunarisVersion() {
+    if (lunarisVer) return lunarisVer
+    const res = await fetch('https://api.lunaris.moe/data/version.json', { cache: 'no-store' })
+    lunarisVer = (await res.json()).version
+    return lunarisVer
+  }
+
+  /* lunaris 清单 → 与 Amber 同形状的条目（多一个 source 标记，供备用源判定用） */
+  async function fetchLunarisList(type) {
+    const res = await fetch(
+      `https://api.lunaris.moe/data/${await lunarisVersion()}/${LU_LISTS[type]}.json`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const list = await res.json()
+    const out = {}
+    Object.keys(list).forEach((id) => {
+      const c = list[id] || {}
+      const icon = LU_ICON[type](c)
+      if (!icon) return
+      out[id] = {
+        id: Number(String(id).split('_')[0]) || 0,
+        name: c.chsName,
+        icon,
+        rank: QUALITY_RANK[c.qualityType] || null,
+        route: c.enName || '',
+        source: 'lunaris',
+      }
+    })
+    return out
+  }
+
+  /* 取条目：lunaris 有就用 lunaris（含未实装），它没有的才落 Amber。
+     两边 id 与图标代号逐条核对过，完全一致，所以覆盖不会产生重复行。 */
+  async function fetchIndex(type) {
+    const [lu, am] = await Promise.all([
+      fetchLunarisList(type).catch(() => null),
+      fetchAmber(type).catch(() => null),
+    ])
+    const merged = Object.assign({}, am || {})
+    if (lu) Object.assign(merged, lu)
+    if (!Object.keys(merged).length) throw new Error('两个源都没拿到' + LABELS[type])
+    return merged
+  }
+
+  /* ---------------- Amber（备用源） ---------------- */
 
   async function fetchAmber(type) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 20000)
     try {
-      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal })
+      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal, cache: 'no-store' })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       const json = await res.json()
       return (json.data && json.data.items) || json.data || json
@@ -927,10 +1001,11 @@ export function useImageDict() {
       return { name: item.name, star: item.rank || 5, order: item.id || 0 }
     }
     if (type === 'artifacts') {
+      /* lunaris 的圣遗物不给 levelList，只给 qualityType —— 落到 rank */
       const star =
         Array.isArray(item.levelList) && item.levelList.length
           ? Math.max.apply(null, item.levelList)
-          : 5
+          : item.rank || 5
       return { name: item.name, star, order: item.id || 0 }
     }
     return { name: item.name, star: null, order: item.id || 0 }
@@ -965,7 +1040,8 @@ export function useImageDict() {
         }
       }
 
-      kept[code] = deriveFields(type, item, cards)
+      /* source 带上：只有 Amber 有的条目，建行时要把图切到备用源 */
+      kept[code] = { ...deriveFields(type, item, cards), source: item.source }
     })
 
     return { kept, skipped }
@@ -977,7 +1053,7 @@ export function useImageDict() {
     if (amberIndex[type]) return amberIndex[type]
 
     const [items, cards] = await Promise.all([
-      fetchAmber(type),
+      fetchIndex(type),
       type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
     ])
 
@@ -1063,6 +1139,12 @@ export function useImageDict() {
       changed = true
     }
 
+    /* 这条只有备用源（Amber）有 → 图也走备用源，否则拼出来的是主源的 404 */
+    if (item?.source === 'amber' && !row.alt && !row.url) {
+      row.alt = true
+      changed = true
+    }
+
     /* 名片：源里给了就用源的；源里没有这个角色（未实装）就同名代换，
        代换出来的地址要真能加载才算数 */
     if (missingCard(row) && row.key) {
@@ -1115,6 +1197,8 @@ export function useImageDict() {
       order: f.order || 0,
       star: f.star,
     }
+    /* 源里这条只有备用源有 → 图也走备用源 */
+    if (item.source === 'amber') row.alt = true
     if (f.card) row.card = { ...f.card }
     data[type].push(row)
     markDirty()
@@ -1266,7 +1350,7 @@ export function useImageDict() {
       try {
         const picked = transformAmber(
           type,
-          await fetchAmber(type),
+          await fetchIndex(type),
           type === 'characters' ? cards : null,
         )
         amber[type] = picked.kept
@@ -1304,7 +1388,11 @@ export function useImageDict() {
         const prev = byKey[code] || (item.name ? byName[item.name] : null)
 
         if (!prev) {
-          merged[code] = item
+          /* 新行：source 是源标记，不进字典；只有 Amber 有的条目图走备用源 */
+          const row = { ...item }
+          delete row.source
+          if (item.source === 'amber') row.alt = true
+          merged[code] = row
           return
         }
         if (prev.lock) {
@@ -1313,6 +1401,8 @@ export function useImageDict() {
         }
 
         const next = cloneRow(prev)
+        /* 这条只有备用源有，而本地这行还没定图 → 图走备用源 */
+        if (item.source === 'amber' && !prev.url && !prev.alt) next.alt = true
         if (item.name) next.name = item.name
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
