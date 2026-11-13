@@ -1,12 +1,13 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
 #
-# 这一批（lunaris-index）：把「默认源」真正做成 lunaris。
-#   现状：图片地址早就是 lunaris 优先（DEFAULT_CONFIG.prefix），但匹配用的索引用的是 Amber ——
-#         ensureAmberIndex 和 syncFromAmber（就是界面上那个「从源匹配」）都调 fetchAmber，
-#         lunaris 一次都没被当索引用过。所以未实装角色（Amber 表里没有）必然匹配不到，不是版本旧。
-#   改法：加 lunaris 清单加载 + fetchIndex（lunaris 覆盖，Amber 只补 lunaris 没有的），
-#         两个调用点换成 fetchIndex；顺手把「只有 Amber 有的条目」的图切到备用源。
-#   已核对：四个分类、所有共同 id 的图标代号 0 处不一致 → 覆盖不会换代号、不会产生重复行。
+# 这一批（weapon-star）：修 lunaris-index 那批引入的星级错误。
+#   原因：lunaris 的 qualityType 里 QUALITY_GREEN 同时盖住 1 星和 2 星——
+#         无锋剑 11101 与 银剑 11201 的 qualityType 都是 QUALITY_GREEN，但分别是 1 星和 2 星。
+#         上一批把它换算成 2 星，于是无锋剑/训练大剑/新手长枪/学徒笔记/猎弓 这五把 1 星武器
+#         被抬成了 2 星；另外五把真 2 星的恰好显示对了，所以只露出这五把。
+#   修法：① 武器星级改用 id 的第三位（Genshin 武器 id = 1 + 类型 + 星数 + 序号）；
+#         ② 星级以 Amber 的自报 rank 为准（它是精确星数），Amber 没有这条才用 lunaris 推的；
+#         ③ 补 QUALITY_ORANGE_SP: 5（有 3 个角色是这一档）。
 
 == MOVES ==
 # 这批没有要搬的文件
@@ -14,20 +15,6 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-  /* ---------------- Amber ---------------- */
->>>>
-<<<<
-  /* ---------------- 源优先级：lunaris（默认） > Amber（备用） ---------------- */
-
-  /* 四个分类在 lunaris 的清单文件名 */
-  const LU_LISTS = {
-    characters: 'charlist',
-    weapons: 'weaponlist',
-    artifacts: 'artifactlist',
-    monsters: 'monsterlist',
-  }
-
-  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档 */
   const QUALITY_RANK = {
     QUALITY_ORANGE: 5,
     QUALITY_PURPLE: 4,
@@ -35,217 +22,61 @@
     QUALITY_GREEN: 2,
     QUALITY_GRAY: 1,
   }
-
-  /* 各分类的图标字段名（角色的 CardImg 是 UI_Gacha_AvatarIcon_，要换成头像那套前缀） */
-  const LU_ICON = {
-    characters: (c) => String(c.CardImg || '').replace(/^UI_Gacha_AvatarIcon_/, 'UI_AvatarIcon_'),
-    weapons: (c) => String(c.weaponIcon || ''),
-    artifacts: (c) => String(c.setIcon || ''),
-    monsters: (c) => String(c.icon || ''),
+>>>>
+<<<<
+  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档。
+     ⚠ QUALITY_GREEN 同时盖住 1 星和 2 星（无锋剑 11101 与 银剑 11201 都是这一档），
+        所以武器一律改用 id 里的星数（weaponStar），这张表只给其余分类用。 */
+  const QUALITY_RANK = {
+    QUALITY_ORANGE: 5,
+    QUALITY_ORANGE_SP: 5,
+    QUALITY_PURPLE: 4,
+    QUALITY_BLUE: 3,
+    QUALITY_GREEN: 1, /* 这一档有歧义（1★/2★ 都落在这里），武器不用它；别的分类暂时用不到 */
+    QUALITY_GRAY: 1,
   }
 
-  /* 版本号必须现读：lunaris 的清单路径带版本（现在 7.2.51），写死就永远停在旧版 */
-  let lunarisVer = ''
-  async function lunarisVersion() {
-    if (lunarisVer) return lunarisVer
-    const res = await fetch('https://api.lunaris.moe/data/version.json', { cache: 'no-store' })
-    lunarisVer = (await res.json()).version
-    return lunarisVer
+  /* Genshin 武器 id = 1 + 武器类型 + 星数 + 序号：
+     11101 无锋剑(1★) / 11201 银剑(2★) / 11419 「一心传」名刀(4★) / 11517 银昼(5★)。
+     260 把武器逐条与 Amber 的 rank 对过：共同 id 253/253 一致，只有 lunaris 有的 7 把也自洽。 */
+  const weaponStar = (id) => {
+    const s = String(id)
+    return s.length === 5 && s[0] === '1' ? Number(s[2]) || null : null
   }
+>>>>
 
-  /* lunaris 清单 → 与 Amber 同形状的条目（多一个 source 标记，供备用源判定用） */
-  async function fetchLunarisList(type) {
-    const res = await fetch(
-      `https://api.lunaris.moe/data/${await lunarisVersion()}/${LU_LISTS[type]}.json`,
-      { cache: 'no-store' },
-    )
-    if (!res.ok) throw new Error('HTTP ' + res.status)
-    const list = await res.json()
-    const out = {}
-    Object.keys(list).forEach((id) => {
-      const c = list[id] || {}
-      const icon = LU_ICON[type](c)
-      if (!icon) return
-      out[id] = {
-        id: Number(String(id).split('_')[0]) || 0,
-        name: c.chsName,
-        icon,
+### src/composables/useImageDict.js
+<<<<
         rank: QUALITY_RANK[c.qualityType] || null,
-        route: c.enName || '',
-        source: 'lunaris',
-      }
-    })
-    return out
-  }
+>>>>
+<<<<
+        rank: (type === 'weapons' ? weaponStar(id) : null) || QUALITY_RANK[c.qualityType] || null,
+>>>>
 
-  /* 取条目：lunaris 有就用 lunaris（含未实装），它没有的才落 Amber。
-     两边 id 与图标代号逐条核对过，完全一致，所以覆盖不会产生重复行。 */
-  async function fetchIndex(type) {
-    const [lu, am] = await Promise.all([
-      fetchLunarisList(type).catch(() => null),
-      fetchAmber(type).catch(() => null),
-    ])
+### src/composables/useImageDict.js
+<<<<
     const merged = Object.assign({}, am || {})
     if (lu) Object.assign(merged, lu)
-    if (!Object.keys(merged).length) throw new Error('两个源都没拿到' + LABELS[type])
-    return merged
-  }
-
-  /* ---------------- Amber（备用源） ---------------- */
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    const [items, cards] = await Promise.all([
-      fetchAmber(type),
-      type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
-    ])
 >>>>
 <<<<
-    const [items, cards] = await Promise.all([
-      fetchIndex(type),
-      type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
-    ])
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-        const picked = transformAmber(
-          type,
-          await fetchAmber(type),
-          type === 'characters' ? cards : null,
-        )
->>>>
-<<<<
-        const picked = transformAmber(
-          type,
-          await fetchIndex(type),
-          type === 'characters' ? cards : null,
-        )
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    if (type === 'artifacts') {
-      const star =
-        Array.isArray(item.levelList) && item.levelList.length
-          ? Math.max.apply(null, item.levelList)
-          : 5
->>>>
-<<<<
-    if (type === 'artifacts') {
-      /* lunaris 的圣遗物不给 levelList，只给 qualityType —— 落到 rank */
-      const star =
-        Array.isArray(item.levelList) && item.levelList.length
-          ? Math.max.apply(null, item.levelList)
-          : item.rank || 5
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    if (row.star == null && item?.rank) {
-      row.star = item.rank
-      changed = true
+    const merged = Object.assign({}, am || {})
+    /* 星级以 Amber 的自报 rank 为准（它是精确星数；lunaris 的 qualityType 在低星档有歧义），
+       Amber 没有这条时才用 lunaris 推出来的 rank */
+    if (lu) {
+      Object.keys(lu).forEach((id) => {
+        const prev = merged[id]
+        merged[id] = prev && prev.rank != null ? { ...lu[id], rank: prev.rank } : lu[id]
+      })
     }
->>>>
-<<<<
-    if (row.star == null && item?.rank) {
-      row.star = item.rank
-      changed = true
-    }
-
-    /* 这条只有备用源（Amber）有 → 图也走备用源，否则拼出来的是主源的 404 */
-    if (item?.source === 'amber' && !row.alt && !row.url) {
-      row.alt = true
-      changed = true
-    }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    const f = deriveFields(type, item)
-    const row = {
-      key: codeFrom(item.icon, type),
-      name: f.name || n,
-      order: f.order || 0,
-      star: f.star,
-    }
-    if (f.card) row.card = { ...f.card }
-    data[type].push(row)
->>>>
-<<<<
-    const f = deriveFields(type, item)
-    const row = {
-      key: codeFrom(item.icon, type),
-      name: f.name || n,
-      order: f.order || 0,
-      star: f.star,
-    }
-    /* 源里这条只有备用源有 → 图也走备用源 */
-    if (item.source === 'amber') row.alt = true
-    if (f.card) row.card = { ...f.card }
-    data[type].push(row)
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      kept[code] = deriveFields(type, item, cards)
->>>>
-<<<<
-      /* source 带上：只有 Amber 有的条目，建行时要把图切到备用源 */
-      kept[code] = { ...deriveFields(type, item, cards), source: item.source }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-        if (!prev) {
-          merged[code] = item
-          return
-        }
->>>>
-<<<<
-        if (!prev) {
-          /* 新行：source 是源标记，不进字典；只有 Amber 有的条目图走备用源 */
-          const row = { ...item }
-          delete row.source
-          if (item.source === 'amber') row.alt = true
-          merged[code] = row
-          return
-        }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-        const next = cloneRow(prev)
-        if (item.name) next.name = item.name
->>>>
-<<<<
-        const next = cloneRow(prev)
-        /* 这条只有备用源有，而本地这行还没定图 → 图走备用源 */
-        if (item.source === 'amber' && !prev.url && !prev.alt) next.alt = true
-        if (item.name) next.name = item.name
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal })
->>>>
-<<<<
-      const res = await fetch(AMBER_ENDPOINTS[type], { signal: controller.signal, cache: 'no-store' })
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -qF 'fetchLunarisList' src/composables/useImageDict.js
-grep -qF 'api.lunaris.moe/data/version.json' src/composables/useImageDict.js
-grep -qF "item?.source === 'amber'" src/composables/useImageDict.js
-grep -qF "if (item.source === 'amber') row.alt = true" src/composables/useImageDict.js
-grep -qF 'kept[code] = { ...deriveFields(type, item, cards), source: item.source }' src/composables/useImageDict.js
-grep -qF 'QUALITY_ORANGE' src/composables/useImageDict.js
-grep -qF 'item.rank || 5' src/composables/useImageDict.js
-test "$(grep -c 'fetchLunarisList(type)' src/composables/useImageDict.js)" = 2
-test "$(grep -c 'fetchIndex(type)' src/composables/useImageDict.js)" = 3
-test "$(grep -c 'fetchAmber(type)' src/composables/useImageDict.js)" = 2
-test "$(grep -c "cache: 'no-store'" src/composables/useImageDict.js)" = 3
+grep -qF 'const weaponStar = (id) => {' src/composables/useImageDict.js
+grep -qF 'QUALITY_ORANGE_SP: 5' src/composables/useImageDict.js
+grep -qF "(type === 'weapons' ? weaponStar(id) : null)" src/composables/useImageDict.js
+grep -qF 'prev && prev.rank != null' src/composables/useImageDict.js
+test "$(grep -c 'QUALITY_RANK' src/composables/useImageDict.js)" = 2
+test "$(grep -c 'QUALITY_GREEN' src/composables/useImageDict.js)" = 2
