@@ -58,6 +58,7 @@ const {
   setOrder,
   setName,
   setNameLock,
+  setLock,
   setStar,
   resolveAdd,
   addItem,
@@ -78,6 +79,7 @@ const {
   syncFromAmber,
   applyConflicts,
   exportDict,
+  identOf,
   LABELS,
   FILTERS,
 } = useImageDict()
@@ -123,23 +125,30 @@ const filterOptions = computed(() =>
   FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
 )
 
-const SLOT_META = [
-  {
-    slot: '',
-    title: '头像',
-    hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
-  },
-  {
-    slot: 'card',
-    title: '名片',
-    hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
-  },
-  {
-    slot: 'art',
-    title: '立绘',
-    hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
-  },
-]
+/* 详情栏的槽位列：角色三个（头像 / 名片 / 立绘），圣遗物 / 武器 / 怪物只有头像。
+   详情栏四个页签共用，所以这一列跟着页签走。 */
+const AVATAR_META = {
+  slot: '',
+  title: '头像',
+  hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
+}
+const SLOT_META = computed(() =>
+  isCharTab.value
+    ? [
+        AVATAR_META,
+        {
+          slot: 'card',
+          title: '名片',
+          hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
+        },
+        {
+          slot: 'art',
+          title: '立绘',
+          hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
+        },
+      ]
+    : [AVATAR_META],
+)
 
 /* 槽位的地址草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
 const urlDraft = ref({ key: '', value: '' })
@@ -168,7 +177,8 @@ async function commitUrl(row, slot) {
 
   const code = applyUrl(row, slot, value)
   if (!code) return
-  if (needFill(row)) await hydrate(row, slot)
+  /* 只给角色反查补齐：怪物同一个代号常被好几条共用，反查会带回别的条目的名字 */
+  if (tab.value === 'characters' && needFill(row)) await hydrate(row, slot)
 }
 
 function onSelect(row) {
@@ -314,14 +324,12 @@ onMounted(init)
     </header>
 
     <!-- ---------------- 主体 ---------------- -->
-    <main
-      class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain"
-      :class="isCharTab ? 'md:grid-cols-[15rem_minmax(0,1fr)]' : ''"
-    >
+    <!-- 四个页签共用一套「左边列表 + 右边详情」：点左边一行，在右边编辑 -->
+    <main class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain md:grid-cols-[15rem_minmax(0,1fr)]">
       <!-- 列表栏 -->
       <div
         class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto p-3"
-        :class="isCharTab && activeRow ? 'hidden md:grid' : ''"
+        :class="activeRow ? 'hidden md:grid' : ''"
       >
         <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
 
@@ -338,14 +346,14 @@ onMounted(init)
           </div>
         </div>
 
-        <template v-else-if="isCharTab">
+        <template v-else>
           <button
             v-for="row in filtered"
-            :key="row.key"
+            :key="identOf(tab, row)"
             type="button"
             class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
             :class="
-              row.key === activeKey
+              identOf(tab, row) === activeKey
                 ? 'border-line-3 bg-surface-2'
                 : 'border-line bg-surface hover:bg-hover'
             "
@@ -372,87 +380,18 @@ onMounted(init)
                 <span>No.{{ row.order || 0 }}</span>
                 <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
                 <span v-if="slotAlt(row, '')" class="text-accent">备用源</span>
-                <span v-if="missingCard(row)" class="text-faint">缺名片</span>
-                <span v-if="missingArt(row)" class="text-faint">缺立绘</span>
+                <span v-if="isCharTab && missingCard(row)" class="text-faint">缺名片</span>
+                <span v-if="isCharTab && missingArt(row)" class="text-faint">缺立绘</span>
               </span>
             </span>
           </button>
         </template>
 
-        <template v-else>
-          <div
-            v-for="row in filtered"
-            :key="row.key"
-            class="rounded-panel border border-line bg-surface p-2"
-          >
-            <div class="flex min-w-0 items-center gap-2">
-              <input
-                type="number"
-                :class="[
-                  FIELD,
-                  'w-11 shrink-0 px-1 text-center font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                ]"
-                :value="row.order || ''"
-                aria-label="序号"
-                @change="setOrder(row, $event.target.value)"
-              />
-
-              <span
-                class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
-                :style="starStyle(row)"
-              >
-                <img
-                  v-if="slotSrc(tab, row, '').src"
-                  :src="slotSrc(tab, row, '').src"
-                  :data-alt="slotSrc(tab, row, '').alt || undefined"
-                  alt=""
-                  loading="lazy"
-                  class="size-full object-contain"
-                  @error="onThumbError"
-                />
-              </span>
-
-              <input
-                v-model="row.name"
-                type="text"
-                :class="[FIELD, 'flex-1 px-2']"
-                placeholder="中文名"
-                aria-label="中文名"
-                @blur="setName(row, row.name)"
-              />
-
-              <!-- 怪物：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
-                   打勾 = 以我手填的名字为准，同步不再改它；图、星级、序号照旧跟源。 -->
-              <!-- 圣遗物 / 武器 / 怪物：名字以我为准（角色按你说的不动） -->
-              <input
-                v-if="tab !== 'characters'"
-                type="checkbox"
-                :checked="!!row.nameLock"
-                aria-label="名字以我为准"
-                title="名字以我为准"
-                @change="setNameLock(row, $event.target.checked)"
-              />
-
-              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
-                <Dropdown
-                  :options="STAR_OPTIONS"
-                  :model-value="String(row.star ?? 5)"
-                  :label="`星级：${row.star ?? 5} 星`"
-                  @update:model-value="setStar(row, $event)"
-                />
-              </span>
-
-              <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除" @click="removeRow(row)">
-                <template #icon><Icon name="ui.trash" size="sm" /></template>
-              </Btn>
-            </div>
-          </div>
-        </template>
+        <!-- 行内只放缩略图和摘要，编辑全在右边的详情栏（四个页签一样） -->
       </div>
 
-      <!-- 详情栏（只有角色页签用） -->
+      <!-- 详情栏：四个页签共用 -->
       <div
-        v-if="isCharTab"
         class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3"
         :class="activeRow ? '' : 'hidden md:grid'"
       >
@@ -483,7 +422,7 @@ onMounted(init)
                 @input="activeRow.name = $event.target.value"
                 @blur="commitName(activeRow)"
               />
-              <span class="w-[72px] shrink-0">
+              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
                 <Dropdown
                   :options="STAR_OPTIONS"
                   :model-value="String(activeRow.star ?? 5)"
@@ -491,6 +430,27 @@ onMounted(init)
                   @update:model-value="setStar(activeRow, $event)"
                 />
               </span>
+            </div>
+
+            <!-- 两个勾（只留框不写字，悬停有提示），四个页签都放在这里：
+                 名字以我为准 = 同步不改这个名字；整条冻结 = 同步整条不动 -->
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <input
+                type="checkbox"
+                class="size-3.5 shrink-0 accent-accent"
+                :checked="!!activeRow.nameLock"
+                aria-label="名字以我为准"
+                title="名字以我为准（同步不改这个名字）"
+                @change="setNameLock(activeRow, $event.target.checked)"
+              />
+              <input
+                type="checkbox"
+                class="size-3.5 shrink-0 accent-accent"
+                :checked="!!activeRow.lock"
+                aria-label="整条冻结"
+                title="整条冻结（同步不动这一行）"
+                @change="setLock(activeRow, $event.target.checked)"
+              />
             </div>
           </div>
 
@@ -582,7 +542,7 @@ onMounted(init)
           <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
             <Icon name="ui.inbox" size="lg" />
           </span>
-          <p class="text-xs text-muted">左边选一个角色</p>
+          <p class="text-xs text-muted">左边选一条</p>
         </div>
       </div>
     </main>

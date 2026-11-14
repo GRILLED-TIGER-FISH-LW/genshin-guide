@@ -603,10 +603,10 @@ export function useImageDict() {
     )
   })
 
-  const activeRow = computed(() =>
-    tab.value === 'characters'
-      ? data.characters.find((r) => r.key === activeKey.value) || null
-      : null,
+  /* 选中行按识别码找（角色 = 代号，圣遗物 / 武器 / 怪物 = ID）：
+     怪物同一个图标代号常被好几条共用，按代号找会选错行。 */
+  const activeRow = computed(
+    () => data[tab.value].find((r) => identOf(tab.value, r) === activeKey.value) || null,
   )
 
   const counts = computed(() => ({
@@ -769,6 +769,12 @@ export function useImageDict() {
 
   /* 怪物专用：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
      打勾 = 以我手填的名字为准：同步不再改这个名字，图 / 星级 / 序号照旧跟源走。 */
+  /* 整条冻结：同步不再碰这一行（名字、图、星级、序号都不动） */
+  function setLock(row, value) {
+    row.lock = !!value
+    markDirty()
+  }
+
   function setNameLock(row, value) {
     row.nameLock = !!value
     markDirty()
@@ -782,7 +788,7 @@ export function useImageDict() {
   function removeRow(row) {
     const idx = data[tab.value].indexOf(row)
     if (idx >= 0) data[tab.value].splice(idx, 1)
-    if (row.key === activeKey.value) activeKey.value = ''
+    if (identOf(tab.value, row) === activeKey.value) activeKey.value = ''
     markDirty()
     toast.success('已删除')
   }
@@ -797,7 +803,7 @@ export function useImageDict() {
   /* 选中一条就顺手补它缺的（名片最常见），补过就不再请求。
      以前这一步只在「名字框失焦」时发生，缺名片的行没人碰就一直缺着。 */
   function select(row) {
-    activeKey.value = row?.key || ''
+    activeKey.value = row ? identOf(tab.value, row) : ''
     if (row && tab.value === 'characters' && needFill(row)) {
       hydrate(row, row.key ? 'avatar' : 'name')
     }
@@ -864,7 +870,8 @@ export function useImageDict() {
     } else if (code) {
       row.key = code
       put(row)
-      if (activeKey.value === oldKey) activeKey.value = code
+      /* 只有角色：身份就是代号，换代号时把选中一起带过去 */
+      if (type === 'characters' && activeKey.value === oldKey) activeKey.value = code
     } else {
       row.url = url
       delete row.alt
@@ -1658,7 +1665,8 @@ export function useImageDict() {
       portraitNote = '立绘对照没读到：' + e.message
     }
 
-    if (activeKey.value && !data.characters.some((r) => r.key === activeKey.value)) {
+    /* 同步可能把一行的身份改掉（比如怪物 3 区的旧序号并回 2 区）—— 选不中就收起详情栏 */
+    if (activeKey.value && !data[tab.value].some((r) => identOf(tab.value, r) === activeKey.value)) {
       activeKey.value = ''
     }
 
@@ -1785,6 +1793,7 @@ export function useImageDict() {
     setOrder,
     setName,
     setNameLock,
+    setLock,
     setStar,
     resolveAdd,
     addItem,
@@ -1811,6 +1820,7 @@ export function useImageDict() {
     exportDict,
     /* 常量 */
     TYPES,
+    identOf,
     LABELS,
     SLOTS,
     SLOT_LABELS,
