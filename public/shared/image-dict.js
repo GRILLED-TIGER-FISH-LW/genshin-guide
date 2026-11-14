@@ -473,7 +473,7 @@ window.IMAGE_DICT = {
 
   /* ============ 怪物 ============ */
   monsters: {
-    "20012301": { name: "虹彩史莱姆", key: "Slime_Moon_01", order: 20012301, url: "https://transform.alioth.wiki/i/gi/MonsterIcon/UI_MonsterIcon_Slime_Moon_01.png?w=256&f=auto" },
+    "20012301": { name: "虹彩史莱姆", key: "Slime_Moon_01", order: 20012301 },
     "20081201": { name: "十六倍曼陀草", key: "Mandragora_Elite", order: 20081201 },
     "21030801": { name: "丘尔德里克", key: "Shaman_None_01", order: 21030801 },
     "22132001": { name: "西格德", key: "WildHunt_Male_Sigurd", order: 22132001 },
