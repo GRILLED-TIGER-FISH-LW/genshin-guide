@@ -3,97 +3,76 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-  function setOrder(row, value) {
-    const v = String(value ?? '').trim()
-    const next = v === '' ? 0 : parseInt(v, 10) || 0
+    const code = codeFrom(url, type, slot)
+    const kind = urlKind(type, slot, url, code)
+    const keepUrl = kind === 'url'
 
-    if (tab.value === 'characters') {
-      const name = (row.name || '').trim()
-      if (name) row.order = findOrderByName(name, row) || next
-      else {
-        row.order = next
-        if (next > 0) row.name = findNameByOrder(next, row) || row.name
-      }
-    } else {
-      row.order = next
+    const put = (o) => {
+      o.key = code
+      o.url = keepUrl ? url : ''
+      if (kind === 'alt') o.alt = true
+      else delete o.alt
     }
-
-    /* 序号一改，非角色的身份（identOf = 序号）就变了；选中行要跟着挪过去，
-       不然 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉、界面弹回列表 */
-    if (row === activeRow.value && activeKey.value !== identOf(tab.value, row)) {
-      activeKey.value = identOf(tab.value, row)
-    }
-
-    markDirty()
-  }
 >>>>
 <<<<
-  function setOrder(row, value) {
-    const v = String(value ?? '').trim()
-    const next = v === '' ? 0 : parseInt(v, 10) || 0
-    /* 先记下旧身份：序号一改，非角色的 identOf（= 序号）就变了，
-       不跟着挪的话 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉 */
-    const oldIdent = identOf(tab.value, row)
+    const code = codeFrom(url, type, slot)
 
-    if (tab.value === 'characters') {
-      const name = (row.name || '').trim()
-      if (name) row.order = findOrderByName(name, row) || next
-      else {
-        row.order = next
-        if (next > 0) row.name = findNameByOrder(next, row) || row.name
+    /* 只要能提出代号就只存代号 —— 出图默认走主源 lunaris，
+       勾了「备用源」才走 yatta（你粘的链接来自哪个源都不影响）；
+       提不出代号才原样留 URL。仓库链接在上面已经单独处理过 */
+    const put = (o) => {
+      if (code) {
+        o.key = code
+        o.url = ''
+      } else {
+        o.key = ''
+        o.url = url
       }
-    } else {
-      row.order = next
     }
-
-    if (activeKey.value === oldIdent && activeKey.value !== identOf(tab.value, row)) {
-      activeKey.value = identOf(tab.value, row)
-    }
-
-    markDirty()
-  }
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-    data[type].push(row)
-    markDirty()
-    if (type === 'characters') activeKey.value = row.key
-    return row
+      toast.error('这个代号已经被另一条占用了')
+      row.url = url
+      delete row.alt
+    } else if (code) {
 >>>>
 <<<<
-    data[type].push(row)
-    markDirty()
-    /* 新建的这行直接选中：详情栏打开，之后填序号不会再弹回去 */
-    activeKey.value = identOf(type, row)
-    return row
+      toast.error('这个代号已经被另一条占用了')
+      row.url = url
+    } else if (code) {
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-      if (tab.value === 'monsters') {
-        const key = codeFrom(one, tab.value)
-        const isUrl = /^https?:/i.test(one)
-        data.monsters.push({ key, name: isUrl ? '' : one, order: 0, star: null, local: true })
-        markDirty()
-        return true
-      }
+    } else {
+      row.url = url
+      delete row.alt
+    }
+    markDirty()
 >>>>
 <<<<
-      if (tab.value === 'monsters') {
-        const key = codeFrom(one, tab.value)
-        const isUrl = /^https?:/i.test(one)
-        const row = { key, name: isUrl ? '' : one, order: 0, star: null, local: true }
-        data.monsters.push(row)
-        markDirty()
-        activeKey.value = identOf('monsters', row)
-        return true
-      }
+    } else {
+      row.url = url
+    }
+    markDirty()
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+      const kind = repo ? 'url' : urlKind(type, '', url, code)
+      if (kind === 'url') row.url = repo || url
+      else if (kind === 'alt') row.alt = true
+>>>>
+<<<<
+      /* 有代号就只存代号（出图默认主源，勾了「备用源」才走 yatta）；没代号才留 URL */
+      if (!code) row.url = repo || url
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-test "$(grep -c 'const oldIdent = identOf(tab.value, row)' src/composables/useImageDict.js)" = 1
-test "$(grep -c 'activeKey.value = identOf(type, row)' src/composables/useImageDict.js)" = 1
-test "$(grep -c "activeKey.value = identOf('monsters', row)" src/composables/useImageDict.js)" = 1
+test "$(grep -c '提不出代号才原样留 URL' src/composables/useImageDict.js)" = 1
+test "$(grep -c 'o.url = keepUrl' src/composables/useImageDict.js)" = 0
+test "$(grep -c "else if (kind === 'alt') row.alt = true" src/composables/useImageDict.js)" = 0
