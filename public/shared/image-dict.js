@@ -473,7 +473,20 @@ window.IMAGE_DICT = {
 
   /* ============ 怪物 ============ */
   monsters: {
+    "20012301": { name: "虹彩史莱姆", key: "Slime_Moon_01", order: 20012301, url: "https://transform.alioth.wiki/i/gi/MonsterIcon/UI_MonsterIcon_Slime_Moon_01.png?w=256&f=auto" },
+    "20081201": { name: "十六倍曼陀草", key: "Mandragora_Elite", order: 20081201 },
+    "21030801": { name: "丘尔德里克", key: "Shaman_None_01", order: 21030801 },
     "22132001": { name: "西格德", key: "WildHunt_Male_Sigurd", order: 22132001 },
-    "26162601": { name: "「蟹沙皇」", key: "HermitCrab_Mature_Elite", order: 26162601 }
+    "23079402": { name: "拉斯科尔尼科夫", key: "Oprichnik_Male_Strong_LanceArquebus_Rodya", order: 23079402 },
+    "24090701": { name: "「穆什特希尔」", key: "Monitor_02", order: 24090701 },
+    "25133801": { name: "弗瑞奥萨", key: "Volkodlak_Greyhound_Furiosa", order: 25133801 },
+    "25137101": { name: "厄生古树种", key: "Leshy_Mature_Disaster", order: 25137101 },
+    "25139001": { name: "丘林", key: "Karzelek_Tsereteli_01", order: 25139001 },
+    "25600101": { name: "海捷德", key: "Thoarder_Elder_Standard_Hildegard_01", order: 25600101 },
+    "26120501": { name: "「摩诃婆苏提婆耶弗太子」", key: "Fungus_Amanita_Du_Udatta_Rock_Elite", order: 26120501 },
+    "26162601": { name: "「蟹沙皇」", key: "HermitCrab_Mature_Elite", order: 26162601 },
+    "26300502": { name: "「望乡的孤狼」", key: "Magbeast_Steppenwolf_02", order: 26300502 },
+    "26310601": { name: "斑劫", key: "Chimera_OwlPangolin_02", order: 26310601 },
+    "28021801": { name: "太古硬猬兽", key: "Litolestes_01", order: 28021801 }
   }
 };
