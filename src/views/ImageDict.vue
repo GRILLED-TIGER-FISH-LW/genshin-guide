@@ -57,6 +57,7 @@ const {
   starStyle,
   setOrder,
   setName,
+  setNameLock,
   setStar,
   removeRow,
   clearTab,
@@ -408,6 +409,21 @@ onMounted(init)
                 aria-label="中文名"
                 @blur="setName(row, row.name)"
               />
+
+              <!-- 怪物：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
+                   打勾 = 以我手填的名字为准，同步不再改它；图、星级、序号照旧跟源。 -->
+              <label
+                v-if="tab === 'monsters'"
+                class="flex shrink-0 select-none items-center gap-1 text-[11px] leading-5 text-muted"
+              >
+                <input
+                  type="checkbox"
+                  :checked="!!row.nameLock"
+                  aria-label="名字以我为准"
+                  @change="setNameLock(row, $event.target.checked)"
+                />
+                名字以我为准
+              </label>
 
               <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
                 <Dropdown
