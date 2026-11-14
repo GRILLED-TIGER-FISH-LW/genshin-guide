@@ -438,15 +438,6 @@ onMounted(init)
                 <input
                   type="checkbox"
                   class="size-3.5 shrink-0 accent-accent"
-                  :checked="!!activeRow.nameLock"
-                  @change="setNameLock(activeRow, $event.target.checked)"
-                />
-                名字以我为准
-              </label>
-              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
                   :checked="!!activeRow.lock"
                   @change="setLock(activeRow, $event.target.checked)"
                 />
@@ -561,7 +552,7 @@ onMounted(init)
     <Modal
       v-model="confirmOpen"
       title="清空当前分类"
-      :message="`确定清空「${LABELS[tab]}」的全部 ${sorted.length} 条吗？这一步无法撤销。`"
+      :message="`确定清空「${LABELS[tab]}」的源条目吗？手填的会保留，这一步无法撤销。`"
       confirm-text="清空"
       danger
       @confirm="clearTab"

@@ -794,10 +794,11 @@ export function useImageDict() {
   }
 
   function clearTab() {
-    data[tab.value] = []
+    /* 只清源来的：手填的（标记了 local）原样留着 */
+    data[tab.value] = data[tab.value].filter((r) => r.local)
     activeKey.value = ''
     markDirty()
-    toast.success(`已清空「${LABELS[tab.value]}」`)
+    toast.success(`已清空「${LABELS[tab.value]}」的源条目，手填 ${data[tab.value].length} 条保留`)
   }
 
   /* 选中一条就顺手补它缺的（名片最常见），补过就不再请求。
@@ -1364,8 +1365,17 @@ export function useImageDict() {
     if (one) {
       const cands = await resolveAdd(one)
       if (!cands.length) {
-        toast.error('没认出来：可以是 ID（如 26310601）、代号（如 Chimera_OwlPangolin_02）、图标链接，或中文名')
-        return false
+        /* 源里没有这条：链接 / 代号读出来的 key 直接建一行，
+           剩下的（名字、序号、星级）留手填；标 local 让「清空」认得它 */
+        const key = codeFrom(one, tab.value)
+        if (!key) {
+          toast.error('没认出来：可以是 ID（如 26310601）、代号（如 Chimera_OwlPangolin_02）、图标链接，或中文名')
+          return false
+        }
+        const isUrl = /^https?:/i.test(one)
+        data[tab.value].push({ key, name: isUrl ? '' : one, order: 0, star: null, local: true })
+        markDirty()
+        return true
       }
       if (cands.length === 1) {
         addItem(cands[0], one)
@@ -1491,6 +1501,13 @@ export function useImageDict() {
     const amber = {}
     const excluded = {}
     for (const type of TYPES) {
+      /* 怪物不做源匹配：不拉源、不合并；图只用源地址按代号拼（lunaris 主 / yatta 备）。
+         本地怪物行（含手填的）会在下面的合并里被原样保留。 */
+      if (type === 'monsters') {
+        amber[type] = {}
+        excluded[type] = new Set()
+        continue
+      }
       busy.value = '正在拉取' + LABELS[type] + '…'
       try {
         const picked = transformAmber(
@@ -1550,8 +1567,7 @@ export function useImageDict() {
         const next = cloneRow(prev)
         /* 这条只有备用源有，而本地这行还没定图 → 图走备用源 */
         if (item.source === 'amber' && !prev.url && !prev.alt) next.alt = true
-        /* 名字打了「以我为准」的勾 → 手填的名字固定，同步不改它（图、星级、序号照旧跟源） */
-        if (item.name && !prev.nameLock) next.name = item.name
+        if (item.name) next.name = item.name
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
 
