@@ -59,6 +59,10 @@ const {
   setName,
   setNameLock,
   setStar,
+  resolveAdd,
+  addItem,
+  addCandidates,
+  pickAddCandidate,
   removeRow,
   clearTab,
   select,
@@ -215,6 +219,7 @@ function confirmConflicts() {
 
 function openAdd() {
   addText.value = ''
+  addCandidates.value = []
   addOpen.value = true
 }
 
@@ -223,6 +228,12 @@ async function onAdd() {
   addText.value = ''
   const ok = await addFromInput(text)
   if (ok) addOpen.value = false
+}
+
+/* 候选里挑一条：建行 + 关弹窗 */
+function onPickCandidate(item) {
+  pickAddCandidate(item)
+  addOpen.value = false
 }
 
 async function onLoad() {
@@ -412,18 +423,15 @@ onMounted(init)
 
               <!-- 怪物：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
                    打勾 = 以我手填的名字为准，同步不再改它；图、星级、序号照旧跟源。 -->
-              <label
-                v-if="tab === 'monsters'"
-                class="flex shrink-0 select-none items-center gap-1 text-[11px] leading-5 text-muted"
-              >
-                <input
-                  type="checkbox"
-                  :checked="!!row.nameLock"
-                  aria-label="名字以我为准"
-                  @change="setNameLock(row, $event.target.checked)"
-                />
-                名字以我为准
-              </label>
+              <!-- 圣遗物 / 武器 / 怪物：名字以我为准（角色按你说的不动） -->
+              <input
+                v-if="tab !== 'characters'"
+                type="checkbox"
+                :checked="!!row.nameLock"
+                aria-label="名字以我为准"
+                title="名字以我为准"
+                @change="setNameLock(row, $event.target.checked)"
+              />
 
               <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
                 <Dropdown
@@ -609,8 +617,16 @@ onMounted(init)
         :rows="5"
         data-autofocus
         label="名字 或 图标链接"
-        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya"
+        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
       />
+
+      <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
+      <div v-if="addCandidates.length" class="mt-2 border-t border-line pt-2">
+        <p class="mb-1 text-[11px] text-muted">这个代号在源里有 {{ addCandidates.length }} 条，选一条：</p>
+        <div class="flex flex-wrap gap-1">
+          <Btn v-for="(c, i) in addCandidates" :key="i" size="sm" @click="onPickCandidate(c)">{{ c.name }}</Btn>
+        </div>
+      </div>
     </Modal>
 
     <Modal
