@@ -1363,6 +1363,15 @@ export function useImageDict() {
 
     const one = lines.length === 1 ? lines[0] : ''
     if (one) {
+      /* 怪物不做源匹配：源只负责给图。直接按链接 / 代号建一行，
+         名字 / 序号 / 星级手填，序号不从源带 */
+      if (tab.value === 'monsters') {
+        const key = codeFrom(one, tab.value)
+        const isUrl = /^https?:/i.test(one)
+        data.monsters.push({ key, name: isUrl ? '' : one, order: 0, star: null, local: true })
+        markDirty()
+        return true
+      }
       const cands = await resolveAdd(one)
       if (!cands.length) {
         /* 源里没有这条：链接 / 代号读出来的 key 直接建一行，
