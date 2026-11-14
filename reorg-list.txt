@@ -1,66 +1,18 @@
 == MOVES ==
 
 == EDITS ==
-### src/views/ImageDict.vue
+### src/composables/useImageDict.js
 <<<<
-            <!-- 两个勾（只留框不写字，悬停有提示），四个页签都放在这里：
-                 名字以我为准 = 同步不改这个名字；整条冻结 = 同步整条不动 -->
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <input
-                type="checkbox"
-                class="size-3.5 shrink-0 accent-accent"
-                :checked="!!activeRow.nameLock"
-                aria-label="名字以我为准"
-                title="名字以我为准（同步不改这个名字）"
-                @change="setNameLock(activeRow, $event.target.checked)"
-              />
-              <input
-                type="checkbox"
-                class="size-3.5 shrink-0 accent-accent"
-                :checked="!!activeRow.lock"
-                aria-label="整条冻结"
-                title="整条冻结（同步不动这一行）"
-                @change="setLock(activeRow, $event.target.checked)"
-              />
-            </div>
+      kept[keepKey] = { ...deriveFields(type, item, cards), source: item.source }
 >>>>
 <<<<
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
-                  :checked="!!activeRow.nameLock"
-                  @change="setNameLock(activeRow, $event.target.checked)"
-                />
-                名字以我为准
-              </label>
-              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
-                  :checked="!!activeRow.lock"
-                  @change="setLock(activeRow, $event.target.checked)"
-                />
-                整条冻结
-              </label>
-            </div>
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-                :class="[FIELD, 'w-16 shrink-0 px-1 text-center font-semibold']"
->>>>
-<<<<
-                :class="[FIELD, 'shrink-0 px-1 text-center font-semibold']"
-                :style="{ width: (String(activeRow.order || 0).length + 1) + 'ch' }"
+      /* 非角色的字典键是 ID，图标代号必须存进条目里 —— 不然载入 / 同步后
+         row.key 是空的，头像拼不出来、代号也显示空白 */
+      kept[keepKey] = { ...deriveFields(type, item, cards), key: code, source: item.source }
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-test "$(grep -c '名字以我为准' src/views/ImageDict.vue)" = 1
-test "$(grep -c '整条冻结' src/views/ImageDict.vue)" = 1
-test "$(grep -c '只留框不写字' src/views/ImageDict.vue)" = 0
-test "$(grep -c "w-16 shrink-0 px-1 text-center" src/views/ImageDict.vue)" = 0
-test "$(grep -c 'setLock(activeRow' src/views/ImageDict.vue)" = 1
+test "$(grep -c 'key: code, source: item.source' src/composables/useImageDict.js)" = 1
+test "$(grep -c 'deriveFields(type, item, cards), source: item.source }' src/composables/useImageDict.js)" = 0
