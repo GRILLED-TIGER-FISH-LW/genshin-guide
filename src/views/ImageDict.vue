@@ -408,7 +408,8 @@ onMounted(init)
             <div class="flex min-w-0 items-center gap-2">
               <input
                 type="number"
-                :class="[FIELD, 'w-16 shrink-0 px-1 text-center font-semibold']"
+                :class="[FIELD, 'shrink-0 px-1 text-center font-semibold']"
+                :style="{ width: (String(activeRow.order || 0).length + 1) + 'ch' }"
                 :value="activeRow.order || ''"
                 aria-label="序号"
                 @change="setOrder(activeRow, $event.target.value)"
@@ -432,25 +433,25 @@ onMounted(init)
               </span>
             </div>
 
-            <!-- 两个勾（只留框不写字，悬停有提示），四个页签都放在这里：
-                 名字以我为准 = 同步不改这个名字；整条冻结 = 同步整条不动 -->
             <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <input
-                type="checkbox"
-                class="size-3.5 shrink-0 accent-accent"
-                :checked="!!activeRow.nameLock"
-                aria-label="名字以我为准"
-                title="名字以我为准（同步不改这个名字）"
-                @change="setNameLock(activeRow, $event.target.checked)"
-              />
-              <input
-                type="checkbox"
-                class="size-3.5 shrink-0 accent-accent"
-                :checked="!!activeRow.lock"
-                aria-label="整条冻结"
-                title="整条冻结（同步不动这一行）"
-                @change="setLock(activeRow, $event.target.checked)"
-              />
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="!!activeRow.nameLock"
+                  @change="setNameLock(activeRow, $event.target.checked)"
+                />
+                名字以我为准
+              </label>
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="!!activeRow.lock"
+                  @change="setLock(activeRow, $event.target.checked)"
+                />
+                整条冻结
+              </label>
             </div>
           </div>
 
