@@ -1,129 +1,50 @@
 == MOVES ==
 
 == EDITS ==
-### src/composables/useImageDict.js
-<<<<
-  const activeRow = computed(() =>
-    tab.value === 'characters'
-      ? data.characters.find((r) => r.key === activeKey.value) || null
-      : null,
-  )
->>>>
-<<<<
-  const activeRow = computed(() => {
-    const rows = data[tab.value] || []
-    const k = activeKey.value
-    return rows.find((r) => identOf(tab.value, r) === k) || rows.find((r) => r.key === k) || null
-  })
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-  function setNameLock(row, value) {
-    row.nameLock = !!value
-    markDirty()
-  }
->>>>
-<<<<
-  function setNameLock(row, value) {
-    row.nameLock = !!value
-    markDirty()
-  }
-
-  /* 整条冻结：图 / 名字 / 星级 / 序号全部锁死，同步不再碰这一条 */
-  function setLock(row, value) {
-    row.lock = !!value
-    markDirty()
-  }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    setNameLock,
-    setStar,
->>>>
-<<<<
-    setNameLock,
-    setLock,
-    setStar,
->>>>
-
 ### src/views/ImageDict.vue
 <<<<
-  setNameLock,
-  setStar,
->>>>
-<<<<
-  setNameLock,
-  setLock,
-  setStar,
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-                @update:model-value="setStar(activeRow, $event)"
-                />
-              </span>
-            </div>
-          </div>
-
-          <!-- 三个槽位 -->
->>>>
-<<<<
-                @update:model-value="setStar(activeRow, $event)"
-                />
-              </span>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-panel border border-line bg-surface p-3">
-            <label v-if="tab !== 'characters'" class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+            <!-- 两个勾（只留框不写字，悬停有提示），四个页签都放在这里：
+                 名字以我为准 = 同步不改这个名字；整条冻结 = 同步整条不动 -->
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
               <input
                 type="checkbox"
-                class="size-4 shrink-0 accent-accent"
+                class="size-3.5 shrink-0 accent-accent"
                 :checked="!!activeRow.nameLock"
+                aria-label="名字以我为准"
+                title="名字以我为准（同步不改这个名字）"
                 @change="setNameLock(activeRow, $event.target.checked)"
               />
-              名字以我为准
-            </label>
-            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
               <input
                 type="checkbox"
-                class="size-4 shrink-0 accent-accent"
+                class="size-3.5 shrink-0 accent-accent"
                 :checked="!!activeRow.lock"
+                aria-label="整条冻结"
+                title="整条冻结（同步不动这一行）"
                 @change="setLock(activeRow, $event.target.checked)"
               />
-              整条冻结
-            </label>
-          </div>
-
-          <!-- 三个槽位 -->
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-                @blur="setName(row, row.name)"
-              />
-
-              <!-- 怪物：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
-                   打勾 = 以我手填的名字为准，同步不再改它；图、星级、序号照旧跟源。 -->
-              <!-- 圣遗物 / 武器 / 怪物：名字以我为准（角色按你说的不动） -->
-              <input
-                v-if="tab !== 'characters'"
-                type="checkbox"
-                :checked="!!row.nameLock"
-                aria-label="名字以我为准"
-                title="名字以我为准"
-                @change="setNameLock(row, $event.target.checked)"
-              />
-
-              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
+            </div>
 >>>>
 <<<<
-                @blur="setName(row, row.name)"
-              />
-
-              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="!!activeRow.nameLock"
+                  @change="setNameLock(activeRow, $event.target.checked)"
+                />
+                名字以我为准
+              </label>
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="!!activeRow.lock"
+                  @change="setLock(activeRow, $event.target.checked)"
+                />
+                整条冻结
+              </label>
+            </div>
 >>>>
 
 ### src/views/ImageDict.vue
@@ -138,9 +59,8 @@
 == DELETES ==
 
 == CHECKS ==
-test "$(grep -c 'identOf(tab.value, r) === k' src/composables/useImageDict.js)" = 1
-test "$(grep -c 'function setLock' src/composables/useImageDict.js)" = 1
-test "$(grep -c '整条冻结' src/views/ImageDict.vue)" = 1
 test "$(grep -c '名字以我为准' src/views/ImageDict.vue)" = 1
-test "$(grep -c 'setNameLock(row' src/views/ImageDict.vue)" = 0
+test "$(grep -c '整条冻结' src/views/ImageDict.vue)" = 1
+test "$(grep -c '只留框不写字' src/views/ImageDict.vue)" = 0
 test "$(grep -c "w-16 shrink-0 px-1 text-center" src/views/ImageDict.vue)" = 0
+test "$(grep -c 'setLock(activeRow' src/views/ImageDict.vue)" = 1
