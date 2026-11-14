@@ -1,15 +1,12 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
 #
-# 这一批（fix-ident-refs）：修 ident-by-id 那批留下的三个运行时报错。
-#   上一批把三个分类的去重识别码改成 ID，但合并逻辑里还剩三处旧写法：
-#   ① 头像槽冲突判定还在用 `prev.key !== code` —— code 这轮被删掉了，点「从源匹配」
-#      直接 ReferenceError: code is not defined（线上崩的就是这个）。
-#      改法：角色的身份是代号，只有角色要判冲突；武器 / 圣遗物 / 怪物的身份是 ID，
-#      key 只是拼图用的图标代号，同一个 ID 就是同一条，不存在这种冲突。
-#   ② lock 分支把冻结行塞进 merged[prev.key]（代号），而 merged 按识别码（ID）作键
-#      → 第 2 遍找不到它，同一条本地行会被再补一遍（重复一行）；改成 identOf(type, prev)。
-#   ③ addByName 里 `!f.order` —— f 只存在于 addItem 内部，函数体里没有 f；改成 !row.order
-#      （addItem 里 order = f.order || 0，序号表里没有就是 0）。
+# 这一批（monster-3x）：怪物 3 区 / 8 区是 lunaris 给同一只怪另开的重复 id，筛掉。
+#   实测（lunaris v7.2.51 怪物清单 842 条）：2 区 687、3 区 129、8 区 26。
+#   3 区里 125 条的名字在 2 区已经有（同一只怪两套 id，还有 (test)WQ-BOSS- 这种测试条目）；
+#   8 区 26 条全部都是。本地字典里现在有 99 条 3 序号 + 25 条 8 序号的旧行，
+#   第 2 遍合并时按 id 排除掉，2 区的正经 id 会按名字并回来。
+#   3 区只有 4 条是 2 区没有的真家伙（影狼丸、机关·侦察记录型·荒 / 压制特化型机关·荒 /
+#   灵活采集型·芒）—— 所以只筛「名字在 2 区已经有」的，不按前缀一刀切。
 
 == MOVES ==
 # 这批没有要搬的文件
@@ -17,85 +14,62 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-      /* 1. 每个源条目：先按代号找本地行，找不到再按名字找（代号被手改过也认得出）。
-            找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
+  function transformAmber(type, items, cards = null) {
+    const kept = {}
+    const skipped = new Set()
+
+    Object.keys(items).forEach((id) => {
 >>>>
 <<<<
-      /* 1. 每个源条目：先按识别码找本地行（角色 = 代号，武器 / 圣遗物 / 怪物 = ID），
-            找不到再按名字找（代号被手改过也认得出）。
-            找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
+  function transformAmber(type, items, cards = null) {
+    const kept = {}
+    const skipped = new Set()
+
+    /* 怪物 2 区（正经 id）的名字集合，给下面认重复用 */
+    const baseNames = new Set(
+      type === 'monsters'
+        ? Object.keys(items)
+            .filter((id) => id.startsWith('2'))
+            .map((id) => items[id]?.name)
+            .filter(Boolean)
+        : [],
+    )
+
+    Object.keys(items).forEach((id) => {
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-        /* 头像槽：带 url / alt 就留你的；代号和源不一样则先留你的并记冲突 */
-        if (prev.key !== code) {
-          conflicts.push({
-            type,
-            rowKey: prev.key,
-            name: prev.name || item.name || '',
-            slot: '',
-            mine: prev.key,
-            theirs: code,
-          })
-        }
->>>>
-<<<<
-        /* 头像槽：带 url / alt 就留你的。
-           角色的身份是代号 → 代号和源不一样就是另一条，先留你的并记冲突；
-           武器 / 圣遗物 / 怪物的身份是 ID（下面 merged 也是按 ID 存的），
-           key 只是拼图用的图标代号，同一个 ID 就是同一条，不存在这种冲突 */
-        if (type === 'characters' && prev.key !== idKey) {
-          conflicts.push({
-            type,
-            rowKey: prev.key,
-            name: prev.name || item.name || '',
-            slot: '',
-            mine: prev.key,
-            theirs: idKey,
-          })
-        }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-        if (prev.lock) {
-          merged[prev.key] = cloneRow(prev) /* lock：整条都不碰 */
+      } else if (type === 'monsters') {
+        if (String(item.id || '').startsWith('28')) {
+          skipped.add(code)
           return
         }
+      }
 >>>>
 <<<<
-        if (prev.lock) {
-          merged[identOf(type, prev)] = cloneRow(prev) /* lock：整条都不碰 */
+      } else if (type === 'monsters') {
+        const mid = String(item.id || '')
+        if (mid.startsWith('28')) {
+          skipped.add(code)
           return
         }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    const row = addItem(item, n)
-    toast.success(
-      type === 'characters' && !f.order
-        ? `已加入「${row.name}」（序号表里没有，序号 0）`
-        : `已加入「${row.name}」`,
-    )
->>>>
-<<<<
-    const row = addItem(item, n)
-    toast.success(
-      type === 'characters' && !row.order
-        ? `已加入「${row.name}」（序号表里没有，序号 0）`
-        : `已加入「${row.name}」`,
-    )
+        /* 3 / 8 区是 lunaris 给同一只怪另开的重复 id（还有 (test)WQ-BOSS- 这种测试条目）：
+           名字在 2 区已经有的就跳过，按 **id** 记进排除表（不记代号 ——
+           同一个代号常被好几条共用，记代号会把正经条目一起清掉）。
+           第 2 遍合并时，本地那些 3 / 8 序号的旧行就是靠这个被清掉的。 */
+        if (/^[38]/.test(mid) && baseNames.has(item.name)) {
+          skipped.add(mid)
+          return
+        }
+      }
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -qF "type === 'characters' && prev.key !== idKey" src/composables/useImageDict.js
-grep -qF "merged[identOf(type, prev)] = cloneRow(prev)" src/composables/useImageDict.js
-grep -qF "type === 'characters' && !row.order" src/composables/useImageDict.js
-test "$(grep -c 'prev.key !== code' src/composables/useImageDict.js)" = 0
-test "$(grep -cF '!f.order' src/composables/useImageDict.js)" = 0
-test "$(grep -cF 'merged[prev.key] = cloneRow(prev)' src/composables/useImageDict.js)" = 0
+grep -qF "const baseNames = new Set(" src/composables/useImageDict.js
+grep -qF "if (/^[38]/.test(mid) && baseNames.has(item.name))" src/composables/useImageDict.js
+grep -qF "skipped.add(mid)" src/composables/useImageDict.js
+test "$(grep -c 'skipped.add(mid)' src/composables/useImageDict.js)" = 1
