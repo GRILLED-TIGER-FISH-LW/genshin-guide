@@ -1,13 +1,11 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
 #
-# 这一批（weapon-star）：修 lunaris-index 那批引入的星级错误。
-#   原因：lunaris 的 qualityType 里 QUALITY_GREEN 同时盖住 1 星和 2 星——
-#         无锋剑 11101 与 银剑 11201 的 qualityType 都是 QUALITY_GREEN，但分别是 1 星和 2 星。
-#         上一批把它换算成 2 星，于是无锋剑/训练大剑/新手长枪/学徒笔记/猎弓 这五把 1 星武器
-#         被抬成了 2 星；另外五把真 2 星的恰好显示对了，所以只露出这五把。
-#   修法：① 武器星级改用 id 的第三位（Genshin 武器 id = 1 + 类型 + 星数 + 序号）；
-#         ② 星级以 Amber 的自报 rank 为准（它是精确星数），Amber 没有这条才用 lunaris 推的；
-#         ③ 补 QUALITY_ORANGE_SP: 5（有 3 个角色是这一档）。
+# 这一批（monster-namelock）：给怪物加「名字以我为准」的勾。
+#   背景：地方传奇在大世界和深渊里名字不一样（西格德 / 历经百战的执灯人），
+#         而源只给深渊那个。同步合并时会用源的名字覆盖本地名字（if (item.name) next.name = item.name），
+#         所以手填的名字一次同步就冲掉了。
+#   改法：加一个只锁名字的字段 nameLock（比现成的 lock 弱 —— lock 是整条冻结，图/星级/序号也不动）。
+#         打勾 = 同步不再改这个名字；图、星级、序号照旧跟源走。界面上只在怪物页显示这个勾。
 
 == MOVES ==
 # 这批没有要搬的文件
@@ -15,68 +13,139 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-  const QUALITY_RANK = {
-    QUALITY_ORANGE: 5,
-    QUALITY_PURPLE: 4,
-    QUALITY_BLUE: 3,
-    QUALITY_GREEN: 2,
-    QUALITY_GRAY: 1,
+  if (row.lock) p.push('lock: true')
+>>>>
+<<<<
+  if (row.lock) p.push('lock: true')
+  if (row.nameLock) p.push('nameLock: true')
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+  if (row.lock) out.lock = true
+>>>>
+<<<<
+  if (row.lock) out.lock = true
+  if (row.nameLock) out.nameLock = true
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+    if (item.lock) row.lock = true
+>>>>
+<<<<
+    if (item.lock) row.lock = true
+    if (item.nameLock) row.nameLock = true
+>>>>
+
+### src/composables/useImageDict.js
+<<<<
+  function setStar(row, value) {
+    row.star = Number(value)
+    markDirty()
   }
 >>>>
 <<<<
-  /* lunaris 只给 qualityType，Amber 给 rank —— 换算成同一档。
-     ⚠ QUALITY_GREEN 同时盖住 1 星和 2 星（无锋剑 11101 与 银剑 11201 都是这一档），
-        所以武器一律改用 id 里的星数（weaponStar），这张表只给其余分类用。 */
-  const QUALITY_RANK = {
-    QUALITY_ORANGE: 5,
-    QUALITY_ORANGE_SP: 5,
-    QUALITY_PURPLE: 4,
-    QUALITY_BLUE: 3,
-    QUALITY_GREEN: 1, /* 这一档有歧义（1★/2★ 都落在这里），武器不用它；别的分类暂时用不到 */
-    QUALITY_GRAY: 1,
+  /* 怪物专用：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
+     打勾 = 以我手填的名字为准：同步不再改这个名字，图 / 星级 / 序号照旧跟源走。 */
+  function setNameLock(row, value) {
+    row.nameLock = !!value
+    markDirty()
   }
 
-  /* Genshin 武器 id = 1 + 武器类型 + 星数 + 序号：
-     11101 无锋剑(1★) / 11201 银剑(2★) / 11419 「一心传」名刀(4★) / 11517 银昼(5★)。
-     260 把武器逐条与 Amber 的 rank 对过：共同 id 253/253 一致，只有 lunaris 有的 7 把也自洽。 */
-  const weaponStar = (id) => {
-    const s = String(id)
-    return s.length === 5 && s[0] === '1' ? Number(s[2]) || null : null
+  function setStar(row, value) {
+    row.star = Number(value)
+    markDirty()
   }
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-        rank: QUALITY_RANK[c.qualityType] || null,
+    /* 行操作 */
+    slotSrc,
+    starStyle,
+    setOrder,
+    setName,
+    setStar,
 >>>>
 <<<<
-        rank: (type === 'weapons' ? weaponStar(id) : null) || QUALITY_RANK[c.qualityType] || null,
+    /* 行操作 */
+    slotSrc,
+    starStyle,
+    setOrder,
+    setName,
+    setNameLock,
+    setStar,
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-    const merged = Object.assign({}, am || {})
-    if (lu) Object.assign(merged, lu)
+        if (item.name) next.name = item.name
 >>>>
 <<<<
-    const merged = Object.assign({}, am || {})
-    /* 星级以 Amber 的自报 rank 为准（它是精确星数；lunaris 的 qualityType 在低星档有歧义），
-       Amber 没有这条时才用 lunaris 推出来的 rank */
-    if (lu) {
-      Object.keys(lu).forEach((id) => {
-        const prev = merged[id]
-        merged[id] = prev && prev.rank != null ? { ...lu[id], rank: prev.rank } : lu[id]
-      })
-    }
+        /* 名字打了「以我为准」的勾 → 手填的名字固定，同步不改它（图、星级、序号照旧跟源） */
+        if (item.name && !prev.nameLock) next.name = item.name
+>>>>
+
+### src/views/ImageDict.vue
+<<<<
+  setName,
+  setStar,
+  removeRow,
+>>>>
+<<<<
+  setName,
+  setNameLock,
+  setStar,
+  removeRow,
+>>>>
+
+### src/views/ImageDict.vue
+<<<<
+              <input
+                v-model="row.name"
+                type="text"
+                :class="[FIELD, 'flex-1 px-2']"
+                placeholder="中文名"
+                aria-label="中文名"
+                @blur="setName(row, row.name)"
+              />
+>>>>
+<<<<
+              <input
+                v-model="row.name"
+                type="text"
+                :class="[FIELD, 'flex-1 px-2']"
+                placeholder="中文名"
+                aria-label="中文名"
+                @blur="setName(row, row.name)"
+              />
+
+              <!-- 怪物：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
+                   打勾 = 以我手填的名字为准，同步不再改它；图、星级、序号照旧跟源。 -->
+              <label
+                v-if="tab === 'monsters'"
+                class="flex shrink-0 select-none items-center gap-1 text-[11px] leading-5 text-muted"
+              >
+                <input
+                  type="checkbox"
+                  :checked="!!row.nameLock"
+                  aria-label="名字以我为准"
+                  @change="setNameLock(row, $event.target.checked)"
+                />
+                名字以我为准
+              </label>
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -qF 'const weaponStar = (id) => {' src/composables/useImageDict.js
-grep -qF 'QUALITY_ORANGE_SP: 5' src/composables/useImageDict.js
-grep -qF "(type === 'weapons' ? weaponStar(id) : null)" src/composables/useImageDict.js
-grep -qF 'prev && prev.rank != null' src/composables/useImageDict.js
-test "$(grep -c 'QUALITY_RANK' src/composables/useImageDict.js)" = 2
-test "$(grep -c 'QUALITY_GREEN' src/composables/useImageDict.js)" = 2
+grep -qF "if (row.nameLock) p.push('nameLock: true')" src/composables/useImageDict.js
+grep -qF 'if (row.nameLock) out.nameLock = true' src/composables/useImageDict.js
+grep -qF 'if (item.nameLock) row.nameLock = true' src/composables/useImageDict.js
+grep -qF 'function setNameLock(row, value)' src/composables/useImageDict.js
+grep -qF '    setNameLock,' src/composables/useImageDict.js
+grep -qF 'if (item.name && !prev.nameLock) next.name = item.name' src/composables/useImageDict.js
+grep -qF 'setNameLock,' src/views/ImageDict.vue
+grep -qF ':checked="!!row.nameLock"' src/views/ImageDict.vue
