@@ -1310,7 +1310,7 @@ export function useImageDict() {
 
     const row = addItem(item, n)
     toast.success(
-      type === 'characters' && !f.order
+      type === 'characters' && !row.order
         ? `已加入「${row.name}」（序号表里没有，序号 0）`
         : `已加入「${row.name}」`,
     )
@@ -1499,7 +1499,8 @@ export function useImageDict() {
         if (row.name && !byName[row.name]) byName[row.name] = row
       })
 
-      /* 1. 每个源条目：先按代号找本地行，找不到再按名字找（代号被手改过也认得出）。
+      /* 1. 每个源条目：先按识别码找本地行（角色 = 代号，武器 / 圣遗物 / 怪物 = ID），
+            找不到再按名字找（代号被手改过也认得出）。
             找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
       Object.keys(amber[type] || {}).forEach((idKey) => {
         const item = amber[type][idKey]
@@ -1514,7 +1515,7 @@ export function useImageDict() {
           return
         }
         if (prev.lock) {
-          merged[prev.key] = cloneRow(prev) /* lock：整条都不碰 */
+          merged[identOf(type, prev)] = cloneRow(prev) /* lock：整条都不碰 */
           return
         }
 
@@ -1526,15 +1527,18 @@ export function useImageDict() {
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
 
-        /* 头像槽：带 url / alt 就留你的；代号和源不一样则先留你的并记冲突 */
-        if (prev.key !== code) {
+        /* 头像槽：带 url / alt 就留你的。
+           角色的身份是代号 → 代号和源不一样就是另一条，先留你的并记冲突；
+           武器 / 圣遗物 / 怪物的身份是 ID（下面 merged 也是按 ID 存的），
+           key 只是拼图用的图标代号，同一个 ID 就是同一条，不存在这种冲突 */
+        if (type === 'characters' && prev.key !== idKey) {
           conflicts.push({
             type,
             rowKey: prev.key,
             name: prev.name || item.name || '',
             slot: '',
             mine: prev.key,
-            theirs: code,
+            theirs: idKey,
           })
         }
 
