@@ -755,6 +755,12 @@ export function useImageDict() {
       row.order = next
     }
 
+    /* 序号一改，非角色的身份（identOf = 序号）就变了；选中行要跟着挪过去，
+       不然 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉、界面弹回列表 */
+    if (row === activeRow.value && activeKey.value !== identOf(tab.value, row)) {
+      activeKey.value = identOf(tab.value, row)
+    }
+
     markDirty()
   }
 
