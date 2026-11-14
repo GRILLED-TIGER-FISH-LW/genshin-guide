@@ -743,6 +743,9 @@ export function useImageDict() {
   function setOrder(row, value) {
     const v = String(value ?? '').trim()
     const next = v === '' ? 0 : parseInt(v, 10) || 0
+    /* 先记下旧身份：序号一改，非角色的 identOf（= 序号）就变了，
+       不跟着挪的话 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉 */
+    const oldIdent = identOf(tab.value, row)
 
     if (tab.value === 'characters') {
       const name = (row.name || '').trim()
@@ -755,9 +758,7 @@ export function useImageDict() {
       row.order = next
     }
 
-    /* 序号一改，非角色的身份（identOf = 序号）就变了；选中行要跟着挪过去，
-       不然 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉、界面弹回列表 */
-    if (row === activeRow.value && activeKey.value !== identOf(tab.value, row)) {
+    if (activeKey.value === oldIdent && activeKey.value !== identOf(tab.value, row)) {
       activeKey.value = identOf(tab.value, row)
     }
 
@@ -1302,7 +1303,8 @@ export function useImageDict() {
     if (f.card) row.card = { ...f.card }
     data[type].push(row)
     markDirty()
-    if (type === 'characters') activeKey.value = row.key
+    /* 新建的这行直接选中：详情栏打开，之后填序号不会再弹回去 */
+    activeKey.value = identOf(type, row)
     return row
   }
 
@@ -1374,8 +1376,10 @@ export function useImageDict() {
       if (tab.value === 'monsters') {
         const key = codeFrom(one, tab.value)
         const isUrl = /^https?:/i.test(one)
-        data.monsters.push({ key, name: isUrl ? '' : one, order: 0, star: null, local: true })
+        const row = { key, name: isUrl ? '' : one, order: 0, star: null, local: true }
+        data.monsters.push(row)
         markDirty()
+        activeKey.value = identOf('monsters', row)
         return true
       }
       const cands = await resolveAdd(one)
