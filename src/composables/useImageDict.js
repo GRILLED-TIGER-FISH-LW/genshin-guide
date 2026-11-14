@@ -178,6 +178,12 @@ function codeFrom(input, type = '', slot = '') {
 /* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段 */
 const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
 
+/* 一条条目的识别码（去重用）：
+   角色 = 代号（头像代号唯一，能一一对应）；武器 / 圣遗物 / 怪物 = ID ——
+   这三个分类只有 ID 是唯一的，同一张图会被好几条共用，按代号去重会把条目吃掉。 */
+const identOf = (type, row) =>
+  type === 'characters' ? row.key || '' : String(row.order || row.key || '')
+
 /* 仓库内路径（shared/… / ../shared/… / /genshin-guide/shared/…）→ 站点绝对路径。
    http 开头的不动。 */
 function repoUrl(input) {
@@ -294,8 +300,10 @@ const litSlot = (o) => {
   return `{ ${p.join(', ')} }`
 }
 
-function litRow(row) {
+function litRow(row, dictKey = '') {
   const p = [`name: "${escJs(row.name)}"`]
+  /* 识别码不是代号时（三个分类用 ID），把图标代号写进条目里 —— 拼图还要用它 */
+  if (row.key && row.key !== dictKey) p.push(`key: "${escJs(row.key)}"`)
   if (row.star != null) p.push(`star: ${row.star}`)
   p.push(`order: ${row.order || 0}`)
   if (row.url) p.push(`url: "${escJs(row.url)}"`)
@@ -328,7 +336,9 @@ function serializeDict(config, data) {
 
     list.forEach((item, i) => {
       const tail = i < list.length - 1 ? ',' : ''
-      lines.push(`    "${escJs(item.key)}": ${litRow(item)}${tail}`)
+      /* 字典键 = 识别码：角色是代号；武器 / 圣遗物 / 怪物是 ID（同一张图可能有好几条） */
+      const dictKey = identOf(type, item)
+      lines.push(`    "${escJs(dictKey)}": ${litRow(item, dictKey)}${tail}`)
     })
 
     lines.push(`  }${ti < TYPES.length - 1 ? ',' : ''}`)
@@ -389,7 +399,11 @@ function dictToRows(dict, type) {
   const obj = dict[type] || {}
   return Object.keys(obj).map((k) => {
     const item = obj[k] || {}
-    const row = { key: k, name: item.name || '', order: item.order || 0 }
+    /* 角色：键就是代号；三个分类：键是 ID，代号存在条目里的 key
+       （老字典没有这个字段 → 退回用键当代号，照样读得进来） */
+    const key = type === 'characters' ? k : item.key || k
+    const order = item.order || (type === 'characters' ? 0 : parseInt(k, 10) || 0)
+    const row = { key, name: item.name || '', order }
     if (item.star != null) row.star = item.star
     if (item.local) row.local = true
     if (item.url) row.url = item.url
@@ -842,7 +856,8 @@ export function useImageDict() {
 
     /* 头像：代号就是这一行的身份 —— 以你粘的为准 */
     const oldKey = row.key
-    if (code && data[type].some((r) => r !== row && r.key === code)) {
+    /* 角色：代号就是身份，不能重复；三个分类：身份是 ID，同一张图可以被好几条共用 */
+    if (type === 'characters' && code && data[type].some((r) => r !== row && r.key === code)) {
       toast.error('这个代号已经被另一条占用了')
       row.url = url
       delete row.alt
@@ -1069,8 +1084,13 @@ export function useImageDict() {
         }
       }
 
-      /* source 带上：只有 Amber 有的条目，建行时要把图切到备用源 */
-      kept[code] = { ...deriveFields(type, item, cards), source: item.source }
+      /* 识别码：角色是代号；武器 / 圣遗物 / 怪物是 **ID** ——
+         同一张图被好几条共用（怪物 842 条 → 384 个代号，168 个被共用），
+         按代号归并会把它们合成一条，所以按 ID 存、各列一行。 */
+      const keepKey = type === 'characters' ? code : String(item.id || code)
+
+      /* source 带上：只有备用源有的条目，建行时要把图切到备用源 */
+      kept[keepKey] = { ...deriveFields(type, item, cards), source: item.source }
     })
 
     return { kept, skipped }
@@ -1086,7 +1106,8 @@ export function useImageDict() {
       type === 'characters' ? fetchCardMap().catch(() => null) : Promise.resolve(null),
     ])
 
-    const map = {}
+    /* 同一个代号可能对应好几条（一张图被好几条共用）→ 另外存一份多值表，新增时挑用 */
+    const map = { byCode: {} }
     Object.keys(items).forEach((k) => {
       const raw = items[k]
       if (!raw || !raw.icon || !raw.name) return
@@ -1095,6 +1116,10 @@ export function useImageDict() {
       /* 名片代号一次算好挂上去，后面 hydrate / addByName 直接用 */
       const item = cards ? { ...raw, cardCode: cardCodeFor(raw, cards) } : raw
 
+      /* 同一个代号可能对应好几条 → 全存一份，新增时挑用。
+         map[code] 保持「末位赢」= 默认主源 lunaris（它的条目排在后面）。 */
+      if (!map.byCode[code]) map.byCode[code] = []
+      map.byCode[code].push(item)
       map[code] = item
       if (!map[code.toLowerCase()]) map[code.toLowerCase()] = item
       if (raw.id != null && !map[String(raw.id)]) map[String(raw.id)] = item
@@ -1190,6 +1215,70 @@ export function useImageDict() {
 
   /* ---------------- 新增（名字 / 链接 一个入口） ---------------- */
 
+  /* ---------------- 新增：ID / 代号 / 链接 / 中文名 一个入口 ---------------- */
+
+  /* 「新增」时同代号命中多条的候选列表（界面来挑） */
+  const addCandidates = ref([])
+
+  /* ID 是唯一值 → 直接定位一条 */
+  async function itemById(id) {
+    const map = await ensureAmberIndex(tab.value)
+    return map[String(id)] || null
+  }
+
+  /* 代号 → 可能命中多条（同一张图被好几条共用），返回全部候选 */
+  async function itemsByKey(key) {
+    const map = await ensureAmberIndex(tab.value)
+    const list = map.byCode?.[key] || []
+    return list.length ? list : map[key] ? [map[key]] : []
+  }
+
+  /* 解析「新增」输入：ID / 代号 / 带代号的链接 / 中文名 → 候选条目。
+     ID 唯一命中；代号或链接先取代号、可能命中多条（交给界面挑）；最后兜底按中文名。 */
+  async function resolveAdd(text) {
+    const s = String(text || '').trim()
+    if (!s) return []
+    /* ID：纯数字且长度 ≥ 5（怪物 8 位、武器 / 圣遗物 5 位）；代号都带字母或下划线，不会撞 */
+    if (/^\d{5,}$/.test(s)) {
+      const hit = await itemById(s)
+      if (hit) return [hit]
+    }
+    const key = codeFrom(s, tab.value)
+    if (key) {
+      const hits = await itemsByKey(key)
+      if (hits.length) return hits
+    }
+    const hit = await itemByName(s)
+    return hit ? [hit] : []
+  }
+
+  /* 用一条源条目建一行（addByName / 挑候选 共用） */
+  function addItem(item, fallbackName = '') {
+    const type = tab.value
+    const f = deriveFields(type, item)
+    const row = {
+      key: codeFrom(item.icon, type),
+      name: f.name || fallbackName || '',
+      order: f.order || 0,
+      star: f.star,
+    }
+    /* 源里这条只有备用源有 → 图也走备用源 */
+    if (item.source === 'amber') row.alt = true
+    if (f.card) row.card = { ...f.card }
+    data[type].push(row)
+    markDirty()
+    if (type === 'characters') activeKey.value = row.key
+    return row
+  }
+
+  /* 同代号命中多条时挑一条建行 */
+  function pickAddCandidate(item) {
+    const row = addItem(item)
+    addCandidates.value = []
+    toast.success(`已加入「${row.name}」`)
+    return row
+  }
+
   /* 按中文名从源里捞一条出来（四个分类都能用） */
   async function addByName(name) {
     const type = tab.value
@@ -1219,19 +1308,7 @@ export function useImageDict() {
       return false
     }
 
-    const f = deriveFields(type, item)
-    const row = {
-      key: codeFrom(item.icon, type),
-      name: f.name || n,
-      order: f.order || 0,
-      star: f.star,
-    }
-    /* 源里这条只有备用源有 → 图也走备用源 */
-    if (item.source === 'amber') row.alt = true
-    if (f.card) row.card = { ...f.card }
-    data[type].push(row)
-    markDirty()
-    if (type === 'characters') activeKey.value = row.key
+    const row = addItem(item, n)
     toast.success(
       type === 'characters' && !f.order
         ? `已加入「${row.name}」（序号表里没有，序号 0）`
@@ -1240,9 +1317,10 @@ export function useImageDict() {
     return true
   }
 
-  /* 一个输入框干两件事：
-     单行、又不像链接也不像代号 → 当名字，去源里查
-     其余（一行链接 / 多行 / 一个代号）→ 走批量解析 */
+  /* 一个输入框干四件事：
+     单行 → 解析：ID / 代号 / 链接 / 中文名 都能认；能定到唯一一条就建行，
+           定不到唯一一条（同一张图被好几条共用）就把候选交给界面挑。
+     多行 → 走批量解析（粘链接那套，本来就会自己查源补名字 / 序号）。 */
   async function addFromInput(text) {
     const lines = String(text || '')
       .split(/\r?\n/)
@@ -1255,10 +1333,20 @@ export function useImageDict() {
     }
 
     const one = lines.length === 1 ? lines[0] : ''
-    const looksLikeIcon =
-      !!one && (/^https?:\/\//i.test(one) || !!repoUrl(one) || !!codeFrom(one, tab.value))
-
-    if (one && !looksLikeIcon) return addByName(one)
+    if (one) {
+      const cands = await resolveAdd(one)
+      if (!cands.length) {
+        toast.error('没认出来：可以是 ID（如 26310601）、代号（如 Chimera_OwlPangolin_02）、图标链接，或中文名')
+        return false
+      }
+      if (cands.length === 1) {
+        addItem(cands[0], one)
+        return true
+      }
+      /* 同一张图被好几条共用 → 交给界面挑 */
+      addCandidates.value = cands
+      return false
+    }
 
     await parsePastedUrls(lines.join('\n'))
     return true
@@ -1395,33 +1483,34 @@ export function useImageDict() {
 
     TYPES.forEach((type) => {
       const merged = {}
-      const byKey = {}
+      const byIdent = {}
       const byName = {}
       ;(data[type] || []).forEach((row) => {
-        if (!row.key) return
-        byKey[row.key] = row
+        if (!row.key && !row.order) return
+        byIdent[identOf(type, row)] = row
         if (row.name && !byName[row.name]) byName[row.name] = row
       })
 
       /* 强制存在的条目（旅行者那两行）：本地已经有同 key 的行就完全不动 */
       ;(FORCED_LOCAL[type] || []).forEach((row) => {
-        if (!row.key || byKey[row.key]) return
-        byKey[row.key] = row
+        const id = identOf(type, row)
+        if (!id || byIdent[id]) return
+        byIdent[id] = row
         if (row.name && !byName[row.name]) byName[row.name] = row
       })
 
       /* 1. 每个源条目：先按代号找本地行，找不到再按名字找（代号被手改过也认得出）。
             找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
-      Object.keys(amber[type] || {}).forEach((code) => {
-        const item = amber[type][code]
-        const prev = byKey[code] || (item.name ? byName[item.name] : null)
+      Object.keys(amber[type] || {}).forEach((idKey) => {
+        const item = amber[type][idKey]
+        const prev = byIdent[idKey] || (item.name ? byName[item.name] : null)
 
         if (!prev) {
           /* 新行：source 是源标记，不进字典；只有 Amber 有的条目图走备用源 */
           const row = { ...item }
           delete row.source
           if (item.source === 'amber') row.alt = true
-          merged[code] = row
+          merged[idKey] = row
           return
         }
         if (prev.lock) {
@@ -1467,18 +1556,24 @@ export function useImageDict() {
           next.card = { ...item.card }
         }
 
-        merged[next.key] = next
+        merged[identOf(type, next)] = next
       })
 
       /* 2. 源里没提到的本地行：原样留着（下架了，或者你手工加的）。
             硬排除的例外 —— 连本地旧条目一起清掉 */
-      Object.keys(byKey).forEach((k) => {
+      Object.keys(byIdent).forEach((k) => {
         if (merged[k]) return
-        if (excluded[type].has(k)) return
-        merged[k] = cloneRow(byKey[k])
+        /* excluded 里存的是图标代号（比如 '28' 开头的动物），识别码是 ID → 两个都查 */
+        if (excluded[type].has(k) || excluded[type].has(byIdent[k].key)) return
+        merged[k] = cloneRow(byIdent[k])
       })
 
-      data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
+      data[type] = Object.keys(merged).map((k) => {
+        const row = cloneRow(merged[k])
+        /* 角色：识别码就是代号，字典键 = 代号；三个分类：识别码是 ID，
+           key 仍是图标代号（拼图用），不能拿 k 覆盖它 */
+        return type === 'characters' ? { ...row, key: k } : row
+      })
     })
 
     /* ---- 源里没有的角色（未实装）：同步补不到名片，这里按「代号同名代换」再试一次 ---- */
@@ -1668,6 +1763,10 @@ export function useImageDict() {
     setName,
     setNameLock,
     setStar,
+    resolveAdd,
+    addItem,
+    addCandidates,
+    pickAddCandidate,
     removeRow,
     clearTab,
     select,
