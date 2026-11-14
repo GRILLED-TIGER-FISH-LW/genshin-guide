@@ -1,15 +1,15 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
 #
-# 这一批（ident-by-id）：识别码改用 ID + 新增入口认 ID/代号/链接 + 三个分类都加「名字以我为准」。
-#   背景：武器 / 圣遗物 / 怪物的「图标代号」不唯一 —— lunaris 怪物 842 条 → 384 个代号，
-#         168 个被 2 条以上共用（一张图给 6 条丘丘人、召唤物共用史莱姆的图…）。
-#         原来同步按代号归并，于是切换源时 29 行名字被互相覆盖（岩史莱姆→无相之水·召唤物 等）。
-#   改法：① 三个分类的去重识别码改成 **ID**（角色仍是代号，不动）→ 同图不同 ID 各列一行；
-#         ② 字典键跟着改：角色 = 代号，三个分类 = ID，代号写进条目里的 key 字段（老字典照读）；
-#         ③ 新增入口：ID（唯一命中）/ 代号 / 带代号的链接 / 中文名，同代号命中多条时候选挑一条；
-#         ④ 「名字以我为准」的框：圣遗物 / 武器 / 怪物都有，去掉文字只留框。
-#   优先级：默认仍是主源 lunaris（它的条目排在后面，末位赢）；不用改。
-#   lock: true（整条冻结）保留，先不加界面开关。
+# 这一批（fix-ident-refs）：修 ident-by-id 那批留下的三个运行时报错。
+#   上一批把三个分类的去重识别码改成 ID，但合并逻辑里还剩三处旧写法：
+#   ① 头像槽冲突判定还在用 `prev.key !== code` —— code 这轮被删掉了，点「从源匹配」
+#      直接 ReferenceError: code is not defined（线上崩的就是这个）。
+#      改法：角色的身份是代号，只有角色要判冲突；武器 / 圣遗物 / 怪物的身份是 ID，
+#      key 只是拼图用的图标代号，同一个 ID 就是同一条，不存在这种冲突。
+#   ② lock 分支把冻结行塞进 merged[prev.key]（代号），而 merged 按识别码（ID）作键
+#      → 第 2 遍找不到它，同一条本地行会被再补一遍（重复一行）；改成 identOf(type, prev)。
+#   ③ addByName 里 `!f.order` —— f 只存在于 addItem 内部，函数体里没有 f；改成 !row.order
+#      （addItem 里 order = f.order || 0，序号表里没有就是 0）。
 
 == MOVES ==
 # 这批没有要搬的文件
@@ -17,494 +17,85 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-/* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段 */
-const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
+      /* 1. 每个源条目：先按代号找本地行，找不到再按名字找（代号被手改过也认得出）。
+            找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
 >>>>
 <<<<
-/* 英文名：头像表是 'Amber'，名片表是 'Amber: Bunny' / 'Kirara: Neko Box' —— 取冒号前那段 */
-const routeKey = (s) => String(s || '').split(':')[0].trim().toLowerCase()
-
-/* 一条条目的识别码（去重用）：
-   角色 = 代号（头像代号唯一，能一一对应）；武器 / 圣遗物 / 怪物 = ID ——
-   这三个分类只有 ID 是唯一的，同一张图会被好几条共用，按代号去重会把条目吃掉。 */
-const identOf = (type, row) =>
-  type === 'characters' ? row.key || '' : String(row.order || row.key || '')
+      /* 1. 每个源条目：先按识别码找本地行（角色 = 代号，武器 / 圣遗物 / 怪物 = ID），
+            找不到再按名字找（代号被手改过也认得出）。
+            找到就合并 —— 你手填的槽位留着，其余字段跟源走 */
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-      /* source 带上：只有 Amber 有的条目，建行时要把图切到备用源 */
-      kept[code] = { ...deriveFields(type, item, cards), source: item.source }
+        /* 头像槽：带 url / alt 就留你的；代号和源不一样则先留你的并记冲突 */
+        if (prev.key !== code) {
+          conflicts.push({
+            type,
+            rowKey: prev.key,
+            name: prev.name || item.name || '',
+            slot: '',
+            mine: prev.key,
+            theirs: code,
+          })
+        }
 >>>>
 <<<<
-      /* 识别码：角色是代号；武器 / 圣遗物 / 怪物是 **ID** ——
-         同一张图被好几条共用（怪物 842 条 → 384 个代号，168 个被共用），
-         按代号归并会把它们合成一条，所以按 ID 存、各列一行。 */
-      const keepKey = type === 'characters' ? code : String(item.id || code)
-
-      /* source 带上：只有备用源有的条目，建行时要把图切到备用源 */
-      kept[keepKey] = { ...deriveFields(type, item, cards), source: item.source }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    const map = {}
-    Object.keys(items).forEach((k) => {
->>>>
-<<<<
-    /* 同一个代号可能对应好几条（一张图被好几条共用）→ 另外存一份多值表，新增时挑用 */
-    const map = { byCode: {} }
-    Object.keys(items).forEach((k) => {
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      map[code] = item
-      if (!map[code.toLowerCase()]) map[code.toLowerCase()] = item
->>>>
-<<<<
-      /* 同一个代号可能对应好几条 → 全存一份，新增时挑用。
-         map[code] 保持「末位赢」= 默认主源 lunaris（它的条目排在后面）。 */
-      if (!map.byCode[code]) map.byCode[code] = []
-      map.byCode[code].push(item)
-      map[code] = item
-      if (!map[code.toLowerCase()]) map[code.toLowerCase()] = item
+        /* 头像槽：带 url / alt 就留你的。
+           角色的身份是代号 → 代号和源不一样就是另一条，先留你的并记冲突；
+           武器 / 圣遗物 / 怪物的身份是 ID（下面 merged 也是按 ID 存的），
+           key 只是拼图用的图标代号，同一个 ID 就是同一条，不存在这种冲突 */
+        if (type === 'characters' && prev.key !== idKey) {
+          conflicts.push({
+            type,
+            rowKey: prev.key,
+            name: prev.name || item.name || '',
+            slot: '',
+            mine: prev.key,
+            theirs: idKey,
+          })
+        }
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-  /* 按中文名从源里捞一条出来（四个分类都能用） */
-  async function addByName(name) {
+        if (prev.lock) {
+          merged[prev.key] = cloneRow(prev) /* lock：整条都不碰 */
+          return
+        }
 >>>>
 <<<<
-  /* ---------------- 新增：ID / 代号 / 链接 / 中文名 一个入口 ---------------- */
-
-  /* 「新增」时同代号命中多条的候选列表（界面来挑） */
-  const addCandidates = ref([])
-
-  /* ID 是唯一值 → 直接定位一条 */
-  async function itemById(id) {
-    const map = await ensureAmberIndex(tab.value)
-    return map[String(id)] || null
-  }
-
-  /* 代号 → 可能命中多条（同一张图被好几条共用），返回全部候选 */
-  async function itemsByKey(key) {
-    const map = await ensureAmberIndex(tab.value)
-    const list = map.byCode?.[key] || []
-    return list.length ? list : map[key] ? [map[key]] : []
-  }
-
-  /* 解析「新增」输入：ID / 代号 / 带代号的链接 / 中文名 → 候选条目。
-     ID 唯一命中；代号或链接先取代号、可能命中多条（交给界面挑）；最后兜底按中文名。 */
-  async function resolveAdd(text) {
-    const s = String(text || '').trim()
-    if (!s) return []
-    /* ID：纯数字且长度 ≥ 5（怪物 8 位、武器 / 圣遗物 5 位）；代号都带字母或下划线，不会撞 */
-    if (/^\d{5,}$/.test(s)) {
-      const hit = await itemById(s)
-      if (hit) return [hit]
-    }
-    const key = codeFrom(s, tab.value)
-    if (key) {
-      const hits = await itemsByKey(key)
-      if (hits.length) return hits
-    }
-    const hit = await itemByName(s)
-    return hit ? [hit] : []
-  }
-
-  /* 用一条源条目建一行（addByName / 挑候选 共用） */
-  function addItem(item, fallbackName = '') {
-    const type = tab.value
-    const f = deriveFields(type, item)
-    const row = {
-      key: codeFrom(item.icon, type),
-      name: f.name || fallbackName || '',
-      order: f.order || 0,
-      star: f.star,
-    }
-    /* 源里这条只有备用源有 → 图也走备用源 */
-    if (item.source === 'amber') row.alt = true
-    if (f.card) row.card = { ...f.card }
-    data[type].push(row)
-    markDirty()
-    if (type === 'characters') activeKey.value = row.key
-    return row
-  }
-
-  /* 同代号命中多条时挑一条建行 */
-  function pickAddCandidate(item) {
-    const row = addItem(item)
-    addCandidates.value = []
-    toast.success(`已加入「${row.name}」`)
-    return row
-  }
-
-  /* 按中文名从源里捞一条出来（四个分类都能用） */
-  async function addByName(name) {
+        if (prev.lock) {
+          merged[identOf(type, prev)] = cloneRow(prev) /* lock：整条都不碰 */
+          return
+        }
 >>>>
 
 ### src/composables/useImageDict.js
 <<<<
-    const f = deriveFields(type, item)
-    const row = {
-      key: codeFrom(item.icon, type),
-      name: f.name || n,
-      order: f.order || 0,
-      star: f.star,
-    }
-    /* 源里这条只有备用源有 → 图也走备用源 */
-    if (item.source === 'amber') row.alt = true
-    if (f.card) row.card = { ...f.card }
-    data[type].push(row)
-    markDirty()
-    if (type === 'characters') activeKey.value = row.key
+    const row = addItem(item, n)
+    toast.success(
+      type === 'characters' && !f.order
+        ? `已加入「${row.name}」（序号表里没有，序号 0）`
+        : `已加入「${row.name}」`,
+    )
 >>>>
 <<<<
     const row = addItem(item, n)
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-  /* 一个输入框干两件事：
-     单行、又不像链接也不像代号 → 当名字，去源里查
-     其余（一行链接 / 多行 / 一个代号）→ 走批量解析 */
->>>>
-<<<<
-  /* 一个输入框干四件事：
-     单行 → 解析：ID / 代号 / 链接 / 中文名 都能认；能定到唯一一条就建行，
-           定不到唯一一条（同一张图被好几条共用）就把候选交给界面挑。
-     多行 → 走批量解析（粘链接那套，本来就会自己查源补名字 / 序号）。 */
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    const one = lines.length === 1 ? lines[0] : ''
-    const looksLikeIcon =
-      !!one && (/^https?:\/\//i.test(one) || !!repoUrl(one) || !!codeFrom(one, tab.value))
-
-    if (one && !looksLikeIcon) return addByName(one)
->>>>
-<<<<
-    const one = lines.length === 1 ? lines[0] : ''
-    if (one) {
-      const cands = await resolveAdd(one)
-      if (!cands.length) {
-        toast.error('没认出来：可以是 ID（如 26310601）、代号（如 Chimera_OwlPangolin_02）、图标链接，或中文名')
-        return false
-      }
-      if (cands.length === 1) {
-        addItem(cands[0], one)
-        return true
-      }
-      /* 同一张图被好几条共用 → 交给界面挑 */
-      addCandidates.value = cands
-      return false
-    }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      const merged = {}
-      const byKey = {}
-      const byName = {}
-      ;(data[type] || []).forEach((row) => {
-        if (!row.key) return
-        byKey[row.key] = row
-        if (row.name && !byName[row.name]) byName[row.name] = row
-      })
->>>>
-<<<<
-      const merged = {}
-      const byIdent = {}
-      const byName = {}
-      ;(data[type] || []).forEach((row) => {
-        if (!row.key && !row.order) return
-        byIdent[identOf(type, row)] = row
-        if (row.name && !byName[row.name]) byName[row.name] = row
-      })
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      ;(FORCED_LOCAL[type] || []).forEach((row) => {
-        if (!row.key || byKey[row.key]) return
-        byKey[row.key] = row
-        if (row.name && !byName[row.name]) byName[row.name] = row
-      })
->>>>
-<<<<
-      ;(FORCED_LOCAL[type] || []).forEach((row) => {
-        const id = identOf(type, row)
-        if (!id || byIdent[id]) return
-        byIdent[id] = row
-        if (row.name && !byName[row.name]) byName[row.name] = row
-      })
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      Object.keys(amber[type] || {}).forEach((code) => {
-        const item = amber[type][code]
-        const prev = byKey[code] || (item.name ? byName[item.name] : null)
->>>>
-<<<<
-      Object.keys(amber[type] || {}).forEach((idKey) => {
-        const item = amber[type][idKey]
-        const prev = byIdent[idKey] || (item.name ? byName[item.name] : null)
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-          if (item.source === 'amber') row.alt = true
-          merged[code] = row
-          return
->>>>
-<<<<
-          if (item.source === 'amber') row.alt = true
-          merged[idKey] = row
-          return
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-        merged[next.key] = next
->>>>
-<<<<
-        merged[identOf(type, next)] = next
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-      Object.keys(byKey).forEach((k) => {
-        if (merged[k]) return
-        if (excluded[type].has(k)) return
-        merged[k] = cloneRow(byKey[k])
-      })
-
-      data[type] = Object.keys(merged).map((k) => ({ ...cloneRow(merged[k]), key: k }))
->>>>
-<<<<
-      Object.keys(byIdent).forEach((k) => {
-        if (merged[k]) return
-        /* excluded 里存的是图标代号（比如 '28' 开头的动物），识别码是 ID → 两个都查 */
-        if (excluded[type].has(k) || excluded[type].has(byIdent[k].key)) return
-        merged[k] = cloneRow(byIdent[k])
-      })
-
-      data[type] = Object.keys(merged).map((k) => {
-        const row = cloneRow(merged[k])
-        /* 角色：识别码就是代号，字典键 = 代号；三个分类：识别码是 ID，
-           key 仍是图标代号（拼图用），不能拿 k 覆盖它 */
-        return type === 'characters' ? { ...row, key: k } : row
-      })
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-function litRow(row) {
-  const p = [`name: "${escJs(row.name)}"`]
-  if (row.star != null) p.push(`star: ${row.star}`)
->>>>
-<<<<
-function litRow(row, dictKey = '') {
-  const p = [`name: "${escJs(row.name)}"`]
-  /* 识别码不是代号时（三个分类用 ID），把图标代号写进条目里 —— 拼图还要用它 */
-  if (row.key && row.key !== dictKey) p.push(`key: "${escJs(row.key)}"`)
-  if (row.star != null) p.push(`star: ${row.star}`)
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    list.forEach((item, i) => {
-      const tail = i < list.length - 1 ? ',' : ''
-      lines.push(`    "${escJs(item.key)}": ${litRow(item)}${tail}`)
-    })
->>>>
-<<<<
-    list.forEach((item, i) => {
-      const tail = i < list.length - 1 ? ',' : ''
-      /* 字典键 = 识别码：角色是代号；武器 / 圣遗物 / 怪物是 ID（同一张图可能有好几条） */
-      const dictKey = identOf(type, item)
-      lines.push(`    "${escJs(dictKey)}": ${litRow(item, dictKey)}${tail}`)
-    })
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-  return Object.keys(obj).map((k) => {
-    const item = obj[k] || {}
-    const row = { key: k, name: item.name || '', order: item.order || 0 }
->>>>
-<<<<
-  return Object.keys(obj).map((k) => {
-    const item = obj[k] || {}
-    /* 角色：键就是代号；三个分类：键是 ID，代号存在条目里的 key
-       （老字典没有这个字段 → 退回用键当代号，照样读得进来） */
-    const key = type === 'characters' ? k : item.key || k
-    const order = item.order || (type === 'characters' ? 0 : parseInt(k, 10) || 0)
-    const row = { key, name: item.name || '', order }
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    if (code && data[type].some((r) => r !== row && r.key === code)) {
-      toast.error('这个代号已经被另一条占用了')
->>>>
-<<<<
-    /* 角色：代号就是身份，不能重复；三个分类：身份是 ID，同一张图可以被好几条共用 */
-    if (type === 'characters' && code && data[type].some((r) => r !== row && r.key === code)) {
-      toast.error('这个代号已经被另一条占用了')
->>>>
-
-### src/composables/useImageDict.js
-<<<<
-    /* 行操作 */
-    slotSrc,
-    starStyle,
-    setOrder,
-    setName,
-    setNameLock,
-    setStar,
->>>>
-<<<<
-    /* 行操作 */
-    slotSrc,
-    starStyle,
-    setOrder,
-    setName,
-    setNameLock,
-    setStar,
-    resolveAdd,
-    addItem,
-    addCandidates,
-    pickAddCandidate,
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-  setName,
-  setNameLock,
-  setStar,
-  removeRow,
->>>>
-<<<<
-  setName,
-  setNameLock,
-  setStar,
-  resolveAdd,
-  addItem,
-  addCandidates,
-  pickAddCandidate,
-  removeRow,
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-function openAdd() {
-  addText.value = ''
-  addOpen.value = true
-}
->>>>
-<<<<
-function openAdd() {
-  addText.value = ''
-  addCandidates.value = []
-  addOpen.value = true
-}
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-async function onAdd() {
-  const text = addText.value
-  addText.value = ''
-  const ok = await addFromInput(text)
-  if (ok) addOpen.value = false
-}
->>>>
-<<<<
-async function onAdd() {
-  const text = addText.value
-  addText.value = ''
-  const ok = await addFromInput(text)
-  if (ok) addOpen.value = false
-}
-
-/* 候选里挑一条：建行 + 关弹窗 */
-function onPickCandidate(item) {
-  pickAddCandidate(item)
-  addOpen.value = false
-}
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-        label="名字 或 图标链接"
-        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya"
-      />
-    </Modal>
->>>>
-<<<<
-        label="名字 或 图标链接"
-        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
-      />
-
-      <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
-      <div v-if="addCandidates.length" class="mt-2 border-t border-line pt-2">
-        <p class="mb-1 text-[11px] text-muted">这个代号在源里有 {{ addCandidates.length }} 条，选一条：</p>
-        <div class="flex flex-wrap gap-1">
-          <Btn v-for="(c, i) in addCandidates" :key="i" size="sm" @click="onPickCandidate(c)">{{ c.name }}</Btn>
-        </div>
-      </div>
-    </Modal>
->>>>
-
-### src/views/ImageDict.vue
-<<<<
-              <label
-                v-if="tab === 'monsters'"
-                class="flex shrink-0 select-none items-center gap-1 text-[11px] leading-5 text-muted"
-              >
-                <input
-                  type="checkbox"
-                  :checked="!!row.nameLock"
-                  aria-label="名字以我为准"
-                  @change="setNameLock(row, $event.target.checked)"
-                />
-                名字以我为准
-              </label>
->>>>
-<<<<
-              <!-- 圣遗物 / 武器 / 怪物：名字以我为准（角色按你说的不动） -->
-              <input
-                v-if="tab !== 'characters'"
-                type="checkbox"
-                :checked="!!row.nameLock"
-                aria-label="名字以我为准"
-                title="名字以我为准"
-                @change="setNameLock(row, $event.target.checked)"
-              />
+    toast.success(
+      type === 'characters' && !row.order
+        ? `已加入「${row.name}」（序号表里没有，序号 0）`
+        : `已加入「${row.name}」`,
+    )
 >>>>
 
 == DELETES ==
 # 这批没有要删的文件
 
 == CHECKS ==
-grep -qF 'const identOf = (type, row) =>' src/composables/useImageDict.js
-grep -qF 'const keepKey = type ===' src/composables/useImageDict.js
-grep -qF 'const map = { byCode: {} }' src/composables/useImageDict.js
-grep -qF 'map.byCode[code].push(item)' src/composables/useImageDict.js
-grep -qF 'async function resolveAdd(text)' src/composables/useImageDict.js
-grep -qF 'async function itemsByKey(key)' src/composables/useImageDict.js
-grep -qF "function addItem(item, fallbackName = '')" src/composables/useImageDict.js
-grep -qF 'const row = addItem(item, n)' src/composables/useImageDict.js
-grep -qF 'byIdent[identOf(type, row)] = row' src/composables/useImageDict.js
-grep -qF 'merged[identOf(type, next)] = next' src/composables/useImageDict.js
-grep -qF 'const dictKey = identOf(type, item)' src/composables/useImageDict.js
-grep -qF 'return type === ' src/composables/useImageDict.js
-test "$(grep -c 'byKey' src/composables/useImageDict.js)" = 4
-grep -qF 'resolveAdd,' src/views/ImageDict.vue
-grep -qF 'onPickCandidate' src/views/ImageDict.vue
-grep -qF "v-if=\"tab !== 'characters'\"" src/views/ImageDict.vue
+grep -qF "type === 'characters' && prev.key !== idKey" src/composables/useImageDict.js
+grep -qF "merged[identOf(type, prev)] = cloneRow(prev)" src/composables/useImageDict.js
+grep -qF "type === 'characters' && !row.order" src/composables/useImageDict.js
+test "$(grep -c 'prev.key !== code' src/composables/useImageDict.js)" = 0
+test "$(grep -cF '!f.order' src/composables/useImageDict.js)" = 0
+test "$(grep -cF 'merged[prev.key] = cloneRow(prev)' src/composables/useImageDict.js)" = 0
