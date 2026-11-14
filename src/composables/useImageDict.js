@@ -851,14 +851,18 @@ export function useImageDict() {
     }
 
     const code = codeFrom(url, type, slot)
-    const kind = urlKind(type, slot, url, code)
-    const keepUrl = kind === 'url'
 
+    /* 只要能提出代号就只存代号 —— 出图默认走主源 lunaris，
+       勾了「备用源」才走 yatta（你粘的链接来自哪个源都不影响）；
+       提不出代号才原样留 URL。仓库链接在上面已经单独处理过 */
     const put = (o) => {
-      o.key = code
-      o.url = keepUrl ? url : ''
-      if (kind === 'alt') o.alt = true
-      else delete o.alt
+      if (code) {
+        o.key = code
+        o.url = ''
+      } else {
+        o.key = ''
+        o.url = url
+      }
     }
 
     if (slot) {
@@ -874,7 +878,6 @@ export function useImageDict() {
     if (type === 'characters' && code && data[type].some((r) => r !== row && r.key === code)) {
       toast.error('这个代号已经被另一条占用了')
       row.url = url
-      delete row.alt
     } else if (code) {
       row.key = code
       put(row)
@@ -882,7 +885,6 @@ export function useImageDict() {
       if (type === 'characters' && activeKey.value === oldKey) activeKey.value = code
     } else {
       row.url = url
-      delete row.alt
     }
     markDirty()
     return code
@@ -1442,9 +1444,8 @@ export function useImageDict() {
         return
       }
       const row = { key, name: '', order: 0, star: type === 'monsters' ? null : 5 }
-      const kind = repo ? 'url' : urlKind(type, '', url, code)
-      if (kind === 'url') row.url = repo || url
-      else if (kind === 'alt') row.alt = true
+      /* 有代号就只存代号（出图默认主源，勾了「备用源」才走 yatta）；没代号才留 URL */
+      if (!code) row.url = repo || url
       list.push(row)
       byKey[key] = row
       created.push(row)
