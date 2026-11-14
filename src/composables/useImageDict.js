@@ -1116,7 +1116,9 @@ export function useImageDict() {
       const keepKey = type === 'characters' ? code : String(item.id || code)
 
       /* source 带上：只有备用源有的条目，建行时要把图切到备用源 */
-      kept[keepKey] = { ...deriveFields(type, item, cards), source: item.source }
+      /* 非角色的字典键是 ID，图标代号必须存进条目里 —— 不然载入 / 同步后
+         row.key 是空的，头像拼不出来、代号也显示空白 */
+      kept[keepKey] = { ...deriveFields(type, item, cards), key: code, source: item.source }
     })
 
     return { kept, skipped }
