@@ -301,6 +301,7 @@ function litRow(row) {
   if (row.url) p.push(`url: "${escJs(row.url)}"`)
   if (row.alt) p.push('alt: true')
   if (row.lock) p.push('lock: true')
+  if (row.nameLock) p.push('nameLock: true')
   if (row.card) p.push(`card: ${litSlot(row.card)}`)
   if (row.art) p.push(`art: ${litSlot(row.art)}`)
   return `{ ${p.join(', ')} }`
@@ -344,6 +345,7 @@ function cloneRow(row) {
   if (row.url) out.url = row.url
   if (row.alt) out.alt = true
   if (row.lock) out.lock = true
+  if (row.nameLock) out.nameLock = true
   if (row.card) out.card = { ...row.card }
   if (row.art) out.art = { ...row.art }
   return out
@@ -393,6 +395,7 @@ function dictToRows(dict, type) {
     if (item.url) row.url = item.url
     if (item.alt) row.alt = true
     if (item.lock) row.lock = true
+    if (item.nameLock) row.nameLock = true
     const card = readSlot(item.card)
     const art = readSlot(item.art)
     if (card) row.card = card
@@ -747,6 +750,13 @@ export function useImageDict() {
       const next = row.name ? findOrderByName(row.name, row) || row.order || 0 : 0
       if (next !== row.order) row.order = next
     }
+    markDirty()
+  }
+
+  /* 怪物专用：地方传奇在大世界和深渊里名字不一样，源只给深渊那个。
+     打勾 = 以我手填的名字为准：同步不再改这个名字，图 / 星级 / 序号照旧跟源走。 */
+  function setNameLock(row, value) {
+    row.nameLock = !!value
     markDirty()
   }
 
@@ -1422,7 +1432,8 @@ export function useImageDict() {
         const next = cloneRow(prev)
         /* 这条只有备用源有，而本地这行还没定图 → 图走备用源 */
         if (item.source === 'amber' && !prev.url && !prev.alt) next.alt = true
-        if (item.name) next.name = item.name
+        /* 名字打了「以我为准」的勾 → 手填的名字固定，同步不改它（图、星级、序号照旧跟源） */
+        if (item.name && !prev.nameLock) next.name = item.name
         if (item.star != null) next.star = item.star
         if (item.order) next.order = item.order
 
@@ -1655,6 +1666,7 @@ export function useImageDict() {
     starStyle,
     setOrder,
     setName,
+    setNameLock,
     setStar,
     removeRow,
     clearTab,
