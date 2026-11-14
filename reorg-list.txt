@@ -504,7 +504,7 @@ grep -qF 'byIdent[identOf(type, row)] = row' src/composables/useImageDict.js
 grep -qF 'merged[identOf(type, next)] = next' src/composables/useImageDict.js
 grep -qF 'const dictKey = identOf(type, item)' src/composables/useImageDict.js
 grep -qF 'return type === ' src/composables/useImageDict.js
-test "$(grep -c 'byKey' src/composables/useImageDict.js)" = 3
+test "$(grep -c 'byKey' src/composables/useImageDict.js)" = 4
 grep -qF 'resolveAdd,' src/views/ImageDict.vue
 grep -qF 'onPickCandidate' src/views/ImageDict.vue
 grep -qF "v-if=\"tab !== 'characters'\"" src/views/ImageDict.vue
