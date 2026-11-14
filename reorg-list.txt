@@ -1,78 +1,72 @@
 == MOVES ==
 
 == EDITS ==
-### src/composables/useImageDict.js
+### reorg-list.txt
 <<<<
-    const code = codeFrom(url, type, slot)
-    const kind = urlKind(type, slot, url, code)
-    const keepUrl = kind === 'url'
+== MOVES ==
 
-    const put = (o) => {
-      o.key = code
-      o.url = keepUrl ? url : ''
-      if (kind === 'alt') o.alt = true
-      else delete o.alt
-    }
+== EDITS ==
 >>>>
 <<<<
-    const code = codeFrom(url, type, slot)
+# 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
+#   MOVES    一行一条：旧路径 -> 新路径
+#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
+#            —— 这一段里不要写 # 注释行（会被当成文件路径）
+#   DELETES  一行一个路径（文件或目录都行）
+#   CHECKS   一行一条命令，非 0 即中止
+# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
+#
+# 这一批（notes-docs）：还原本文件开头的格式说明；CHANGELOG 补 2026-11-15 字典编辑器那条；
+#   AGENTS.md 补「怪物不匹配源 / 链接只存代号 / 改序号要连身份一起挪」三条经验。
 
-    /* 只要能提出代号就只存代号 —— 出图默认走主源 lunaris，
-       勾了「备用源」才走 yatta（你粘的链接来自哪个源都不影响）；
-       提不出代号才原样留 URL。仓库链接在上面已经单独处理过 */
-    const put = (o) => {
-      if (code) {
-        o.key = code
-        o.url = ''
-      } else {
-        o.key = ''
-        o.url = url
-      }
-    }
+== MOVES ==
+
+== EDITS ==
 >>>>
 
-### src/composables/useImageDict.js
+### CHANGELOG.md
 <<<<
-      toast.error('这个代号已经被另一条占用了')
-      row.url = url
-      delete row.alt
-    } else if (code) {
+## 2026 年 11 月
+
+### 2026-11-10 ·
 >>>>
 <<<<
-      toast.error('这个代号已经被另一条占用了')
-      row.url = url
-    } else if (code) {
+## 2026 年 11 月
+
+### 2026-11-15 · 字典编辑器「怪物不再匹配源 + 链接只存代号」：怪物整个分类退出同步、加怪物直接按链接里的代号建行（序号不再自动带）；粘贴的链接只要能提出代号就只存代号、出图固定主源优先（勾了备用源才走 yatta），提不出代号才留 URL；另修「改完序号详情栏被关掉」和新增后不选中
+
+- **起因**：用户发现怪物条目「代号空白、头像不显示」，且怪物 id 太多、很多只有链接没有图，手动维护吃力 —— 决定怪物彻底不靠源匹配，源只负责给图。另外粘贴链接时，只要链接带着 yatta 的地址就会被当成备用源，跟「主源优先」的诉求相反；改完序号后详情栏会自己关掉，看着像「跳回了列表」。
+- **经过**：根因有三：① 同步时 `deriveFields` 对怪物没存图标代号，字典键又是 ID，载入后 `row.key` 是空的，头像自然拼不出来；② 怪物加入时仍走 `resolveAdd` 查源，会把源里的序号带进来，且「键不在源里就报错、不给建行」；③ `activeRow` 按身份找行（非角色的身份就是序号），序号一改就找不到、`v-if` 把详情栏关掉。改法：① 怪物在同步里整个跳过（不拉源、不合并，本地行原样保留），加怪物时连源都不查，直接按链接 / 代号建一行；② `applyUrl` / `parsePastedUrls` 改成「能提出代号就只存代号」，`alt` 只由界面上的「备用源」勾控制，仓库链接继续整条留 URL；③ `setOrder` 改序号前先记下旧身份，改完把选中一起挪过去，新增的行自动选中。
+- **结果**：怪物只用手填，图按代号从 lunaris 拼（主源没有时缩略图自动回退 yatta）；粘任何链接都只认代号、出图固定主源优先；改序号、加怪物都不会再把人弹回列表。
+
+### 2026-11-10 ·
 >>>>
 
-### src/composables/useImageDict.js
+### AGENTS.md
 <<<<
-    } else {
-      row.url = url
-      delete row.alt
-    }
-    markDirty()
+- **合集封面同款隐患（没改）**：它的草稿是一次次把字体的几兆 base64 写进 IDB（改个标题就写几兆），字体装不上时也是静默回默认。哪天动 `CollectionCover.vue` 时照视频封面这批改：草稿不带 `fontData` + `ensureFont()` 式的重取。
 >>>>
 <<<<
-    } else {
-      row.url = url
-    }
-    markDirty()
->>>>
+- **合集封面同款隐患（没改）**：它的草稿是一次次把字体的几兆 base64 写进 IDB（改个标题就写几兆），字体装不上时也是静默回默认。哪天动 `CollectionCover.vue` 时照视频封面这批改：草稿不带 `fontData` + `ensureFont()` 式的重取。
 
-### src/composables/useImageDict.js
-<<<<
-      const kind = repo ? 'url' : urlKind(type, '', url, code)
-      if (kind === 'url') row.url = repo || url
-      else if (kind === 'alt') row.alt = true
->>>>
-<<<<
-      /* 有代号就只存代号（出图默认主源，勾了「备用源」才走 yatta）；没代号才留 URL */
-      if (!code) row.url = repo || url
+### 字典编辑器：怪物不匹配源（2026-11-15）
+
+- **识别码**：角色 = 代号；圣遗物 / 武器 / 怪物 = **ID**（怪物同一个图标代号常被好几条共用，按代号归并会选错行）。
+- **怪物不做源匹配**：同步时整个分类跳过（不拉源、不合并），本地行原样保留；加怪物时连源都不查，直接按链接 / 代号建一行。
+- **改序号必须连身份一起挪**：`identOf` 对非角色就是**序号**，改序号等于改行的身份；凡是「按身份找行」的 computed（`activeRow`）都会因此找不到行，详情栏被 `v-if` 关掉，看着像「跳回列表」。修法：`setOrder` 里改之前先记 `oldIdent`，改完 `if (activeKey.value === oldIdent) activeKey.value = identOf(tab.value, row)`。
+- **链接只存代号**：粘贴的链接只要能提出代号（`codeFrom`），就只存 key、清空 url；**`alt` 只由界面上的「备用源」勾控制**，不要根据链接来自哪个源去设 —— 出图默认主源优先，主源没有时缩略图靠 `data-alt` 自动回退。仓库图链接（`repoUrl`）整条留 URL。
+- **新增后要选中新行**：`activeKey` 跟着 `identOf` 走，否则用户得再点一次才能编辑。
+
+### 协作约定（2026-11-15）
+
+- **给 reorg 清单前先对齐 main 的当前 SHA**：清单里的「原文」必须和 main 当前内容逐字一致，否则工作流报「没找到原文」、整批作废。
+- **沙箱命令**：每条都要套 `timeout`，输出控制在 90 行以内。网络抓取超时会返回 HTML 错误页，调用方拿它当 JSON 解析会报 `Unexpected JSON token`。**超时规则：默认 30 秒，硬杀。**
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-test "$(grep -c '提不出代号才原样留 URL' src/composables/useImageDict.js)" = 1
-test "$(grep -c 'o.url = keepUrl' src/composables/useImageDict.js)" = 0
-test "$(grep -c "else if (kind === 'alt') row.alt = true" src/composables/useImageDict.js)" = 0
+test "$(grep -c '# 清单文件：给 .github/workflows/reorg.yml 读的' reorg-list.txt)" = 1
+test "$(grep -c '### 2026-11-15 · 字典编辑器' CHANGELOG.md)" = 1
+test "$(grep -c '改序号必须连身份一起挪' AGENTS.md)" = 1
+test "$(grep -c 'Unexpected JSON token' AGENTS.md)" = 1
