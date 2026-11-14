@@ -3,27 +3,52 @@
 == EDITS ==
 ### src/composables/useImageDict.js
 <<<<
-    const one = lines.length === 1 ? lines[0] : ''
-    if (one) {
-      const cands = await resolveAdd(one)
+  function setOrder(row, value) {
+    const v = String(value ?? '').trim()
+    const next = v === '' ? 0 : parseInt(v, 10) || 0
+
+    if (tab.value === 'characters') {
+      const name = (row.name || '').trim()
+      if (name) row.order = findOrderByName(name, row) || next
+      else {
+        row.order = next
+        if (next > 0) row.name = findNameByOrder(next, row) || row.name
+      }
+    } else {
+      row.order = next
+    }
+
+    markDirty()
+  }
 >>>>
 <<<<
-    const one = lines.length === 1 ? lines[0] : ''
-    if (one) {
-      /* 怪物不做源匹配：源只负责给图。直接按链接 / 代号建一行，
-         名字 / 序号 / 星级手填，序号不从源带 */
-      if (tab.value === 'monsters') {
-        const key = codeFrom(one, tab.value)
-        const isUrl = /^https?:/i.test(one)
-        data.monsters.push({ key, name: isUrl ? '' : one, order: 0, star: null, local: true })
-        markDirty()
-        return true
+  function setOrder(row, value) {
+    const v = String(value ?? '').trim()
+    const next = v === '' ? 0 : parseInt(v, 10) || 0
+
+    if (tab.value === 'characters') {
+      const name = (row.name || '').trim()
+      if (name) row.order = findOrderByName(name, row) || next
+      else {
+        row.order = next
+        if (next > 0) row.name = findNameByOrder(next, row) || row.name
       }
-      const cands = await resolveAdd(one)
+    } else {
+      row.order = next
+    }
+
+    /* 序号一改，非角色的身份（identOf = 序号）就变了；选中行要跟着挪过去，
+       不然 activeRow 按旧身份找不到行，详情栏会被 v-if 关掉、界面弹回列表 */
+    if (row === activeRow.value && activeKey.value !== identOf(tab.value, row)) {
+      activeKey.value = identOf(tab.value, row)
+    }
+
+    markDirty()
+  }
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-test "$(grep -c 'data.monsters.push' src/composables/useImageDict.js)" = 1
-test "$(grep -c '序号不从源带' src/composables/useImageDict.js)" = 1
+test "$(grep -c 'activeKey.value = identOf(tab.value, row)' src/composables/useImageDict.js)" = 1
+test "$(grep -c 'row === activeRow.value' src/composables/useImageDict.js)" = 1
