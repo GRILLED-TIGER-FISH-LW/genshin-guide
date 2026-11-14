@@ -1059,6 +1059,16 @@ export function useImageDict() {
     const kept = {}
     const skipped = new Set()
 
+    /* 怪物 2 区（正经 id）的名字集合，给下面认重复用 */
+    const baseNames = new Set(
+      type === 'monsters'
+        ? Object.keys(items)
+            .filter((id) => id.startsWith('2'))
+            .map((id) => items[id]?.name)
+            .filter(Boolean)
+        : [],
+    )
+
     Object.keys(items).forEach((id) => {
       const item = items[id]
       if (!item || !item.icon || !item.name) return
@@ -1078,8 +1088,17 @@ export function useImageDict() {
           return
         }
       } else if (type === 'monsters') {
-        if (String(item.id || '').startsWith('28')) {
+        const mid = String(item.id || '')
+        if (mid.startsWith('28')) {
           skipped.add(code)
+          return
+        }
+        /* 3 / 8 区是 lunaris 给同一只怪另开的重复 id（还有 (test)WQ-BOSS- 这种测试条目）：
+           名字在 2 区已经有的就跳过，按 **id** 记进排除表（不记代号 ——
+           同一个代号常被好几条共用，记代号会把正经条目一起清掉）。
+           第 2 遍合并时，本地那些 3 / 8 序号的旧行就是靠这个被清掉的。 */
+        if (/^[38]/.test(mid) && baseNames.has(item.name)) {
+          skipped.add(mid)
           return
         }
       }
