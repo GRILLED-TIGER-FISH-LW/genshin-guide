@@ -36,59 +36,110 @@ function go(path) {
     v-model="open"
     direction="ltr"
     size="256px"
-    title="工具导航"
+    :with-header="false"
+    aria-label="工具导航"
     class="ah-drawer"
   >
-    <!-- 切工具就重建菜单：default-openeds 才能跟着当前工具重新生效 -->
-    <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
-      <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
-        <SolarIcon name="solar:home" :bold="isHome" size="20" />
-        <span class="min-w-0 truncate">首页</span>
-      </el-menu-item>
+    <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
+      <h2 class="text-heading-5 text-ink">功能导航</h2>
+    </div>
 
-      <template v-for="t in TOOLS" :key="t.key">
-        <el-sub-menu v-if="t.subtools" :index="t.key">
-          <template #title>
-            <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-            <span class="min-w-0 truncate">{{ t.label }}</span>
-          </template>
+    <nav class="ah-drawer__nav" aria-label="工具菜单">
+      <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
+        <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
+          <span
+            class="grid size-5 mr-2 shrink-0 place-items-center"
+            :class="isHome ? 'text-accent-strong' : 'text-muted'"
+            aria-hidden="true"
+          >
+            <SolarIcon name="solar:home" :bold="isHome" size="20" />
+          </span>
+          <span class="min-w-0 truncate">首页</span>
+        </el-menu-item>
+
+        <template v-for="t in TOOLS" :key="t.key">
+          <el-sub-menu v-if="t.subtools" :index="t.key">
+            <template #title>
+              <span
+                class="grid size-5 mr-2 shrink-0 place-items-center"
+                :class="toolOf === t.key ? 'text-accent-strong' : 'text-muted'"
+                aria-hidden="true"
+              >
+                <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
+              </span>
+              <span class="min-w-0 truncate">{{ t.label }}</span>
+            </template>
+            <el-menu-item
+              v-for="s in t.subtools"
+              :key="s.key"
+              :index="`${t.key}/${s.key}`"
+              :class="{ 'is-active': subOf === s.key && toolOf === t.key }"
+              @click="go('/' + t.key + '/' + s.key)"
+            >
+              <span
+                class="size-1 shrink-0 rounded-full"
+                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 truncate">{{ s.label }}</span>
+            </el-menu-item>
+          </el-sub-menu>
           <el-menu-item
-            v-for="s in t.subtools"
-            :key="s.key"
-            :index="`${t.key}/${s.key}`"
-            :class="{ 'is-active': subOf === s.key && toolOf === t.key }"
-            @click="go('/' + t.key + '/' + s.key)"
+            v-else
+            :index="t.key"
+            :class="{ 'is-active': toolOf === t.key }"
+            @click="go('/' + t.key)"
           >
             <span
-              class="size-1 shrink-0 rounded-full"
-              :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+              class="grid size-5 mr-2 shrink-0 place-items-center"
+              :class="toolOf === t.key ? 'text-accent-strong' : 'text-muted'"
               aria-hidden="true"
-            />
-            <span class="min-w-0 truncate">{{ s.label }}</span>
+            >
+              <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
+            </span>
+            <span class="min-w-0 truncate">{{ t.label }}</span>
           </el-menu-item>
-        </el-sub-menu>
-        <el-menu-item
-          v-else
-          :index="t.key"
-          :class="{ 'is-active': toolOf === t.key }"
-          @click="go('/' + t.key)"
-        >
-          <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-          <span class="min-w-0 truncate">{{ t.label }}</span>
-        </el-menu-item>
-      </template>
-    </el-menu>
+        </template>
+      </el-menu>
+    </nav>
   </el-drawer>
 </template>
 
 <style scoped>
-/* el-drawer 的骨架（遮罩、焦点圈、过渡）由 EP 提供，这里只调本站尺寸 */
 .ah-drawer {
-  --el-drawer-padding-primary: 12px;
+  border-right: 1px solid var(--color-line);
+  background-color: var(--color-canvas);
 }
 
-/* el-menu 默认右边框在抽屉里多余 */
+.ah-drawer__nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
 .ah-drawer__menu {
-  border-right: none;
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--color-body);
+  --el-menu-hover-bg-color: var(--color-hover);
+  --el-menu-active-color: var(--color-ink);
+  border: 0;
+  background: transparent;
+}
+
+.ah-drawer__menu :deep(.el-menu-item) {
+  border-radius: var(--el-border-radius-base);
+  color: var(--color-body);
+}
+
+.ah-drawer__menu :deep(.el-menu-item.is-active) {
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.ah-drawer__menu :deep(.el-menu-item:focus-visible) {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: -2px;
 }
 </style>

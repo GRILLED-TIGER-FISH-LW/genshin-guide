@@ -87,6 +87,12 @@
   --color-success: #5db872;
   --color-mask: rgba(0, 0, 0, 0.55);
 
+  --spacing-icon-btn: 36px;
+
+  --text-heading-5: 18px;
+  --text-heading-5--line-height: 1.4;
+  --text-heading-5--font-weight: 600;
+
   --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-float: 0 16px 48px -8px rgba(0, 0, 0, 0.6);
 }
