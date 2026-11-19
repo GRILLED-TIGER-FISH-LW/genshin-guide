@@ -8,7 +8,7 @@ html {
 }
 
 body {
-  @apply bg-canvas text-body text-sm antialiased;
+  @apply bg-canvas text-body-sm text-body antialiased;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
     "Microsoft YaHei", sans-serif;
   min-height: 100dvh;
@@ -26,7 +26,7 @@ html.theme-switching *::after {
 
 /* 焦点环：只在键盘操作时出现，不污染触摸 */
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent;
+  @apply outline-2 outline-offset-1 outline-accent;
 }
 
 /* 降低动效偏好：全局降为近零，功能不丢 */
@@ -40,6 +40,12 @@ html.theme-switching *::after {
   }
 }
 
+/* iPhone 底部安全区：固定底栏加这个类，就不用写 inline env()
+   非 layer 规则，优先级高于 utilities —— 能盖住 p-2 的下内边距 */
+.safe-bottom {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
 /* 滚动条：细、暖色 */
 ::-webkit-scrollbar {
   width: 6px;
@@ -49,7 +55,7 @@ html.theme-switching *::after {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-line-3 rounded-sm;
+  @apply bg-line-2;
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted;
