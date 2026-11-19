@@ -2,3 +2,10 @@
 
 @import "./tokens.css";
 @import "./base.css";
+
+/* ===== el-text 桥接：EP 语义色映射到本站令牌 ===== */
+.ah-text-muted { --el-text-color: var(--color-muted); }
+.ah-text-ink { --el-text-color: var(--color-ink); }
+.ah-text-faint { --el-text-color: var(--color-faint); }
+.ah-text-accent { --el-text-color: var(--color-accent-strong); }
+.ah-text-block { display: block; }

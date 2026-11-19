@@ -1,4 +1,6 @@
 import { createApp } from 'vue'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
 import App from './App.vue'
 import { router } from './router.js'
 import './styles/app.css'
@@ -46,6 +48,8 @@ const host = document.getElementById('app')
 host.textContent = ''
 
 const app = createApp(App)
+
+app.use(ElementPlus)
 
 app.config.errorHandler = (err) => {
   showFatal(err?.stack || err?.message || String(err))
