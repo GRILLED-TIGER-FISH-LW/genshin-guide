@@ -1,12 +1,5 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
-#   MOVES    一行一条：旧路径 -> 新路径
-#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
-#            —— 这一段里不要写 # 注释行（会被当成文件路径）
-#   DELETES  一行一个路径（文件或目录都行）
-#   CHECKS   一行一条命令，非 0 即中止
-# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
-#
-# 最近一批：ep-theme-align —— 三个样式底座与冒险之证线上逐字节对齐（tokens / base / app）
+# 最近一批：ep-theme-final —— tokens.css / app.css 换成冒险之证线上版（base.css 已就位）
 
 == MOVES ==
 
@@ -316,130 +309,6 @@
 }
 >>>>
 
-### src/styles/base.css
-<<<<
-/* =========================================================================
- * base.css — 全局基线：字体、焦点、动效、滚动条
- * ========================================================================= */
-
-html {
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  @apply bg-canvas text-body text-sm antialiased;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  min-height: 100dvh;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
-
-/* 主题切换瞬间掐断全部过渡，避免颜色渐变 */
-html.theme-switching *,
-html.theme-switching *::before,
-html.theme-switching *::after {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* 焦点环：只在键盘操作时出现，不污染触摸 */
-:focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent;
-}
-
-/* 降低动效偏好：全局降为近零，功能不丢 */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* 滚动条：细、暖色 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-line-3 rounded-sm;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted;
-}
->>>>
-<<<<
-/* =========================================================================
- * base.css — 全局基线：字体、焦点、动效、滚动条
- * ========================================================================= */
-
-html {
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  @apply bg-canvas text-body-sm text-body antialiased;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  min-height: 100dvh;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
-
-/* 主题切换瞬间掐断全部过渡，避免颜色渐变 */
-html.theme-switching *,
-html.theme-switching *::before,
-html.theme-switching *::after {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* 焦点环：只在键盘操作时出现，不污染触摸 */
-:focus-visible {
-  @apply outline-2 outline-offset-1 outline-accent;
-}
-
-/* 降低动效偏好：全局降为近零，功能不丢 */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* iPhone 底部安全区：固定底栏加这个类，就不用写 inline env()
-   非 layer 规则，优先级高于 utilities —— 能盖住 p-2 的下内边距 */
-.safe-bottom {
-  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
-}
-
-/* 滚动条：细、暖色 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-line-2;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted;
-}
->>>>
-
 ### src/styles/app.css
 <<<<
 @import "tailwindcss";
@@ -597,7 +466,6 @@ html.dark {
 grep -q -e "--text-body-sm" src/styles/tokens.css
 grep -q -e "--spacing-icon-btn: 36px" src/styles/tokens.css
 grep -q -e "--radius-lg" src/styles/tokens.css
-grep -q "text-body-sm" src/styles/base.css
 grep -q "html.dark" src/styles/app.css
 grep -q -e "--el-bg-color: var(--color-surface)" src/styles/app.css
-grep -q safe-bottom src/styles/base.css
+grep -q "text-body-sm" src/styles/base.css
