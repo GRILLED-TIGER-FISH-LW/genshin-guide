@@ -248,10 +248,41 @@ const dayStamp = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
+/* 导出前把图片字段清空：配置 JSON 只存文字（名字 / 数值 / 描述），
+   图片是用 dataURL 塞在 state 里的，动辄几 MB；而载入后会按名字重新问字典，
+   所以图不必跟着文件走。结构（字段本身）保持不变，导入时照常归一化。
+   —— 与 public/saves/characters/*.json 在线存档的存法一致。 */
+function textOnly(data) {
+  const out = structuredClone(toRaw(data))
+  out.fontData = ''
+
+  for (const key of ['charImg', 'bgImg', 'nameBgImg']) {
+    out[key] = ''
+    out[`${key}Meta`] = null
+  }
+  out.teamCoreImg = ''
+
+  for (const list of Object.values(out.weaponData || {})) {
+    for (const w of list) w.img = ''
+  }
+  for (const a of out.artifactData || []) {
+    a.img = ''
+    a.img1 = ''
+    a.img2 = ''
+  }
+  for (const t of out.teamData || []) {
+    for (const c of t.chars || []) {
+      c.img = ''
+      for (const alt of c.alts || []) alt.img = ''
+    }
+  }
+  return out
+}
+
 async function exportConfig() {
-  const text = JSON.stringify({ ...toRaw(s), fontData: '' }, null, 2)
+  const text = JSON.stringify(textOnly(s), null, 2)
   download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
-  toast.success('配置已导出')
+  toast.success('配置已导出（仅文字）')
 }
 
 async function importConfig(e) {

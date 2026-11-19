@@ -305,7 +305,7 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`ep-fix-icons` —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
+- **最后合并**：`ep-export-text` —— 角色一图流配置导出只留文字：`exportConfig` 走 `textOnly()`，清空 `charImg` / `bgImg` / `nameBgImg` / `teamCoreImg` / 武器 / 圣遗物 / 配队头像等图片字段（dataURL 太大），字段结构不变，载入后按名字重新匹配；与 `public/saves/characters/*.json` 存法一致。上一批 `ep-fix-icons`：侧栏小圆点补 `mr-2`、`image-loader.js` 改用条目 `key` 拼图地址。 —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
 - **样式底座**：`tokens.css` / `base.css` / `app.css` 已与冒险之证线上逐字节对齐（`tokens.css` 含全套字号 `--text-body-sm` 等、控件尺寸 `--spacing-icon-btn`；`app.css` 含 EP 主题映射与 `html.dark` 暗色）。改样式先对齐这两个仓库，别只改一边。
 - **字典约定**：`public/shared/image-dict.js` 里，武器 / 圣遗物的键是**编号**（只用于内部防重与排序），真实代号在条目的 `key` 字段；角色恰好键就是代号。拼图地址、匹配都按 `name` 与 `key` 走，绝不能拿键当代号。
 - **三个 md 的更新约定**：每批 reorg 合并后按需更新 `AGENTS.md`（最后合并 / 约定）、`README.md`（用户可见的功能说明）、`CHANGELOG.md`；`CHANGELOG` 一天只保留一条，同一天多次改动合并进同一条，与冒险之证一致。
