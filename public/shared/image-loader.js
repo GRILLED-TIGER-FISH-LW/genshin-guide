@@ -154,11 +154,16 @@
     if (item.url) return item.url;
     /* 3. 完整 URL：直接用 */
     if (/^https?:\/\//i.test(k)) return k;
-    /* 4. 代号 + 规则拼地址；带 alt: true 就用 config 里的备用源那组 */
+    /* 4. 代号 + 规则拼地址；带 alt: true 就用 config 里的备用源那组
+       ⚠ 拼地址必须用条目里的 key（代号，如 Sword_Blunt / 10001_4），
+       不能用字典键 k —— 武器、圣遗物的键是编号（11101 / 10001），
+       编号只用于内部防重与排序，拿去拼 URL 会 404（图标全白）。
+       角色恰好键就是代号（Ambor），所以之前只有角色显示正常。 */
     var cfg = dict.config && dict.config[type];
     if (cfg) {
       var src = item.alt && cfg.alt ? cfg.alt : cfg;
-      if (src && src.prefix) return src.prefix + k + (src.ext || "");
+      var code = item.key || k;
+      if (src && src.prefix) return src.prefix + code + (src.ext || "");
     }
     return "";
   }

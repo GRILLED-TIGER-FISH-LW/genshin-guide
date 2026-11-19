@@ -305,7 +305,10 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`ep-home-align` —— 首页/顶栏/侧边菜单按冒险之证一比一对齐：首页 `el-row` + `el-col` 栅格、卡片样式走 EP 变量；顶栏按钮用原生按钮 + `size-icon-btn`（不要用 `el-button`，会跑偏）、标题 `--text-heading-5`；侧栏 `el-drawer` 自画标题栏、图标 `mr-2`、`el-menu` 全走本站 token 变量。上一批 `ep-home`：首页与侧边菜单迁 Element Plus，6 个子功能图标换 Solar（见 `src/icons/solar.js`）。
+- **最后合并**：`ep-fix-icons` —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
+- **样式底座**：`tokens.css` / `base.css` / `app.css` 已与冒险之证线上逐字节对齐（`tokens.css` 含全套字号 `--text-body-sm` 等、控件尺寸 `--spacing-icon-btn`；`app.css` 含 EP 主题映射与 `html.dark` 暗色）。改样式先对齐这两个仓库，别只改一边。
+- **字典约定**：`public/shared/image-dict.js` 里，武器 / 圣遗物的键是**编号**（只用于内部防重与排序），真实代号在条目的 `key` 字段；角色恰好键就是代号。拼图地址、匹配都按 `name` 与 `key` 走，绝不能拿键当代号。
+- **三个 md 的更新约定**：每批 reorg 合并后按需更新 `AGENTS.md`（最后合并 / 约定）、`README.md`（用户可见的功能说明）、`CHANGELOG.md`；`CHANGELOG` 一天只保留一条，同一天多次改动合并进同一条，与冒险之证一致。
 - **图标分工**：功能图标用 Element Plus、内容标识图标用 Solar（`src/icons/solar.js` 登记，linear 常规、bold 选中/强调），不混用。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
