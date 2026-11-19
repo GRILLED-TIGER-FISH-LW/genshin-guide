@@ -82,25 +82,33 @@
 >>>>
 <<<<
 <template>
-  <el-row class="ah-home">
-    <el-col v-for="t in TOOLS" :key="t.key" :xs="24" :sm="12" :md="8" :lg="6">
-      <RouterLink :to="'/' + t.key" class="ah-home__link">
-        <el-card shadow="never" class="ah-home__card">
-          <span class="ah-home__icon" aria-hidden="true">
-            <SolarIcon :name="t.icon" :size="18" />
-          </span>
+  <!-- 仓库2 的 main 是 overflow-hidden（保 FrameLayer），首页必须自带滚动容器；
+       内部用 el-row 栅格（与冒险之证一致） -->
+  <el-scrollbar class="ah-home-scroll">
+    <el-row class="ah-home">
+      <el-col v-for="t in TOOLS" :key="t.key" :xs="24" :sm="12" :md="8" :lg="6">
+        <RouterLink :to="'/' + t.key" class="ah-home__link">
+          <el-card shadow="never" class="ah-home__card">
+            <span class="ah-home__icon" aria-hidden="true">
+              <SolarIcon :name="t.icon" :size="18" />
+            </span>
 
-          <div class="ah-home__body">
-            <div class="ah-home__title">{{ t.label }}</div>
-            <div class="ah-home__desc">{{ DESC[t.key] }}</div>
-          </div>
-        </el-card>
-      </RouterLink>
-    </el-col>
-  </el-row>
+            <div class="ah-home__body">
+              <div class="ah-home__title">{{ t.label }}</div>
+              <div class="ah-home__desc">{{ DESC[t.key] }}</div>
+            </div>
+          </el-card>
+        </RouterLink>
+      </el-col>
+    </el-row>
+  </el-scrollbar>
 </template>
 
 <style scoped>
+.ah-home-scroll {
+  height: 100%;
+}
+
 .ah-home {
   padding: 12px;
   column-gap: 12px;
@@ -455,6 +463,6 @@ grep -q text-heading-5 src/components/AppNav.vue
 grep -q -e "--spacing-icon-btn" src/styles/tokens.css
 grep -q mr-2 src/components/AppDrawer.vue
 grep -q -e "--el-menu-active-color" src/components/AppDrawer.vue
-! grep -q el-scrollbar src/views/Home.vue
+grep -q el-scrollbar src/views/Home.vue
 ! grep -q el-header src/components/AppNav.vue
 ! grep -q "title=\"工具导航\"" src/components/AppDrawer.vue
