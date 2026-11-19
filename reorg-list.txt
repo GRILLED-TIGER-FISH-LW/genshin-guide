@@ -6,18 +6,101 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：ep-home-align —— 首页/顶栏/侧边菜单按冒险之证仓库一比一对齐
+# 最近一批：ep-theme-align —— 三个样式底座与冒险之证线上逐字节对齐（tokens / base / app）
 
 == MOVES ==
 
 == EDITS ==
+
 ### src/styles/tokens.css
 <<<<
-  --color-mask: rgba(0, 0, 0, 0.55);
+/* =========================================================================
+ * tokens.css — 设计令牌唯一真源
+ * 色板 Claude · 几何 Notion
+ * 两仓库逐字节相同，改动需同步；同步日期 2026-11-08
+ * ========================================================================= */
 
-  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
->>>>
-<<<<
+@theme {
+  /* ---------- 表面 ---------- */
+  --color-canvas: #f5f0e8;
+  --color-surface: #faf9f5;
+  --color-surface-2: #f7f3ec;
+  --color-sunken: #e8e0d2;
+  --color-hover: #efe9de;
+  /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+  --color-thumb: #e8e0d2;
+  /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
+  --color-preview: #121212;
+
+  /* ---------- 描边 ---------- */
+  --color-line: #ebe6df;
+  --color-line-2: #e6dfd8;
+  --color-line-3: #ded6c6;
+
+  /* ---------- 文字 ---------- */
+  --color-ink: #141413;
+  --color-body: #3d3d3a;
+  --color-muted: #6c6a64;
+  --color-faint: #8e8b82;
+
+  /* ---------- 强调 ---------- */
+  --color-accent: #cc785c;
+  --color-accent-strong: #a3543a;
+  --color-accent-solid: #a3543a;
+  --color-accent-hover: #8b432c;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.12);
+
+  /* ---------- 金色 · 仅用于元信息（地点/触发/前置） ---------- */
+  --color-gold: #8a6a1f;
+
+  /* ---------- 语义 ---------- */
+  --color-danger: #c64545;
+  --color-danger-soft: #f8e9e7;
+  --color-success: #5db872;
+  --color-mask: rgba(20, 20, 19, 0.32);
+
+  /* ---------- 几何 ---------- */
+  --radius-ctl: 8px;
+  --radius-panel: 12px;
+
+  /* ---------- 阴影 ---------- */
+  --shadow-panel: 0 4px 12px rgba(15, 15, 15, 0.08);
+  --shadow-float: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+
+  /* ---------- 缓动 ---------- */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] {
+  --color-canvas: #181715;
+  --color-surface: #1f1e1b;
+  --color-surface-2: #252320;
+  --color-sunken: #121110;
+  --color-hover: #2b2825;
+  --color-thumb: #322d27;
+
+  --color-line: #26231f;
+  --color-line-2: #302c27;
+  --color-line-3: #3c3730;
+
+  --color-ink: #faf9f5;
+  --color-body: #d6d2ca;
+  --color-muted: #a09d96;
+  --color-faint: #86817a;
+
+  --color-accent: #cc785c;
+  --color-accent-strong: #cc785c;
+  --color-accent-solid: #a3543a;
+  --color-accent-hover: #8b432c;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.18);
+
+  --color-gold: #d9b45c;
+
+  --color-danger: #e07070;
+  --color-danger-soft: rgba(224, 112, 112, 0.14);
+  --color-success: #5db872;
   --color-mask: rgba(0, 0, 0, 0.55);
 
   --spacing-icon-btn: 36px;
@@ -27,442 +110,494 @@
   --text-heading-5--font-weight: 600;
 
   --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
->>>>
-
-### src/views/Home.vue
-<<<<
-<template>
-  <!-- 外壳：滚动交给 el-scrollbar；网格布局保留 Tailwind（EP 不承担布局网格） -->
-  <el-scrollbar class="absolute inset-0 p-3">
-    <div class="grid grid-cols-2 content-start gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      <RouterLink v-for="t in TOOLS" :key="t.key" :to="'/' + t.key" class="ah-home-card">
-        <el-card :body-style="{ padding: '12px' }" class="ah-home-card__inner">
-          <span
-            class="grid size-8 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
-            aria-hidden="true"
-          >
-            <SolarIcon :name="t.icon" size="20" />
-          </span>
-
-          <div class="grid min-w-0 gap-0.5">
-            <el-text class="ah-text-block truncate font-semibold ah-text-ink" tag="span">
-              {{ t.label }}
-            </el-text>
-            <el-text class="ah-text-block line-clamp-2 min-h-8 ah-text-muted" tag="span" size="small">
-              {{ DESC[t.key] }}
-            </el-text>
-          </div>
-        </el-card>
-      </RouterLink>
-    </div>
-  </el-scrollbar>
-</template>
-
-<style scoped>
-/* el-card 换成本站 token：去阴影、圆角用面板圆角、底色用表面色 */
-.ah-home-card {
-  display: block;
+  --shadow-float: 0 16px 48px -8px rgba(0, 0, 0, 0.6);
 }
-
-.ah-home-card__inner {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-  box-shadow: none;
-}
-
-.ah-home-card:hover .ah-home-card__inner {
-  background-color: var(--color-hover);
-}
-
-.ah-home-card:active .ah-home-card__inner {
-  background-color: var(--color-sunken);
-}
-</style>
 >>>>
 <<<<
-<template>
-  <!-- 仓库2 的 main 是 overflow-hidden（保 FrameLayer），首页必须自带滚动容器；
-       内部用 el-row 栅格（与冒险之证一致） -->
-  <el-scrollbar class="ah-home-scroll">
-    <el-row class="ah-home">
-      <el-col v-for="t in TOOLS" :key="t.key" :xs="24" :sm="12" :md="8" :lg="6">
-        <RouterLink :to="'/' + t.key" class="ah-home__link">
-          <el-card shadow="never" class="ah-home__card">
-            <span class="ah-home__icon" aria-hidden="true">
-              <SolarIcon :name="t.icon" :size="18" />
-            </span>
+/* =========================================================================
+ * tokens.css — 设计令牌唯一真源
+ * 颜色 Claude 全量（白天 / 黑夜两套）· 尺寸 / 几何 / 排版 Notion 全量
+ * 两仓库逐字节相同，改动需同步；同步日期 2026-11-12
+ * ========================================================================= */
 
-            <div class="ah-home__body">
-              <div class="ah-home__title">{{ t.label }}</div>
-              <div class="ah-home__desc">{{ DESC[t.key] }}</div>
-            </div>
-          </el-card>
-        </RouterLink>
-      </el-col>
-    </el-row>
-  </el-scrollbar>
-</template>
+@theme {
+  /* ---------- 表面 ---------- */
+  --color-canvas: #f5f0e8;
+  --color-surface: #faf9f5;
+  --color-surface-2: #f7f3ec;
+  --color-sunken: #e8e0d2;
+  --color-hover: #efe9de;
+  /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+  --color-thumb: #e8e0d2;
+  /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
+  --color-preview: #181715;
 
-<style scoped>
-.ah-home-scroll {
-  height: 100%;
+  /* ---------- 描边 ---------- */
+  --color-line: #ebe6df;
+  --color-line-2: #e6dfd8;
+
+  /* ---------- 文字 ---------- */
+  --color-ink: #141413;
+  --color-body: #3d3d3a;
+  --color-body-strong: #252523;
+  --color-muted: #6c6a64;
+  --color-faint: #8e8b82;
+
+  /* ---------- 强调 ---------- */
+  --color-accent: #cc785c;
+  --color-accent-strong: #a9583e;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.12);
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
+
+  /* ---------- 金色 · 仅用于元信息（地点/触发/前置） ---------- */
+  --color-gold: #8a6a1f;
+
+  /* ---------- 语义 ---------- */
+  --color-danger: #c64545;
+  --color-danger-soft: #f8e9e7;
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-mask: rgba(20, 20, 19, 0.32);
+
+  /* ---------- 圆角 · Notion 全量 ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-xxl: 20px;
+  --radius-xxxl: 24px;
+  /* 语义别名：控件圆角走 ctl、面板走 panel（值分别等于 radius-md / radius-lg），保留 */
+  --radius-ctl: 8px;
+  --radius-panel: 12px;
+
+  /* ---------- 间距 · Notion 全量（用数值刻度，不另起名字） ----------
+     Notion 的 4/8/12/16/20/24/32/40/48/64/96/120 = Tailwind 的
+     p-1 p-2 p-3 p-4 p-5 p-6 p-8 p-10 p-12 p-16 p-24 p-30。
+     不要写成 --spacing-<名字>：会和 Tailwind 的 --container-* 撞名，
+     max-w-md 会变成 16px（弹窗出过竖条事故）。 */
+
+  /* ---------- 控件尺寸 ---------- */
+  --spacing-control: 44px;
+  --spacing-control-sm: 36px;
+  --spacing-icon-btn: 36px;
+  --spacing-sidebar: 20rem;
+
+  /* ---------- 组件内边距 · Notion 组件规格原文 ---------- */
+  --spacing-btn-x: 18px;
+  --spacing-btn-y: 10px;
+  --spacing-btn-ghost-x: 12px;
+  --spacing-btn-ghost-y: 8px;
+  --spacing-input-x: 16px;
+  --spacing-input-y: 12px;
+
+  /* ---------- 排版 · Notion 全量 ---------- */
+  --text-hero-display: 80px;
+  --text-hero-display--line-height: 1.05;
+  --text-hero-display--letter-spacing: -2px;
+  --text-hero-display--font-weight: 600;
+
+  --text-display-lg: 56px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -1px;
+  --text-display-lg--font-weight: 600;
+
+  --text-heading-1: 48px;
+  --text-heading-1--line-height: 1.15;
+  --text-heading-1--letter-spacing: -0.5px;
+  --text-heading-1--font-weight: 600;
+
+  --text-heading-2: 36px;
+  --text-heading-2--line-height: 1.2;
+  --text-heading-2--letter-spacing: -0.5px;
+  --text-heading-2--font-weight: 600;
+
+  --text-heading-3: 28px;
+  --text-heading-3--line-height: 1.25;
+  --text-heading-3--font-weight: 600;
+
+  --text-heading-4: 22px;
+  --text-heading-4--line-height: 1.3;
+  --text-heading-4--font-weight: 600;
+
+  --text-heading-5: 18px;
+  --text-heading-5--line-height: 1.4;
+  --text-heading-5--font-weight: 600;
+
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 1.5;
+  --text-subtitle--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.55;
+  --text-body-md--font-weight: 400;
+
+  --text-body-md-medium: 16px;
+  --text-body-md-medium--line-height: 1.55;
+  --text-body-md-medium--font-weight: 500;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.5;
+  --text-body-sm--font-weight: 400;
+
+  --text-body-sm-medium: 14px;
+  --text-body-sm-medium--line-height: 1.5;
+  --text-body-sm-medium--font-weight: 500;
+
+  --text-caption: 13px;
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 400;
+
+  --text-caption-bold: 13px;
+  --text-caption-bold--line-height: 1.4;
+  --text-caption-bold--font-weight: 600;
+
+  --text-micro: 12px;
+  --text-micro--line-height: 1.4;
+  --text-micro--font-weight: 500;
+
+  --text-micro-uppercase: 11px;
+  --text-micro-uppercase--line-height: 1.4;
+  --text-micro-uppercase--letter-spacing: 1px;
+  --text-micro-uppercase--font-weight: 600;
+
+  --text-button: 14px;
+  --text-button--line-height: 1.3;
+  --text-button--font-weight: 500;
+
+  /* ---------- 阴影 ---------- */
+  --shadow-panel: 0 4px 12px rgba(15, 15, 15, 0.08);
+  --shadow-float: rgba(15, 15, 15, 0.2) 0 24px 48px -8px;
+
+  /* ---------- 缓动 ---------- */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.ah-home {
-  padding: 12px;
-  column-gap: 12px;
-  row-gap: 12px;
-}
+[data-theme="dark"] {
+  --color-canvas: #181715;
+  --color-surface: #1f1e1b;
+  --color-surface-2: #252320;
+  --color-sunken: #1f1e1b;
+  --color-hover: #252320;
+  --color-thumb: #252320;
 
-.ah-home__link {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
+  --color-line: #26231f;
+  --color-line-2: #302c27;
 
-.ah-home__link:focus-visible {
-  outline: 2px solid var(--el-color-primary);
-  outline-offset: 2px;
-}
+  --color-ink: #faf9f5;
+  --color-body: #d6d2ca;
+  --color-body-strong: #faf9f5;
+  --color-muted: #a09d96;
+  --color-faint: #86817a;
 
-.ah-home__card {
-  color: inherit;
-  transition: background-color var(--el-transition-duration-fast);
-}
+  --color-accent: #cc785c;
+  --color-accent-strong: #cc785c;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.18);
 
-.ah-home__link:hover .ah-home__card,
-.ah-home__link:focus-visible .ah-home__card {
-  background-color: var(--el-fill-color-dark);
-}
+  --color-gold: #d9b45c;
 
-.ah-home__card :deep(.el-card__body) {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
+  --color-danger: #e07070;
+  --color-danger-soft: rgba(224, 112, 112, 0.14);
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-mask: rgba(0, 0, 0, 0.55);
 
-.ah-home__icon {
-  display: grid;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--el-border-radius-base);
-  place-items: center;
-  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
-  color: var(--color-accent-strong);
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-float: rgba(0, 0, 0, 0.6) 0 24px 48px -8px;
 }
-
-[data-theme='dark'] .ah-home__icon {
-  background-color: color-mix(in srgb, var(--color-accent) 18%, #1f1e1b);
-}
-
-.ah-home__body {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.ah-home__title {
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ah-home__desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  overflow: hidden;
-}
-</style>
 >>>>
 
-### src/components/AppNav.vue
+### src/styles/base.css
 <<<<
-  <el-header class="ah-appnav">
-    <el-button circle aria-label="打开菜单" @click="$emit('open-menu')">
-      <SolarIcon name="solar:hamburger-menu" size="20" />
-    </el-button>
+/* =========================================================================
+ * base.css — 全局基线：字体、焦点、动效、滚动条
+ * ========================================================================= */
 
-    <span
-      v-if="titleIcon"
-      class="grid size-7 shrink-0 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
-      aria-hidden="true"
-    >
-      <SolarIcon :name="titleIcon" :bold="true" size="20" />
-    </span>
-
-    <h1 class="min-w-0 flex-1 truncate text-base font-semibold text-ink">{{ title }}</h1>
-
-    <el-button circle :aria-label="themeLabel" @click="toggleTheme">
-      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" size="20" />
-    </el-button>
-  </el-header>
-</template>
-
-<style scoped>
-/* 顶栏高度与内边距沿用改版前的尺寸（EP 默认 60px / 20px，这里拉回 56px / 12px） */
-.ah-appnav {
-  --el-header-padding: 0 12px;
-  height: 56px;
-}
-</style>
->>>>
-<<<<
-  <header class="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-canvas px-3">
-    <button
-      type="button"
-      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-      aria-label="打开菜单"
-      @click="$emit('open-menu')"
-    >
-      <SolarIcon name="solar:hamburger-menu" size="20" aria-hidden="true" />
-    </button>
-
-    <span
-      v-if="titleIcon"
-      class="grid size-7 shrink-0 place-items-center rounded-md bg-accent-soft text-accent-strong"
-      aria-hidden="true"
-    >
-      <SolarIcon :name="titleIcon" :bold="true" size="20" />
-    </span>
-
-    <h1 class="min-w-0 flex-1 truncate text-heading-5 text-ink">{{ title }}</h1>
-
-    <button
-      type="button"
-      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-      :aria-label="themeLabel"
-      @click="toggleTheme"
-    >
-      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" :bold="true" size="20" aria-hidden="true" />
-    </button>
-  </header>
-</template>
->>>>
-
-### src/components/AppDrawer.vue
-<<<<
-<template>
-  <el-drawer
-    v-model="open"
-    direction="ltr"
-    size="256px"
-    title="工具导航"
-    class="ah-drawer"
-  >
-    <!-- 切工具就重建菜单：default-openeds 才能跟着当前工具重新生效 -->
-    <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
-      <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
-        <SolarIcon name="solar:home" :bold="isHome" size="20" />
-        <span class="min-w-0 truncate">首页</span>
-      </el-menu-item>
-
-      <template v-for="t in TOOLS" :key="t.key">
-        <el-sub-menu v-if="t.subtools" :index="t.key">
-          <template #title>
-            <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-            <span class="min-w-0 truncate">{{ t.label }}</span>
-          </template>
-          <el-menu-item
-            v-for="s in t.subtools"
-            :key="s.key"
-            :index="`${t.key}/${s.key}`"
-            :class="{ 'is-active': subOf === s.key && toolOf === t.key }"
-            @click="go('/' + t.key + '/' + s.key)"
-          >
-            <span
-              class="size-1 shrink-0 rounded-full"
-              :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
-              aria-hidden="true"
-            />
-            <span class="min-w-0 truncate">{{ s.label }}</span>
-          </el-menu-item>
-        </el-sub-menu>
-        <el-menu-item
-          v-else
-          :index="t.key"
-          :class="{ 'is-active': toolOf === t.key }"
-          @click="go('/' + t.key)"
-        >
-          <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-          <span class="min-w-0 truncate">{{ t.label }}</span>
-        </el-menu-item>
-      </template>
-    </el-menu>
-  </el-drawer>
-</template>
-
-<style scoped>
-/* el-drawer 的骨架（遮罩、焦点圈、过渡）由 EP 提供，这里只调本站尺寸 */
-.ah-drawer {
-  --el-drawer-padding-primary: 12px;
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* el-menu 默认右边框在抽屉里多余 */
-.ah-drawer__menu {
-  border-right: none;
-}
-</style>
->>>>
-<<<<
-<template>
-  <el-drawer
-    v-model="open"
-    direction="ltr"
-    size="256px"
-    :with-header="false"
-    aria-label="工具导航"
-    class="ah-drawer"
-  >
-    <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
-      <h2 class="text-heading-5 text-ink">功能导航</h2>
-    </div>
-
-    <nav class="ah-drawer__nav" aria-label="工具菜单">
-      <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
-        <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
-          <span
-            class="grid size-5 mr-2 shrink-0 place-items-center"
-            :class="isHome ? 'text-accent-strong' : 'text-muted'"
-            aria-hidden="true"
-          >
-            <SolarIcon name="solar:home" :bold="isHome" size="20" />
-          </span>
-          <span class="min-w-0 truncate">首页</span>
-        </el-menu-item>
-
-        <template v-for="t in TOOLS" :key="t.key">
-          <el-sub-menu v-if="t.subtools" :index="t.key">
-            <template #title>
-              <span
-                class="grid size-5 mr-2 shrink-0 place-items-center"
-                :class="toolOf === t.key ? 'text-accent-strong' : 'text-muted'"
-                aria-hidden="true"
-              >
-                <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-              </span>
-              <span class="min-w-0 truncate">{{ t.label }}</span>
-            </template>
-            <el-menu-item
-              v-for="s in t.subtools"
-              :key="s.key"
-              :index="`${t.key}/${s.key}`"
-              :class="{ 'is-active': subOf === s.key && toolOf === t.key }"
-              @click="go('/' + t.key + '/' + s.key)"
-            >
-              <span
-                class="size-1 shrink-0 rounded-full"
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
-                aria-hidden="true"
-              />
-              <span class="min-w-0 truncate">{{ s.label }}</span>
-            </el-menu-item>
-          </el-sub-menu>
-          <el-menu-item
-            v-else
-            :index="t.key"
-            :class="{ 'is-active': toolOf === t.key }"
-            @click="go('/' + t.key)"
-          >
-            <span
-              class="grid size-5 mr-2 shrink-0 place-items-center"
-              :class="toolOf === t.key ? 'text-accent-strong' : 'text-muted'"
-              aria-hidden="true"
-            >
-              <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
-            </span>
-            <span class="min-w-0 truncate">{{ t.label }}</span>
-          </el-menu-item>
-        </template>
-      </el-menu>
-    </nav>
-  </el-drawer>
-</template>
-
-<style scoped>
-.ah-drawer {
-  border-right: 1px solid var(--color-line);
-  background-color: var(--color-canvas);
+body {
+  @apply bg-canvas text-body text-sm antialiased;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  min-height: 100dvh;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-.ah-drawer__nav {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 8px;
+/* 主题切换瞬间掐断全部过渡，避免颜色渐变 */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
-.ah-drawer__menu {
-  --el-menu-bg-color: transparent;
-  --el-menu-text-color: var(--color-body);
-  --el-menu-hover-bg-color: var(--color-hover);
-  --el-menu-active-color: var(--color-ink);
-  border: 0;
+/* 焦点环：只在键盘操作时出现，不污染触摸 */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-accent;
+}
+
+/* 降低动效偏好：全局降为近零，功能不丢 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 滚动条：细、暖色 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
   background: transparent;
 }
+::-webkit-scrollbar-thumb {
+  @apply bg-line-3 rounded-sm;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted;
+}
+>>>>
+<<<<
+/* =========================================================================
+ * base.css — 全局基线：字体、焦点、动效、滚动条
+ * ========================================================================= */
 
-.ah-drawer__menu :deep(.el-menu-item) {
-  border-radius: var(--el-border-radius-base);
-  color: var(--color-body);
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.ah-drawer__menu :deep(.el-menu-item.is-active) {
-  background-color: var(--color-accent-soft);
-  color: var(--color-ink);
-  font-weight: 600;
+body {
+  @apply bg-canvas text-body-sm text-body antialiased;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  min-height: 100dvh;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-.ah-drawer__menu :deep(.el-menu-item:focus-visible) {
-  outline: 2px solid var(--el-color-primary);
-  outline-offset: -2px;
+/* 主题切换瞬间掐断全部过渡，避免颜色渐变 */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
 }
-</style>
+
+/* 焦点环：只在键盘操作时出现，不污染触摸 */
+:focus-visible {
+  @apply outline-2 outline-offset-1 outline-accent;
+}
+
+/* 降低动效偏好：全局降为近零，功能不丢 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* iPhone 底部安全区：固定底栏加这个类，就不用写 inline env()
+   非 layer 规则，优先级高于 utilities —— 能盖住 p-2 的下内边距 */
+.safe-bottom {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+/* 滚动条：细、暖色 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-line-2;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted;
+}
 >>>>
 
-### CHANGELOG.md
+### src/styles/app.css
 <<<<
-### 2026-11-19 · 首页与侧边菜单全面迁到 Element Plus
+@import "tailwindcss";
 
-- **起因**：首页与侧边导航仍是手写 Tailwind，滚动、卡片、弹层各写各的，维护口径不统一。
-- **经过**：首页滚动容器改 `el-scrollbar`、卡片改 `el-card`、标题与描述改 `el-text`（颜色用桥接类映射本站令牌）；侧边导航改 `el-drawer` + `el-menu`（带子工具的分组用 `el-sub-menu`，遮罩、Esc、焦点圈交给 EP，自制的过渡与焦点循环删掉）；顶栏改 `el-header` + `el-button`；6 个子功能图标统一换 Solar（user-id / book / clapperboard-play / gallery / chart / ranking，选中与当前项用 bold）。
-- **结果**：首页与侧边菜单的控件、弹层、滚动全部由 Element Plus 承担，与上个仓库口径统一；图标两套分工清晰（功能用 EP、内容标识用 Solar），新图标在 `src/icons/solar.js` 一处登记即可复用。
+@import "./tokens.css";
+@import "./base.css";
+
+/* ===== el-text 桥接：EP 语义色映射到本站令牌 ===== */
+.ah-text-muted { --el-text-color: var(--color-muted); }
+.ah-text-ink { --el-text-color: var(--color-ink); }
+.ah-text-faint { --el-text-color: var(--color-faint); }
+.ah-text-accent { --el-text-color: var(--color-accent-strong); }
+.ah-text-block { display: block; }
 >>>>
 <<<<
-### 2026-11-19 · 首页、顶栏与侧边菜单按冒险之证一比一对齐
+@import "tailwindcss";
 
-- **起因**：首页卡片排布、顶栏按钮、侧栏图标与文字间距、配色与冒险之证仓库（提瓦特冒险之证）不一致，要求一比一复刻。
-- **经过**：首页改 `el-row` + `el-col` 栅格（xs/sm/md/lg 四档断点，手机一行一个），卡片样式改走 EP 变量（hover 用 `--el-fill-color-dark`、图标块 32px、垫色白天 12% / 暗色 18%）；顶栏按钮改回原生按钮配 `size-icon-btn` 与本站 token（此前用 `el-button` 导致跑偏、配色不对）；标题字号改 `--text-heading-5`；侧边菜单改 `:with-header="false"` 自画标题栏，图标补 `mr-2` 间距，`el-menu` 全量走本站 token 变量（选中态用 accent-soft 垫色）。
-- **结果**：首页、顶栏、侧边菜单的布局与配色与冒险之证仓库完全一致；补齐 `--spacing-icon-btn` / `--text-heading-5` 两个令牌，顶栏按钮不再跑偏，侧栏图标与文字间距正常。
->>>>
+@import "./tokens.css";
+@import "./base.css";
 
-### AGENTS.md
-<<<<
-- **最后合并**：`ep-home` —— 首页与侧边菜单迁 Element Plus：滚动 `el-scrollbar`、卡片 `el-card`、文本 `el-text`、侧边导航 `el-drawer` + `el-menu`、顶栏 `el-header` + `el-button`；6 个子功能图标换 Solar（user-id / book / clapperboard-play / gallery / chart / ranking，见 `src/icons/solar.js`）。上一批 `font-metrics`：`fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。再上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。更早 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
-- **图标分工**：功能图标用 Element Plus、内容标识图标用 Solar（`src/icons/solar.js` 登记，linear 常规、bold 选中/强调），不混用。
->>>>
-<<<<
-- **最后合并**：`ep-home-align` —— 首页/顶栏/侧边菜单按冒险之证一比一对齐：首页 `el-row` + `el-col` 栅格、卡片样式走 EP 变量；顶栏按钮用原生按钮 + `size-icon-btn`（不要用 `el-button`，会跑偏）、标题 `--text-heading-5`；侧栏 `el-drawer` 自画标题栏、图标 `mr-2`、`el-menu` 全走本站 token 变量。上一批 `ep-home`：首页与侧边菜单迁 Element Plus，6 个子功能图标换 Solar（见 `src/icons/solar.js`）。
-- **图标分工**：功能图标用 Element Plus、内容标识图标用 Solar（`src/icons/solar.js` 登记，linear 常规、bold 选中/强调），不混用。
+/* ============================================================
+   Element Plus 主题映射
+   背景 / 文字 / 描边 / 遮罩沿用 tokens.css 里的 Claude 昼夜色，
+   其余一律用 EP 默认值（圆角 4px、控件 32px、字号 14px、EP 字体栈）。
+   本文件在 main.js 里排在 element-plus 样式之后，所以这里的覆盖生效。
+   ============================================================ */
+
+:root,
+html.dark {
+  --el-color-primary: var(--color-accent);
+  --el-color-primary-rgb: 204, 120, 92;
+  --el-color-primary-dark-2: var(--color-accent-strong);
+  --el-color-primary-light-3: color-mix(in srgb, var(--color-accent) 70%, var(--color-canvas));
+  --el-color-primary-light-5: color-mix(in srgb, var(--color-accent) 50%, var(--color-canvas));
+  --el-color-primary-light-7: color-mix(in srgb, var(--color-accent) 30%, var(--color-canvas));
+  --el-color-primary-light-8: color-mix(in srgb, var(--color-accent) 20%, var(--color-canvas));
+  --el-color-primary-light-9: color-mix(in srgb, var(--color-accent) 10%, var(--color-canvas));
+
+  --el-color-success: var(--color-success);
+  --el-color-warning: var(--color-warning);
+  --el-color-danger: var(--color-danger);
+  --el-color-error: var(--color-danger);
+  --el-color-info: var(--color-muted);
+
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-page: var(--color-canvas);
+  --el-bg-color-overlay: var(--color-surface-2);
+
+  --el-text-color-primary: var(--color-ink);
+  --el-text-color-regular: var(--color-body);
+  --el-text-color-secondary: var(--color-muted);
+  --el-text-color-placeholder: var(--color-faint);
+  --el-text-color-disabled: var(--color-faint);
+
+  --el-border-color: var(--color-line);
+  --el-border-color-light: var(--color-line);
+  --el-border-color-lighter: var(--color-line);
+  --el-border-color-extra-light: var(--color-line);
+  --el-border-color-dark: var(--color-line-2);
+  --el-border-color-darker: var(--color-line-2);
+
+  --el-fill-color: var(--color-surface-2);
+  --el-fill-color-light: var(--color-surface-2);
+  --el-fill-color-lighter: var(--color-surface);
+  --el-fill-color-extra-light: var(--color-surface);
+  --el-fill-color-dark: var(--color-sunken);
+  --el-fill-color-darker: var(--color-sunken);
+  --el-fill-color-blank: var(--color-surface);
+
+  --el-mask-color: var(--color-mask);
+  --el-mask-color-extra-light: color-mix(in srgb, var(--color-mask) 50%, transparent);
+
+  --el-disabled-bg-color: var(--color-sunken);
+  --el-disabled-text-color: var(--color-faint);
+  --el-disabled-border-color: var(--color-line);
+
+  --el-box-shadow: 0 2px 8px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --el-box-shadow-light: 0 2px 12px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+  --el-box-shadow-dark: 0 4px 16px 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
+}
+
+/* 暗色下 --color-accent-strong 跟 --color-accent 同色，按下态需要更暗一档 */
+html.dark {
+  --el-color-primary-dark-2: color-mix(in srgb, var(--color-accent) 85%, #000000);
+
+  /* 暗色下 line-2 对卡片只有 1.14:1，人眼分辨不出；
+     掺 faint 抬到约 1.9:1 才和白天观感相当 */
+  --el-border-color: color-mix(in srgb, var(--color-faint) 40%, var(--color-line-2));
+}
+
+/* UID 输入框：旅闻 / 赠礼套装两个页面共用同一个宽度，必须永远一致
+   一个下拉框宽 = (100% - 16px) / 3（那行 3 个 el-select 是 grid-cols-3 gap-2，两条缝各 8px）
+   写在全局而不是各页 scoped：两边不能各改各的。
+   也不能写 Tailwind 的 w-*：EP 的 CSS 不带 @layer，非分层会盖掉 @layer utilities */
+/* ===== EP 页面骨架：el-header / el-footer 默认 60px 高 + 0 20px 内边距，
+   这里压回 auto + 8px，三段布局与原来的 grid-rows 等价 ===== */
+.ah-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.ah-shell > .el-header,
+.ah-shell > .el-footer {
+  height: auto;
+  padding: 8px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-canvas);
+}
+
+.ah-shell > .el-footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+/* 顶栏默认 grid 竖排（Tales）；GiftSet 用 --row 改成横排一行 */
+.ah-shell__bar {
+  display: grid;
+  gap: 8px;
+}
+
+.ah-shell__bar--row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ah-shell > .el-main {
+  padding: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ===== el-text 桥接：EP 语义色映射到本站令牌；ah-text-block 让弹窗段落保持块级 ===== */
+.ah-text-muted { --el-text-color: var(--color-muted); }
+.ah-text-ink { --el-text-color: var(--color-ink); }
+.ah-text-faint { --el-text-color: var(--color-faint); }
+.ah-text-danger { --el-text-color: var(--color-danger); }
+.ah-text-gold { --el-text-color: var(--color-gold); }
+.ah-text-accent { --el-text-color: var(--color-accent-strong); }
+.ah-text-block { display: block; }
+
+/* 标题与右侧数字的分隔间距（ml-2 在 el-text 下被 EP 样式顶掉，改用自定义类） */
+.ah-text-gap { margin-left: 8px; }
+
+.ah-uid {
+  width: calc((100% - 16px) / 3);
+  flex: none;
+}
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q el-row src/views/Home.vue
-grep -q el-col src/views/Home.vue
-grep -q size-icon-btn src/components/AppNav.vue
-grep -q text-heading-5 src/components/AppNav.vue
-grep -q -e "--spacing-icon-btn" src/styles/tokens.css
-grep -q mr-2 src/components/AppDrawer.vue
-grep -q -e "--el-menu-active-color" src/components/AppDrawer.vue
-grep -q el-scrollbar src/views/Home.vue
-! grep -q el-header src/components/AppNav.vue
-! grep -q "title=\"工具导航\"" src/components/AppDrawer.vue
+grep -q -e "--text-body-sm" src/styles/tokens.css
+grep -q -e "--spacing-icon-btn: 36px" src/styles/tokens.css
+grep -q -e "--radius-lg" src/styles/tokens.css
+grep -q "text-body-sm" src/styles/base.css
+grep -q "html.dark" src/styles/app.css
+grep -q -e "--el-bg-color: var(--color-surface)" src/styles/app.css
+grep -q safe-bottom src/styles/base.css
