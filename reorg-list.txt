@@ -6,32 +6,653 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：home-fix6 —— 卡片图标垫色回到改版前的原版（陶土橙 12% 透明度叠 #faf9f5）
+# 最近一批：ep-home —— 首页与侧边菜单迁 Element Plus；6 个子功能图标统一换 Solar
 
 == MOVES ==
 
 == EDITS ==
-### src/views/Home.vue
+### package.json
 <<<<
-  /* 垫色和图标色都固定，昼夜一致，不随主题切换。
-     垫色 = 陶土橙混 30%；图标色 = 改版前的 accent-strong。
-     这里写死 #a9583e 而不是 var(--color-accent-strong)：后者在暗色下
-     会变成 #cc785c，对垫色只有 2.28:1，低于图形 3:1 的线 */
-  background-color: color-mix(in srgb, var(--color-accent) 30%, #faf9f5);
-  color: #a9583e;
+  "dependencies": {
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.0"
+  },
 >>>>
 <<<<
-  /* 垫色 = 改版前 bg-accent-soft 叠在 bg-surface 上的颜色：
-     陶土橙 12% 透明度叠 #faf9f5（= tokens.css 里白天的 surface）。
-     固定不随主题切换；图标色 = 改版前的 accent-strong。
-     这里写死 #a9583e 而不是 var(--color-accent-strong)：后者在暗色下
-     会变成 #cc785c，对垫色只有 2.28:1，低于图形 3:1 的线 */
-  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
-  color: #a9583e;
+  "dependencies": {
+    "@solar-icons/vue": "^2.6.0",
+    "element-plus": "^2.0.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.0"
+  },
+>>>>
+
+### src/main.js
+<<<<
+import { createApp } from 'vue'
+import App from './App.vue'
+import { router } from './router.js'
+import './styles/app.css'
+>>>>
+<<<<
+import { createApp } from 'vue'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import App from './App.vue'
+import { router } from './router.js'
+import './styles/app.css'
+>>>>
+
+### src/main.js
+<<<<
+const app = createApp(App)
+>>>>
+<<<<
+const app = createApp(App)
+
+app.use(ElementPlus)
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.character',
+>>>>
+<<<<
+    icon: 'solar:user-id',
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.iconEditor',
+>>>>
+<<<<
+    icon: 'solar:book',
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.videoCover',
+>>>>
+<<<<
+    icon: 'solar:clapperboard-play',
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.imageTools',
+>>>>
+<<<<
+    icon: 'solar:gallery',
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.chart',
+>>>>
+<<<<
+    icon: 'solar:chart',
+>>>>
+
+### src/router.js
+<<<<
+    icon: 'nav.tier',
+>>>>
+<<<<
+    icon: 'solar:ranking',
+>>>>
+
+### src/styles/app.css
+<<<<
+@import "tailwindcss";
+
+@import "./tokens.css";
+@import "./base.css";
+>>>>
+<<<<
+@import "tailwindcss";
+
+@import "./tokens.css";
+@import "./base.css";
+
+/* ===== el-text 桥接：EP 语义色映射到本站令牌 ===== */
+.ah-text-muted { --el-text-color: var(--color-muted); }
+.ah-text-ink { --el-text-color: var(--color-ink); }
+.ah-text-faint { --el-text-color: var(--color-faint); }
+.ah-text-accent { --el-text-color: var(--color-accent-strong); }
+.ah-text-block { display: block; }
+>>>>
+
+### src/views/Home.vue
+<<<<
+import { TOOLS } from '../router.js'
+import Icon from '../components/Icon.vue'
+>>>>
+<<<<
+import { TOOLS } from '../router.js'
+import SolarIcon from '../components/SolarIcon.vue'
+>>>>
+
+### src/views/Home.vue
+<<<<
+<template>
+  <!-- 外壳：冒险之证的网格 + 本页必需的绝对定位滚动容器（FrameLayer 与它同格） -->
+  <div
+    class="absolute inset-0 grid grid-cols-2 content-start gap-2 overflow-y-auto p-3 sm:grid-cols-3 lg:grid-cols-4"
+  >
+    <RouterLink
+      v-for="t in TOOLS"
+      :key="t.key"
+      :to="'/' + t.key"
+      class="grid content-start gap-2 rounded-panel border border-line bg-surface p-3 hover:bg-hover active:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+    >
+      <span
+        class="grid size-8 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
+        aria-hidden="true"
+      >
+        <Icon :name="t.icon" size="sm" />
+      </span>
+
+      <span class="grid min-w-0 gap-0.5">
+        <span class="truncate text-sm font-semibold text-ink">{{ t.label }}</span>
+        <span class="line-clamp-2 min-h-8 text-xs leading-snug text-muted">{{ DESC[t.key] }}</span>
+      </span>
+    </RouterLink>
+  </div>
+</template>
+>>>>
+<<<<
+<template>
+  <!-- 外壳：滚动交给 el-scrollbar；网格布局保留 Tailwind（EP 不承担布局网格） -->
+  <el-scrollbar class="absolute inset-0 p-3">
+    <div class="grid grid-cols-2 content-start gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <RouterLink v-for="t in TOOLS" :key="t.key" :to="'/' + t.key" class="ah-home-card">
+        <el-card :body-style="{ padding: '12px' }" class="ah-home-card__inner">
+          <span
+            class="grid size-8 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
+            aria-hidden="true"
+          >
+            <SolarIcon :name="t.icon" size="20" />
+          </span>
+
+          <div class="grid min-w-0 gap-0.5">
+            <el-text class="ah-text-block truncate font-semibold ah-text-ink" tag="span">
+              {{ t.label }}
+            </el-text>
+            <el-text class="ah-text-block line-clamp-2 min-h-8 ah-text-muted" tag="span" size="small">
+              {{ DESC[t.key] }}
+            </el-text>
+          </div>
+        </el-card>
+      </RouterLink>
+    </div>
+  </el-scrollbar>
+</template>
+
+<style scoped>
+/* el-card 换成本站 token：去阴影、圆角用面板圆角、底色用表面色 */
+.ah-home-card {
+  display: block;
+}
+
+.ah-home-card__inner {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: none;
+}
+
+.ah-home-card:hover .ah-home-card__inner {
+  background-color: var(--color-hover);
+}
+
+.ah-home-card:active .ah-home-card__inner {
+  background-color: var(--color-sunken);
+}
+</style>
+>>>>
+
+### src/components/AppDrawer.vue
+<<<<
+<script setup>
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { TOOLS } from '../router.js'
+import Icon from './Icon.vue'
+
+const open = defineModel({ type: Boolean, default: false })
+
+const route = useRoute()
+const router = useRouter()
+
+const expanded = ref(new Set())
+
+const isHome = computed(() => !route.meta?.tool)
+const toolOf = computed(() => route.meta?.tool || '')
+const subOf = computed(() => route.meta?.sub || '')
+
+const ROW =
+  'flex h-11 w-full items-center gap-2.5 rounded-ctl px-3 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+/* 子行与父行同高、高亮框左右齐平：缩进写在行内，不写在容器上 */
+const SUB_ROW =
+  'flex h-11 w-full items-center gap-2 rounded-ctl pl-12 pr-3 text-left text-xs focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+
+/* 进到某个带子工具的工具，就把它的分组展开（与旧版一致） */
+watch(
+  toolOf,
+  (key) => {
+    if (key && TOOLS.find((t) => t.key === key)?.subtools) expanded.value.add(key)
+  },
+  { immediate: true },
+)
+
+function toggle(key) {
+  const next = new Set(expanded.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expanded.value = next
+}
+
+function close() {
+  open.value = false
+}
+
+watch(() => route.fullPath, close)
+
+const appRoot = document.getElementById('app')
+const panel = ref(null)
+let lastFocused = null
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+/* Esc 关闭；Tab 在抽屉内循环（与 Modal 同一套规则） */
+function onKey(e) {
+  if (e.key === 'Escape') {
+    close()
+    return
+  }
+  if (e.key !== 'Tab') return
+
+  const nodes = panel.value?.querySelectorAll(FOCUSABLE)
+  if (!nodes?.length) {
+    e.preventDefault()
+    return
+  }
+  const first = nodes[0]
+  const last = nodes[nodes.length - 1]
+  const active = document.activeElement
+
+  if (e.shiftKey && (active === first || active === panel.value)) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+watch(open, async (v) => {
+  if (appRoot) appRoot.inert = v
+  if (v) {
+    lastFocused = document.activeElement
+    document.addEventListener('keydown', onKey)
+    await nextTick()
+    panel.value?.focus()
+  } else {
+    document.removeEventListener('keydown', onKey)
+    lastFocused?.focus?.()
+    lastFocused = null
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKey)
+  if (appRoot) appRoot.inert = false
+})
+
+function go(path) {
+  router.push(path)
+  close()
+}
+</script>
+>>>>
+<<<<
+<script setup>
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { TOOLS } from '../router.js'
+import SolarIcon from './SolarIcon.vue'
+
+const open = defineModel({ type: Boolean, default: false })
+
+const route = useRoute()
+const router = useRouter()
+
+const isHome = computed(() => !route.meta?.tool)
+const toolOf = computed(() => route.meta?.tool || '')
+const subOf = computed(() => route.meta?.sub || '')
+
+/* 带子工具的当前工具，打开抽屉时展开它的分组（el-menu 的 default-openeds） */
+const openedKey = computed(() => {
+  const t = TOOLS.find((x) => x.key === toolOf.value)
+  return t?.subtools ? [t.key] : []
+})
+
+function close() {
+  open.value = false
+}
+
+watch(() => route.fullPath, close)
+
+function go(path) {
+  router.push(path)
+  close()
+}
+</script>
+>>>>
+
+### src/components/AppDrawer.vue
+<<<<
+<template>
+  <Teleport to="body">
+    <Transition name="dr">
+      <div v-if="open" class="fixed inset-0 z-[90] bg-mask" @mousedown.self="close"></div>
+    </Transition>
+
+    <Transition name="drp">
+      <aside
+        v-if="open"
+        ref="panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="工具导航"
+        tabindex="-1"
+        class="fixed inset-y-0 left-0 z-[100] flex w-64 max-w-[85vw] flex-col border-r border-line bg-canvas focus:outline-none"
+      >
+        <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
+          <h2 class="text-sm font-semibold text-ink">工具导航</h2>
+        </div>
+
+        <nav class="grid content-start gap-1 overflow-y-auto p-2">
+          <button
+            type="button"
+            :class="[
+              ROW,
+              isHome ? 'bg-surface font-semibold text-ink' : 'text-body hover:bg-hover',
+            ]"
+            :aria-current="isHome ? 'page' : undefined"
+            @click="go('/')"
+          >
+            <span
+              class="grid size-5 shrink-0 place-items-center"
+              :class="isHome ? 'text-accent-strong' : 'text-muted'"
+            >
+              <Icon name="nav.home" :bold="isHome" size="sm" />
+            </span>
+            <span class="min-w-0 truncate">首页</span>
+          </button>
+
+          <template v-for="t in TOOLS" :key="t.key">
+            <button
+              type="button"
+              :class="[
+                ROW,
+                toolOf === t.key ? 'bg-surface font-semibold text-ink' : 'text-body hover:bg-hover',
+              ]"
+              :aria-expanded="t.subtools ? expanded.has(t.key) : undefined"
+              @click="t.subtools ? toggle(t.key) : go('/' + t.key)"
+            >
+              <span
+                class="grid size-5 shrink-0 place-items-center"
+                :class="toolOf === t.key ? 'text-accent-strong' : 'text-muted'"
+              >
+                <Icon :name="t.icon" :bold="toolOf === t.key" size="sm" />
+              </span>
+              <span class="min-w-0 flex-1 truncate">{{ t.label }}</span>
+              <span
+                v-if="t.subtools"
+                class="grid size-4 shrink-0 place-items-center text-muted transition-transform duration-150 ease-spring"
+                :class="expanded.has(t.key) && 'rotate-180'"
+                aria-hidden="true"
+              >
+                <!-- 子工具展开箭头一律实心：基础名是空心三角，bold 才是实心 -->
+                <Icon name="ui.chevronDown" bold size="sm" />
+              </span>
+            </button>
+
+            <div v-if="t.subtools" v-show="expanded.has(t.key)" class="grid gap-0.5 pb-1">
+              <button
+                v-for="s in t.subtools"
+                :key="s.key"
+                type="button"
+                :class="[
+                  SUB_ROW,
+                  subOf === s.key && toolOf === t.key
+                    ? 'bg-surface font-semibold text-ink'
+                    : 'text-muted hover:bg-hover',
+                ]"
+                :aria-current="subOf === s.key && toolOf === t.key ? 'page' : undefined"
+                @click="go('/' + t.key + '/' + s.key)"
+              >
+                <span
+                  class="size-1 shrink-0 rounded-full"
+                  :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+                  aria-hidden="true"
+                />
+                <span class="min-w-0 truncate">{{ s.label }}</span>
+              </button>
+            </div>
+          </template>
+        </nav>
+      </aside>
+    </Transition>
+  </Teleport>
+</template>
+>>>>
+<<<<
+<template>
+  <el-drawer
+    v-model="open"
+    direction="ltr"
+    size="256px"
+    title="工具导航"
+    class="ah-drawer"
+  >
+    <!-- 切工具就重建菜单：default-openeds 才能跟着当前工具重新生效 -->
+    <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
+      <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
+        <SolarIcon name="solar:home" :bold="isHome" size="20" />
+        <span class="min-w-0 truncate">首页</span>
+      </el-menu-item>
+
+      <template v-for="t in TOOLS" :key="t.key">
+        <el-sub-menu v-if="t.subtools" :index="t.key">
+          <template #title>
+            <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
+            <span class="min-w-0 truncate">{{ t.label }}</span>
+          </template>
+          <el-menu-item
+            v-for="s in t.subtools"
+            :key="s.key"
+            :index="`${t.key}/${s.key}`"
+            :class="{ 'is-active': subOf === s.key && toolOf === t.key }"
+            @click="go('/' + t.key + '/' + s.key)"
+          >
+            <span
+              class="size-1 shrink-0 rounded-full"
+              :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 truncate">{{ s.label }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-menu-item
+          v-else
+          :index="t.key"
+          :class="{ 'is-active': toolOf === t.key }"
+          @click="go('/' + t.key)"
+        >
+          <SolarIcon :name="t.icon" :bold="toolOf === t.key" size="20" />
+          <span class="min-w-0 truncate">{{ t.label }}</span>
+        </el-menu-item>
+      </template>
+    </el-menu>
+  </el-drawer>
+</template>
+>>>>
+
+### src/components/AppDrawer.vue
+<<<<
+<style scoped>
+.dr-enter-active,
+.dr-leave-active {
+  transition: opacity 200ms var(--ease-spring);
+}
+.dr-enter-from,
+.dr-leave-to {
+  opacity: 0;
+}
+
+.drp-enter-active,
+.drp-leave-active {
+  transition: transform 200ms var(--ease-spring);
+}
+.drp-enter-from,
+.drp-leave-to {
+  transform: translateX(-100%);
+}
+</style>
+>>>>
+<<<<
+<style scoped>
+/* el-drawer 的骨架（遮罩、焦点圈、过渡）由 EP 提供，这里只调本站尺寸 */
+.ah-drawer {
+  --el-drawer-padding-primary: 12px;
+}
+
+/* el-menu 默认右边框在抽屉里多余 */
+.ah-drawer__menu {
+  border-right: none;
+}
+</style>
+>>>>
+
+### src/components/AppNav.vue
+<<<<
+import Icon from './Icon.vue'
+>>>>
+<<<<
+import SolarIcon from './SolarIcon.vue'
+>>>>
+
+### src/components/AppNav.vue
+<<<<
+<template>
+  <header class="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-canvas px-3">
+    <button
+      type="button"
+      class="grid size-9 shrink-0 place-items-center rounded-ctl border border-line-2 bg-surface text-ink hover:border-line-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+      aria-label="打开菜单"
+      @click="$emit('open-menu')"
+    >
+      <Icon name="app.hamburger" size="sm" />
+    </button>
+
+    <span
+      v-if="titleIcon"
+      class="grid size-7 shrink-0 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
+      aria-hidden="true"
+    >
+      <Icon :name="titleIcon" size="sm" />
+    </span>
+
+    <h1 class="min-w-0 flex-1 truncate text-base font-semibold text-ink">{{ title }}</h1>
+
+    <button
+      type="button"
+      class="grid size-9 shrink-0 place-items-center rounded-ctl border border-line-2 bg-surface text-ink hover:border-line-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+      :aria-label="themeLabel"
+      @click="toggleTheme"
+    >
+      <Icon :name="theme === 'dark' ? 'app.moon' : 'app.sun'" size="sm" />
+    </button>
+  </header>
+</template>
+>>>>
+<<<<
+<template>
+  <el-header class="ah-appnav">
+    <el-button circle aria-label="打开菜单" @click="$emit('open-menu')">
+      <SolarIcon name="solar:hamburger-menu" size="20" />
+    </el-button>
+
+    <span
+      v-if="titleIcon"
+      class="grid size-7 shrink-0 place-items-center rounded-ctl bg-accent-soft text-accent-strong"
+      aria-hidden="true"
+    >
+      <SolarIcon :name="titleIcon" :bold="true" size="20" />
+    </span>
+
+    <h1 class="min-w-0 flex-1 truncate text-base font-semibold text-ink">{{ title }}</h1>
+
+    <el-button circle :aria-label="themeLabel" @click="toggleTheme">
+      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" size="20" />
+    </el-button>
+  </el-header>
+</template>
+
+<style scoped>
+/* 顶栏高度与内边距沿用改版前的尺寸（EP 默认 60px / 20px，这里拉回 56px / 12px） */
+.ah-appnav {
+  --el-header-padding: 0 12px;
+  height: 56px;
+}
+</style>
+>>>>
+
+### CHANGELOG.md
+<<<<
+## 2026 年 11 月
+
+### 2026-11-15 · 字典编辑器「怪物不再匹配源 + 链接只存代号」：怪物整个分类退出同步、加怪物直接按链接里的代号建行（序号不再自动带）；粘贴的链接只要能提出代号就只存代号、出图固定主源优先（勾了备用源才走 yatta），提不出代号才留 URL；另修「改完序号详情栏被关掉」和新增后不选中
+>>>>
+<<<<
+## 2026 年 11 月
+
+### 2026-11-19 · 首页与侧边菜单全面迁到 Element Plus
+
+- **起因**：首页与侧边导航仍是手写 Tailwind，滚动、卡片、弹层各写各的，维护口径不统一。
+- **经过**：首页滚动容器改 `el-scrollbar`、卡片改 `el-card`、标题与描述改 `el-text`（颜色用桥接类映射本站令牌）；侧边导航改 `el-drawer` + `el-menu`（带子工具的分组用 `el-sub-menu`，遮罩、Esc、焦点圈交给 EP，自制的过渡与焦点循环删掉）；顶栏改 `el-header` + `el-button`；6 个子功能图标统一换 Solar（user-id / book / clapperboard-play / gallery / chart / ranking，选中与当前项用 bold）。
+- **结果**：首页与侧边菜单的控件、弹层、滚动全部由 Element Plus 承担，与上个仓库口径统一；图标两套分工清晰（功能用 EP、内容标识用 Solar），新图标在 `src/icons/solar.js` 一处登记即可复用。
+
+### 2026-11-15 · 字典编辑器「怪物不再匹配源 + 链接只存代号」：怪物整个分类退出同步、加怪物直接按链接里的代号建行（序号不再自动带）；粘贴的链接只要能提出代号就只存代号、出图固定主源优先（勾了备用源才走 yatta），提不出代号才留 URL；另修「改完序号详情栏被关掉」和新增后不选中
+>>>>
+
+### AGENTS.md
+<<<<
+- **最后合并**：`font-metrics` —— `fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。再上一批 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
+>>>>
+<<<<
+- **最后合并**：`ep-home` —— 首页与侧边菜单迁 Element Plus：滚动 `el-scrollbar`、卡片 `el-card`、文本 `el-text`、侧边导航 `el-drawer` + `el-menu`、顶栏 `el-header` + `el-button`；6 个子功能图标换 Solar（user-id / book / clapperboard-play / gallery / chart / ranking，见 `src/icons/solar.js`）。上一批 `font-metrics`：`fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。再上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。更早 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
+- **图标分工**：功能图标用 Element Plus、内容标识图标用 Solar（`src/icons/solar.js` 登记，linear 常规、bold 选中/强调），不混用。
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "12%, #faf9f5" src/views/Home.vue
-grep -q "color: #a9583e;" src/views/Home.vue
+grep -q el-card src/views/Home.vue
+grep -q el-scrollbar src/views/Home.vue
+grep -q el-drawer src/components/AppDrawer.vue
+grep -q el-menu src/components/AppDrawer.vue
+grep -q "solar:user-id" src/router.js
+grep -q "solar:clapperboard-play" src/router.js
+grep -q element-plus package.json
+grep -q ah-text-ink src/styles/app.css
+! grep -q "nav.character" src/router.js
+! grep -q "nav.tier" src/router.js
+! grep -q "import Icon" src/views/Home.vue
+! grep -q "<Icon" src/views/Home.vue
+! grep -q "<Icon" src/components/AppNav.vue
+! grep -q "app.hamburger" src/components/AppNav.vue
+! grep -q "ROW" src/components/AppDrawer.vue
