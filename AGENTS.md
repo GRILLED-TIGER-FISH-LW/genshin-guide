@@ -305,7 +305,8 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`font-metrics` —— `fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。再上一批 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
+- **最后合并**：`ep-home` —— 首页与侧边菜单迁 Element Plus：滚动 `el-scrollbar`、卡片 `el-card`、文本 `el-text`、侧边导航 `el-drawer` + `el-menu`、顶栏 `el-header` + `el-button`；6 个子功能图标换 Solar（user-id / book / clapperboard-play / gallery / chart / ranking，见 `src/icons/solar.js`）。上一批 `font-metrics`：`fonts.js` 加 `fontRev`（装 / 卸字体时自增），按文字宽度定位的 computed 都读它；视频封面与角色一图流一起修。再上一批 `slider-inputs`：`Slider` 数字框修好、背景行只剩缩略图是热区。更早 `font-embed`：字体用 `createElementNS` 内嵌 + 小图预热。
+- **图标分工**：功能图标用 Element Plus、内容标识图标用 Solar（`src/icons/solar.js` 登记，linear 常规、bold 选中/强调），不混用。
 - **已定未做**：`public/tools/` 三个 iframe 旧工具（图片处理 7 个子功能、图表、角色梯队）；图片处理要等用户定「留哪几个」，搬进 SPA 时一并改它们的删除按钮样式。
 - **跨仓库**：`adventurer-handbook` 按绝对 URL 读本仓库 `public/shared/image-dict.js`（4 个页面、各两处）；它那边不要 `order === 1` 的旅行者一家，过滤只留在它那 4 个页面里。
 - **清单式 Action**：清单在 `reorg-list.txt`，工作流不用再动。

@@ -17,7 +17,7 @@ export const TOOLS = [
     {
     key: 'character',
     label: '角色一图流',
-    icon: 'nav.character',
+    icon: 'solar:user-id',
     /* 已搬进 SPA：用真组件，不再走 iframe。
        故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
     component: () => import('./views/CharacterGuide.vue'),
@@ -25,7 +25,7 @@ export const TOOLS = [
   {
     key: 'image-dict',
     label: '图片字典编辑器',
-    icon: 'nav.iconEditor',
+    icon: 'solar:book',
     /* 已搬进 SPA：用真组件，不再走 iframe。
        故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
     component: () => import('./views/ImageDict.vue'),
@@ -33,7 +33,7 @@ export const TOOLS = [
   {
     key: 'video-cover',
     label: '封面制作',
-    icon: 'nav.videoCover',
+    icon: 'solar:clapperboard-play',
     /* 两个子工具都搬进 SPA 了，自己不再有页面 */
     subtools: [
       {
@@ -51,7 +51,7 @@ export const TOOLS = [
   {
     key: 'image-tools',
     label: '图片处理',
-    icon: 'nav.imageTools',
+    icon: 'solar:gallery',
     frame: 'tools/image-tools.html',
     subtools: [
       { key: 'background', label: '背景修改' },
@@ -66,7 +66,7 @@ export const TOOLS = [
   {
     key: 'chart',
     label: '图表',
-    icon: 'nav.chart',
+    icon: 'solar:chart',
     frame: 'tools/chart.html',
     subtools: [
       { key: 'radar', label: '雷达图' },
@@ -76,7 +76,7 @@ export const TOOLS = [
   {
     key: 'tier',
     label: '角色梯队',
-    icon: 'nav.tier',
+    icon: 'solar:ranking',
     frame: 'tools/tier.html',
   },
 ]
