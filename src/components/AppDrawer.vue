@@ -77,7 +77,7 @@ function go(path) {
               @click="go('/' + t.key + '/' + s.key)"
             >
               <span
-                class="size-1 shrink-0 rounded-full"
+                class="size-1 mr-2 shrink-0 rounded-full"
                 :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
                 aria-hidden="true"
               />
