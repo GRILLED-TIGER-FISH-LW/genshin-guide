@@ -1,7 +1,7 @@
 /* =========================================================================
  * tokens.css — 设计令牌唯一真源
- * 色板 Claude · 几何 Notion
- * 两仓库逐字节相同，改动需同步；同步日期 2026-11-08
+ * 颜色 Claude 全量（白天 / 黑夜两套）· 尺寸 / 几何 / 排版 Notion 全量
+ * 两仓库逐字节相同，改动需同步；同步日期 2026-11-12
  * ========================================================================= */
 
 @theme {
@@ -14,26 +14,30 @@
   /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
   --color-thumb: #e8e0d2;
   /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
-  --color-preview: #121212;
+  --color-preview: #181715;
 
   /* ---------- 描边 ---------- */
   --color-line: #ebe6df;
   --color-line-2: #e6dfd8;
-  --color-line-3: #ded6c6;
 
   /* ---------- 文字 ---------- */
   --color-ink: #141413;
   --color-body: #3d3d3a;
+  --color-body-strong: #252523;
   --color-muted: #6c6a64;
   --color-faint: #8e8b82;
 
   /* ---------- 强调 ---------- */
   --color-accent: #cc785c;
-  --color-accent-strong: #a3543a;
-  --color-accent-solid: #a3543a;
-  --color-accent-hover: #8b432c;
+  --color-accent-strong: #a9583e;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
   --color-on-accent: #ffffff;
   --color-accent-soft: rgba(204, 120, 92, 0.12);
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
 
   /* ---------- 金色 · 仅用于元信息（地点/触发/前置） ---------- */
   --color-gold: #8a6a1f;
@@ -42,15 +46,118 @@
   --color-danger: #c64545;
   --color-danger-soft: #f8e9e7;
   --color-success: #5db872;
+  --color-warning: #d4a017;
   --color-mask: rgba(20, 20, 19, 0.32);
 
-  /* ---------- 几何 ---------- */
+  /* ---------- 圆角 · Notion 全量 ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-xxl: 20px;
+  --radius-xxxl: 24px;
+  /* 语义别名：控件圆角走 ctl、面板走 panel（值分别等于 radius-md / radius-lg），保留 */
   --radius-ctl: 8px;
   --radius-panel: 12px;
 
+  /* ---------- 间距 · Notion 全量（用数值刻度，不另起名字） ----------
+     Notion 的 4/8/12/16/20/24/32/40/48/64/96/120 = Tailwind 的
+     p-1 p-2 p-3 p-4 p-5 p-6 p-8 p-10 p-12 p-16 p-24 p-30。
+     不要写成 --spacing-<名字>：会和 Tailwind 的 --container-* 撞名，
+     max-w-md 会变成 16px（弹窗出过竖条事故）。 */
+
+  /* ---------- 控件尺寸 ---------- */
+  --spacing-control: 44px;
+  --spacing-control-sm: 36px;
+  --spacing-icon-btn: 36px;
+  --spacing-sidebar: 20rem;
+
+  /* ---------- 组件内边距 · Notion 组件规格原文 ---------- */
+  --spacing-btn-x: 18px;
+  --spacing-btn-y: 10px;
+  --spacing-btn-ghost-x: 12px;
+  --spacing-btn-ghost-y: 8px;
+  --spacing-input-x: 16px;
+  --spacing-input-y: 12px;
+
+  /* ---------- 排版 · Notion 全量 ---------- */
+  --text-hero-display: 80px;
+  --text-hero-display--line-height: 1.05;
+  --text-hero-display--letter-spacing: -2px;
+  --text-hero-display--font-weight: 600;
+
+  --text-display-lg: 56px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -1px;
+  --text-display-lg--font-weight: 600;
+
+  --text-heading-1: 48px;
+  --text-heading-1--line-height: 1.15;
+  --text-heading-1--letter-spacing: -0.5px;
+  --text-heading-1--font-weight: 600;
+
+  --text-heading-2: 36px;
+  --text-heading-2--line-height: 1.2;
+  --text-heading-2--letter-spacing: -0.5px;
+  --text-heading-2--font-weight: 600;
+
+  --text-heading-3: 28px;
+  --text-heading-3--line-height: 1.25;
+  --text-heading-3--font-weight: 600;
+
+  --text-heading-4: 22px;
+  --text-heading-4--line-height: 1.3;
+  --text-heading-4--font-weight: 600;
+
+  --text-heading-5: 18px;
+  --text-heading-5--line-height: 1.4;
+  --text-heading-5--font-weight: 600;
+
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 1.5;
+  --text-subtitle--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.55;
+  --text-body-md--font-weight: 400;
+
+  --text-body-md-medium: 16px;
+  --text-body-md-medium--line-height: 1.55;
+  --text-body-md-medium--font-weight: 500;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.5;
+  --text-body-sm--font-weight: 400;
+
+  --text-body-sm-medium: 14px;
+  --text-body-sm-medium--line-height: 1.5;
+  --text-body-sm-medium--font-weight: 500;
+
+  --text-caption: 13px;
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 400;
+
+  --text-caption-bold: 13px;
+  --text-caption-bold--line-height: 1.4;
+  --text-caption-bold--font-weight: 600;
+
+  --text-micro: 12px;
+  --text-micro--line-height: 1.4;
+  --text-micro--font-weight: 500;
+
+  --text-micro-uppercase: 11px;
+  --text-micro-uppercase--line-height: 1.4;
+  --text-micro-uppercase--letter-spacing: 1px;
+  --text-micro-uppercase--font-weight: 600;
+
+  --text-button: 14px;
+  --text-button--line-height: 1.3;
+  --text-button--font-weight: 500;
+
   /* ---------- 阴影 ---------- */
   --shadow-panel: 0 4px 12px rgba(15, 15, 15, 0.08);
-  --shadow-float: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+  --shadow-float: rgba(15, 15, 15, 0.2) 0 24px 48px -8px;
 
   /* ---------- 缓动 ---------- */
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
@@ -60,23 +167,23 @@
   --color-canvas: #181715;
   --color-surface: #1f1e1b;
   --color-surface-2: #252320;
-  --color-sunken: #121110;
-  --color-hover: #2b2825;
-  --color-thumb: #322d27;
+  --color-sunken: #1f1e1b;
+  --color-hover: #252320;
+  --color-thumb: #252320;
 
   --color-line: #26231f;
   --color-line-2: #302c27;
-  --color-line-3: #3c3730;
 
   --color-ink: #faf9f5;
   --color-body: #d6d2ca;
+  --color-body-strong: #faf9f5;
   --color-muted: #a09d96;
   --color-faint: #86817a;
 
   --color-accent: #cc785c;
   --color-accent-strong: #cc785c;
-  --color-accent-solid: #a3543a;
-  --color-accent-hover: #8b432c;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
   --color-on-accent: #ffffff;
   --color-accent-soft: rgba(204, 120, 92, 0.18);
 
@@ -85,14 +192,9 @@
   --color-danger: #e07070;
   --color-danger-soft: rgba(224, 112, 112, 0.14);
   --color-success: #5db872;
+  --color-warning: #d4a017;
   --color-mask: rgba(0, 0, 0, 0.55);
 
-  --spacing-icon-btn: 36px;
-
-  --text-heading-5: 18px;
-  --text-heading-5--line-height: 1.4;
-  --text-heading-5--font-weight: 600;
-
   --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-float: 0 16px 48px -8px rgba(0, 0, 0, 0.6);
+  --shadow-float: rgba(0, 0, 0, 0.6) 0 24px 48px -8px;
 }
