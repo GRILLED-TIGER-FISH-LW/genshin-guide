@@ -1,78 +1,78 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
-# 最近一批：ep-fix-icons —— 侧栏子项间距 + 字典取图用代号拼地址 + 三个 md 更新
+# 最近一批：ep-export-text —— 配置 JSON 导出只留文字，图片不落盘（载入后按名字重新匹配）
 
 == MOVES ==
 
 == EDITS ==
-### src/components/AppDrawer.vue
+### src/views/CharacterGuide.vue
 <<<<
-              <span
-                class="size-1 shrink-0 rounded-full"
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
-                aria-hidden="true"
-              />
+async function exportConfig() {
+  const text = JSON.stringify({ ...toRaw(s), fontData: '' }, null, 2)
+  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
+  toast.success('配置已导出')
+}
 >>>>
 <<<<
-              <span
-                class="size-1 mr-2 shrink-0 rounded-full"
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
-                aria-hidden="true"
-              />
->>>>
+/* 导出前把图片字段清空：配置 JSON 只存文字（名字 / 数值 / 描述），
+   图片是用 dataURL 塞在 state 里的，动辄几 MB；而载入后会按名字重新问字典，
+   所以图不必跟着文件走。结构（字段本身）保持不变，导入时照常归一化。
+   —— 与 public/saves/characters/*.json 在线存档的存法一致。 */
+function textOnly(data) {
+  const out = structuredClone(toRaw(data))
+  out.fontData = ''
 
-### public/shared/image-loader.js
-<<<<
-    /* 4. 代号 + 规则拼地址；带 alt: true 就用 config 里的备用源那组 */
-    var cfg = dict.config && dict.config[type];
-    if (cfg) {
-      var src = item.alt && cfg.alt ? cfg.alt : cfg;
-      if (src && src.prefix) return src.prefix + k + (src.ext || "");
+  for (const key of ['charImg', 'bgImg', 'nameBgImg']) {
+    out[key] = ''
+    out[`${key}Meta`] = null
+  }
+  out.teamCoreImg = ''
+
+  for (const list of Object.values(out.weaponData || {})) {
+    for (const w of list) w.img = ''
+  }
+  for (const a of out.artifactData || []) {
+    a.img = ''
+    a.img1 = ''
+    a.img2 = ''
+  }
+  for (const t of out.teamData || []) {
+    for (const c of t.chars || []) {
+      c.img = ''
+      for (const alt of c.alts || []) alt.img = ''
     }
-    return "";
->>>>
-<<<<
-    /* 4. 代号 + 规则拼地址；带 alt: true 就用 config 里的备用源那组
-       ⚠ 拼地址必须用条目里的 key（代号，如 Sword_Blunt / 10001_4），
-       不能用字典键 k —— 武器、圣遗物的键是编号（11101 / 10001），
-       编号只用于内部防重与排序，拿去拼 URL 会 404（图标全白）。
-       角色恰好键就是代号（Ambor），所以之前只有角色显示正常。 */
-    var cfg = dict.config && dict.config[type];
-    if (cfg) {
-      var src = item.alt && cfg.alt ? cfg.alt : cfg;
-      var code = item.key || k;
-      if (src && src.prefix) return src.prefix + code + (src.ext || "");
-    }
-    return "";
+  }
+  return out
+}
+
+async function exportConfig() {
+  const text = JSON.stringify(textOnly(s), null, 2)
+  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
+  toast.success('配置已导出（仅文字）')
+}
 >>>>
 
 ### CHANGELOG.md
 <<<<
-- **起因**：首页卡片排布、顶栏按钮、侧栏图标与文字间距、配色与冒险之证仓库（提瓦特冒险之证）不一致，要求一比一复刻。
-- **经过**：首页改 `el-row` + `el-col` 栅格（xs/sm/md/lg 四档断点，手机一行一个），卡片样式改走 EP 变量（hover 用 `--el-fill-color-dark`、图标块 32px、垫色白天 12% / 暗色 18%）；顶栏按钮改回原生按钮配 `size-icon-btn` 与本站 token（此前用 `el-button` 导致跑偏、配色不对）；标题字号改 `--text-heading-5`；侧边菜单改 `:with-header="false"` 自画标题栏，图标补 `mr-2` 间距，`el-menu` 全量走本站 token 变量（选中态用 accent-soft 垫色）。
-- **结果**：首页、顶栏、侧边菜单的布局与配色与冒险之证仓库完全一致；补齐 `--spacing-icon-btn` / `--text-heading-5` 两个令牌，顶栏按钮不再跑偏，侧栏图标与文字间距正常。
+- **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
 >>>>
 <<<<
-- **起因**：首页卡片排布、顶栏按钮、侧栏图标与文字间距、配色与冒险之证仓库（提瓦特冒险之证）不一致，要求一比一复刻。另外角色一图流的武器 / 圣遗物 / 头像图标都读不出来，侧栏子功能的小圆点与标题贴在一起。
-- **经过**：首页改 `el-row` + `el-col` 栅格（xs/sm/md/lg 四档断点，手机一行一个），卡片样式改走 EP 变量（hover 用 `--el-fill-color-dark`、图标块 32px、垫色白天 12% / 暗色 18%）；顶栏按钮改回原生按钮配 `size-icon-btn` 与本站 token（此前用 `el-button` 导致跑偏、配色不对）；标题字号改 `--text-heading-5`；侧边菜单改 `:with-header="false"` 自画标题栏，图标与小圆点都补 `mr-2` 间距，`el-menu` 全量走本站 token 变量（选中态用 accent-soft 垫色）；三个样式底座（`tokens.css` / `base.css` / `app.css`）与冒险之证线上逐字节对齐，补齐 `--text-body-sm` 等全套字号、`--spacing-icon-btn` 等控件尺寸与 EP 主题映射（`html.dark` 暗色）。图标读不出的根因：`image-loader.js` 拼地址时用了字典键（武器 / 圣遗物的键是编号 `11101` / `10001`），而真实代号在条目的 `key` 里（`Sword_Blunt` / `10001_4`），编号只用于内部防重与排序；改为优先用条目 `key` 拼地址。角色因为键恰好就是代号（`Ambor`），所以之前只有角色正常。
 - **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
+- **补充（配置导出）**：角色一图流的配置 JSON 改为**只导出文字**——图片是以 dataURL 塞在状态里的（动辄几 MB），而载入后会按名字重新问字典，所以导出时把 `charImg` / `bgImg` / `nameBgImg` / 武器 / 圣遗物 / 配队头像等图片字段统一清空，字段结构保持不变；与 `public/saves/characters/*.json` 在线存档的存法一致，整份文件回到几十 KB。
 >>>>
 
 ### AGENTS.md
 <<<<
-- **最后合并**：`ep-home-align` —— 首页/顶栏/侧边菜单按冒险之证一比一对齐：首页 `el-row` + `el-col` 栅格、卡片样式走 EP 变量；顶栏按钮用原生按钮 + `size-icon-btn`（不要用 `el-button`，会跑偏）、标题 `--text-heading-5`；侧栏 `el-drawer` 自画标题栏、图标 `mr-2`、`el-menu` 全走本站 token 变量。上一批 `ep-home`：首页与侧边菜单迁 Element Plus，6 个子功能图标换 Solar（见 `src/icons/solar.js`）。
+- **最后合并**：`ep-fix-icons`
 >>>>
 <<<<
-- **最后合并**：`ep-fix-icons` —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
-- **样式底座**：`tokens.css` / `base.css` / `app.css` 已与冒险之证线上逐字节对齐（`tokens.css` 含全套字号 `--text-body-sm` 等、控件尺寸 `--spacing-icon-btn`；`app.css` 含 EP 主题映射与 `html.dark` 暗色）。改样式先对齐这两个仓库，别只改一边。
-- **字典约定**：`public/shared/image-dict.js` 里，武器 / 圣遗物的键是**编号**（只用于内部防重与排序），真实代号在条目的 `key` 字段；角色恰好键就是代号。拼图地址、匹配都按 `name` 与 `key` 走，绝不能拿键当代号。
-- **三个 md 的更新约定**：每批 reorg 合并后按需更新 `AGENTS.md`（最后合并 / 约定）、`README.md`（用户可见的功能说明）、`CHANGELOG.md`；`CHANGELOG` 一天只保留一条，同一天多次改动合并进同一条，与冒险之证一致。
+- **最后合并**：`ep-export-text` —— 角色一图流配置导出只留文字：`exportConfig` 走 `textOnly()`，清空 `charImg` / `bgImg` / `nameBgImg` / `teamCoreImg` / 武器 / 圣遗物 / 配队头像等图片字段（dataURL 太大），字段结构不变，载入后按名字重新匹配；与 `public/saves/characters/*.json` 存法一致。上一批 `ep-fix-icons`：侧栏小圆点补 `mr-2`、`image-loader.js` 改用条目 `key` 拼图地址。
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "mr-2 shrink-0 rounded-full" src/components/AppDrawer.vue
-grep -q "var code = item.key || k;" public/shared/image-loader.js
-grep -q "item.key || k" public/shared/image-loader.js
-! grep -q "src.prefix + k + " public/shared/image-loader.js
-grep -q "ep-fix-icons" AGENTS.md
+grep -q "function textOnly" src/views/CharacterGuide.vue
+grep -q "JSON.stringify(textOnly(s), null, 2)" src/views/CharacterGuide.vue
+grep -q "out.teamCoreImg = ''" src/views/CharacterGuide.vue
+! grep -q "JSON.stringify({ ...toRaw(s), fontData: '' }" src/views/CharacterGuide.vue
+grep -q "ep-export-text" AGENTS.md
