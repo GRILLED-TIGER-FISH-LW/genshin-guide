@@ -7,145 +7,104 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：home-unify —— ①首页与冒险之证统一：卡片 132px、标题与描述各最多两行、
-#   工具集描述改成一句话用途（不再罗列子功能）；②视频封面 7 个滑块加数字输入框
-#   （show-input，拖动与输入双向同步）；③CHANGELOG / AGENTS 同步。
+# 最近一批：fill-fix —— ①控件「凹槽」在某个主题下看不见：暗色 --color-sunken 与 surface 同值，
+#   --el-fill-color-dark（滑块轨道/hover）直接等于卡片色；白天 surface-2 与 surface 只差 3/255，
+#   segmented 的底几乎看不出。改成掺 faint 的 color-mix，两种主题都能辨。顺带给 segmented 单独设底。
+#   ②el-slider 数字框 EP 默认 130px 太宽，收成 72px；7 个滑块标签补单位（px / %）。
 
 == MOVES ==
 
 == EDITS ==
-### src/views/Home.vue
+### src/styles/app.css
 <<<<
-const DESC = {
-  character: '武器 / 圣遗物 / 天赋 / 命座总览',
-  'image-dict': '维护图片字典 · 查缺补漏',
-  'video-cover': '视频封面 / 合集封面排版',
-  'image-tools': '背景修改 / 双图羽化 / 图层拼接',
-  chart: '雷达图 / 柱状图',
-  tier: 'S / A / B 三档排行',
+  --el-fill-color-dark: var(--color-sunken);
+  --el-fill-color-darker: var(--color-sunken);
+>>>>
+<<<<
+  /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
+     暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
+     白天 surface-2 与 surface 只差 3/255，segmented 的底几乎看不出来。
+     掺一点 faint：白天偏灰、夜里偏亮，两种主题下都能看出「这是凹进去的轨道」。 */
+  --el-fill-color-dark: color-mix(in srgb, var(--color-faint) 24%, var(--color-surface-2));
+  --el-fill-color-darker: color-mix(in srgb, var(--color-faint) 34%, var(--color-surface-2));
+  --el-segmented-bg-color: color-mix(in srgb, var(--color-faint) 20%, var(--color-surface-2));
+>>>>
+### src/styles/app.css
+<<<<
+.ah-uid {
+  width: calc((100% - 16px) / 3);
+  flex: none;
 }
 >>>>
 <<<<
-const DESC = {
-  character: '角色培养材料总览',
-  'image-dict': '图片字典维护与查漏',
-  'video-cover': '视频与合集封面排版',
-  'image-tools': '图片批处理与合成',
-  chart: '雷达图与柱状图',
-  tier: '角色强度分档',
+.ah-uid {
+  width: calc((100% - 16px) / 3);
+  flex: none;
+}
+
+/* el-slider 的数字框：EP 默认 130px 把滑块挤得太短，72px 够放 4 位数。
+   写在非分层（EP 的 CSS 不带 @layer，Tailwind 的 w-* 压不动它）。 */
+.el-slider__input {
+  width: 72px;
 }
 >>>>
-### src/views/Home.vue
+### src/views/VideoCover.vue
 <<<<
-  /* 半栏宽度下「图片字典编辑器」要折两行、描述最长 18 字要折三行，132px 装不下，固定 152px */
-  height: 152px;
+>立绘 X 位置</el-text>
 >>>>
 <<<<
-  /* 与冒险之证一致：固定 132px，标题与描述各最多两行 */
-  height: 132px;
->>>>
-### src/views/Home.vue
-<<<<
-  /* 三行：半栏下 13px 字一行约 6~7 个汉字，「背景修改 / 双图羽化 / 图层拼接」要三行才够 */
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
->>>>
-<<<<
-  /* 两行：描述统一压到 12 个汉字以内，一句话说清用途（见上面的 DESC） */
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+>立绘 X 位置（px）</el-text>
 >>>>
 ### src/views/VideoCover.vue
 <<<<
-<el-slider v-model="s.characterX" :min="0" :max="W" />
+>X 位置</el-text>
 >>>>
 <<<<
-<el-slider v-model="s.characterX" :min="0" :max="W" show-input :show-input-controls="false" input-size="small" />
->>>>
-### src/views/VideoCover.vue
-<<<<
-<el-slider v-model="f.x" :min="0" :max="W" />
->>>>
-<<<<
-<el-slider v-model="f.x" :min="0" :max="W" show-input :show-input-controls="false" input-size="small" />
+>X 位置（px）</el-text>
 >>>>
 ### src/views/VideoCover.vue
 <<<<
-<el-slider
-                  :model-value="Math.round(f.scale * 100)"
-                  :min="10"
-                  :max="200"
-                  @update:model-value="f.scale = $event / 100"
-                />
+>缩放</el-text>
 >>>>
 <<<<
-<el-slider
-                  :model-value="Math.round(f.scale * 100)"
-                  :min="10"
-                  :max="200"
-                  show-input
-                  :show-input-controls="false"
-                  input-size="small"
-                  @update:model-value="f.scale = $event / 100"
-                />
+>缩放（%）</el-text>
 >>>>
 ### src/views/VideoCover.vue
 <<<<
-<el-slider v-model="f.rounded" :min="0" :max="100" />
+>圆角</el-text>
 >>>>
 <<<<
-<el-slider v-model="f.rounded" :min="0" :max="100" show-input :show-input-controls="false" input-size="small" />
->>>>
-### src/views/VideoCover.vue
-<<<<
-<el-slider v-model="s.midBrightness" :min="-100" :max="100" />
->>>>
-<<<<
-<el-slider v-model="s.midBrightness" :min="-100" :max="100" show-input :show-input-controls="false" input-size="small" />
+>圆角（%）</el-text>
 >>>>
 ### src/views/VideoCover.vue
 <<<<
-<el-slider v-model="s.midBlur" :min="0" :max="100" />
+>背景亮度</el-text>
 >>>>
 <<<<
-<el-slider v-model="s.midBlur" :min="0" :max="100" show-input :show-input-controls="false" input-size="small" />
+>背景亮度（%）</el-text>
 >>>>
 ### src/views/VideoCover.vue
 <<<<
-<el-slider v-model="s.capTextBrightness" :min="0" :max="200" />
+>背景模糊</el-text>
 >>>>
 <<<<
-<el-slider v-model="s.capTextBrightness" :min="0" :max="200" show-input :show-input-controls="false" input-size="small" />
+>背景模糊（%）</el-text>
 >>>>
-### CHANGELOG.md
+### src/views/VideoCover.vue
 <<<<
-- **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
->>>>
-<<<<
-- **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
-- **后续（同日）**：按「能走 EP 的全走」的要求推翻上面两处临时办法——顶栏两个原生按钮改 `el-button circle`、抽屉恢复 `title`（自带关闭按钮）；首页卡片改成恒定半栏（`el-col :span="12"`）+ 固定 132px，标题与描述各最多两行，描述压到 12 个汉字以内、一句话说清用途。同时补上**真正生效**的暗色三件套（`main.js` 引 `dark/css-vars.css`、`useTheme` 与 `index.html` 首帧同时切 `html.dark`）—— 上面写的「补齐」只改了 `app.css` 的变量映射，EP 只认 `html.dark`，所以组件一直是白的。全站 `line-3` 改 `line-2`（该令牌不存在，`bg-line-3` / `border-line-3` 从来没生成过样式）。两个封面工具同一批回归 EP：合集封面与视频封面的 `Btn` / `Dropdown` / `Field` / `Slider` / `Seg` / `Radios` / `Modal` / `DockCta` / `ToastHost` 全部换成 EP，视频封面 7 个滑块加 `show-input`（拖动条与数字框双向同步）；合集封面修「预览与导出的图四周半透明」（模糊背景的画布比目标大 2×pad，模糊核在边界外是透明的，整张画进去就透边，改成只取中心 W×H）与「缓存存裸 canvas 导致导出报 `drawImage` 参数类型错」。
->>>>
-### AGENTS.md
-<<<<
-- **最后合并**：`ep-export-text` —— 角色一图流配置导出只留文字：`exportConfig` 走 `textOnly()`，清空 `charImg` / `bgImg` / `nameBgImg` / `teamCoreImg` / 武器 / 圣遗物 / 配队头像等图片字段（dataURL 太大），字段结构不变，载入后按名字重新匹配；与 `public/saves/characters/*.json` 存法一致。上一批 `ep-fix-icons`：侧栏小圆点补 `mr-2`、`image-loader.js` 改用条目 `key` 拼图地址。 —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
+>文字亮度</el-text>
 >>>>
 <<<<
-- **最后合并**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
-- **EP 无对应物、故意自造（别再硬套）**：①背景图缩略图 `<button>`（显示用户上传的图，`el-button` 没有图片内容形态）；②`PreviewFrame`（16:9 深底容器 + 工具栏点空白淡出）；③底部悬浮定位层（`el-affix` 是滚动固钉，不解决居中 + 安全区）；④隐藏 `<input type="file">`（`el-upload` 功能过剩）。
-- **首页卡片规则（两个仓库一致）**：半栏由 `el-col :span="12"` 定；水平间距用 `:gutter="12"`（只吃 number，写数组会变 NaN），垂直间距补 `row-gap`；卡片固定 132px，标题与描述各 `line-clamp: 2`；描述不超过 12 个汉字。
-- **滑块**：`el-slider` 一律带 `show-input :show-input-controls="false" input-size="small"`，拖动条和右侧数字框双向同步，别只给拖动条。
+>文字亮度（%）</el-text>
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "height: 132px" src/views/Home.vue
-! grep -q "height: 152px" src/views/Home.vue
-! grep -q "line-clamp: 3" src/views/Home.vue
-! grep -q "背景修改 / 双图羽化" src/views/Home.vue
-[ "$(grep -c "show-input" src/views/VideoCover.vue)" -eq 8 ]
-grep -q "角色培养材料总览" src/views/Home.vue
-grep -q "2026-11-19" CHANGELOG.md
-[ "$(grep -c "### 2026-11-19" CHANGELOG.md)" -eq 1 ]
-grep -q "home-unify" AGENTS.md
-grep -q "首页卡片规则" AGENTS.md
+grep -q "el-fill-color-dark: color-mix" src/styles/app.css
+grep -q "el-segmented-bg-color" src/styles/app.css
+grep -q "el-slider__input" src/styles/app.css
+grep -q "el-slider__input {" src/styles/app.css
+[ "$(grep -o "（px）\|（%）" src/views/VideoCover.vue | wc -l | tr -d " ")" = "7" ]
+grep -q "立绘 X 位置（px）" src/views/VideoCover.vue
+grep -q "背景模糊（%）" src/views/VideoCover.vue
