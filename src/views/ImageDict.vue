@@ -354,7 +354,7 @@ onMounted(init)
             class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
             :class="
               identOf(tab, row) === activeKey
-                ? 'border-line-3 bg-surface-2'
+                ? 'border-line-2 bg-surface-2'
                 : 'border-line bg-surface hover:bg-hover'
             "
             @click="onSelect(row)"

@@ -36,14 +36,10 @@ function go(path) {
     v-model="open"
     direction="ltr"
     size="256px"
-    :with-header="false"
+    title="功能导航"
     aria-label="工具导航"
     class="ah-drawer"
   >
-    <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
-      <h2 class="text-heading-5 text-ink">功能导航</h2>
-    </div>
-
     <nav class="ah-drawer__nav" aria-label="工具菜单">
       <el-menu :key="toolOf || 'home'" :default-openeds="openedKey" class="ah-drawer__menu">
         <el-menu-item index="home" :aria-current="isHome ? 'page' : undefined" @click="go('/')">
@@ -78,7 +74,7 @@ function go(path) {
             >
               <span
                 class="size-1 mr-2 shrink-0 rounded-full"
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-2'"
                 aria-hidden="true"
               />
               <span class="min-w-0 truncate">{{ s.label }}</span>

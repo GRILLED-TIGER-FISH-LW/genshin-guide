@@ -61,6 +61,8 @@
           (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
         root.dataset.theme = dark ? "dark" : "light";
+        /* EP 的暗色只认 html.dark 类，不认 data-theme —— 首帧就要同时设上，否则刷新瞬间 EP 组件是白的 */
+        root.classList.toggle("dark", dark);
 
         /* 首次样式生效期间禁掉一切过渡；load 之后解除（兜底 3s） */
         root.classList.add("theme-switching");

@@ -27,6 +27,8 @@ export function applyTheme(next) {
   void root.offsetHeight
 
   root.dataset.theme = next
+  /* EP 的暗色只认 html.dark 类，不认 data-theme —— 两套必须同时设 */
+  root.classList.toggle('dark', next === 'dark')
   if (meta) meta.setAttribute('content', THEME_COLOR[next])
 
   void root.offsetHeight

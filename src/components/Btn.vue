@@ -45,7 +45,7 @@ const VARIANTS = {
   secondary: 'bg-surface text-ink border border-line-2 hover:bg-hover',
   ghost: 'bg-transparent text-body hover:bg-hover',
   danger: 'bg-danger-soft text-danger hover:bg-danger-soft/70',
-  float: 'bg-surface-2 text-ink border border-line-3 shadow-float hover:bg-hover',
+  float: 'bg-surface-2 text-ink border border-line-2 shadow-float hover:bg-hover',
   'float-danger': 'bg-surface-2 text-danger border border-danger/30 shadow-float hover:bg-hover',
 }
 

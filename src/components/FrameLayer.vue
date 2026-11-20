@@ -158,7 +158,7 @@ onBeforeUnmount(() => window.removeEventListener('message', onMessage))
         class="pointer-events-auto absolute inset-0 grid place-items-center gap-3 bg-canvas"
       >
         <span
-          class="size-5 animate-spin rounded-full border-2 border-line-3 border-t-accent"
+          class="size-5 animate-spin rounded-full border-2 border-line-2 border-t-accent"
           aria-hidden="true"
         />
         <span class="text-xs text-muted">正在载入工具…</span>
