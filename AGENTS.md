@@ -132,7 +132,8 @@
 - **选中态全站一套**：`accent-soft` 垫色 + `accent-strong` 文字（抽屉菜单再加左侧 2px `accent` 竖条），`el-segmented` 的轨道用 `sunken`、选中项用 `accent-soft`。别拿 `sunken` 当选中色 —— 那是一块灰底，看着像没选中。
 - 深色模式**靠变量覆盖**（`[data-theme="dark"]`），不用 `dark:` 前缀。
 - 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
-- **凹槽类表面**（滑块轨道、`el-segmented` 选中项、卡片 hover、collapse 底）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档（`#2f2b24` vs `#1f1e1b`），否则这些地方整片看不见。
+- **凹槽类表面**（卡片 hover、`collapse` 底、已完成底色）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档，否则这些地方整片看不见。
+- **控件跟它所在的面同色**：卡片里的控件底一律 `--color-surface`（= `el-card` 的底），靠 `--el-border-color*` 那条描边区分，别用凹槽色 `sunken` 当控件的底；滑块轨道也用同一条描边（`--el-slider-runway-bg-color: var(--el-border-color)`）。选中态优先 EP 默认（`primary` 实心 + 白字），与 `el-radio-button` 一致。
 - EP 组件自己的变量（`--el-slider-runway-bg-color`、`--el-segmented-*`）要在**组件选择器上**盖，写在 `:root` 会被 EP 组件级定义和暗色 css-vars 遮住。
 - **列表里的缩略图统一 40px（`size-10`）**，正好等于表单控件高度，所以和输入框天然对齐；再小的（如备选）32px。
 
@@ -321,7 +322,8 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`palette-fix` —— 令牌对齐 Claude 官方七色：`accent` 由手调的 `#cc785c` 换成 Orange `#d97757`（`accent-soft` 12% → 16%）、`success` 换 Green `#788c5d`、新增 `info` Blue `#6a9bcc`；中性色改成「两个纯色之间对半混」（`canvas` = Light+Light Gray、`surface-2`/`sunken`/`line` = Light Gray、`line-2` = Light Gray+Mid Gray），暗色 `canvas` → Dark `#141413`、`sunken` → `#302d27`；删掉调色板外的 `accent-teal` / `accent-amber`。**选中态统一成 accent-soft 垫色 + accent-strong 文字**（抽屉菜单加左侧 2px 竖条），修「选中项看着发灰」；`el-segmented` 轨道用 sunken、选中项用 accent-soft。
+- **最后合并**：`bg-fix` —— 「控件跟所在的面同色」：`el-segmented` 的垫色改回卡片色 `--color-surface`（= 所在 `el-card` 大框的底：白天亮米白、夜里浅黑灰）并补一条和卡片一样的 1px 描边；选中项回到 EP 默认（`primary` 实心 + 白字），与「小字号 / 大字号」那组单选框一致。`el-slider` 轨道改用 `--el-border-color`（= 文本框边框那条）。顺手清掉 `app.css` 里所有 `color-mix`（老浏览器无效值 —— 暗色下 `--el-border-color` 因此坏掉，整套输入框没有边框）与过期的 `--el-color-primary-rgb`（还是旧强调色 `204, 120, 92`）。
+- **上一批**：`palette-fix` —— 令牌对齐 Claude 官方七色：`accent` 由手调的 `#cc785c` 换成 Orange `#d97757`（`accent-soft` 12% → 16%）、`success` 换 Green `#788c5d`、新增 `info` Blue `#6a9bcc`；中性色改成「两个纯色之间对半混」（`canvas` = Light+Light Gray、`surface-2`/`sunken`/`line` = Light Gray、`line-2` = Light Gray+Mid Gray），暗色 `canvas` → Dark `#141413`、`sunken` → `#302d27`；删掉调色板外的 `accent-teal` / `accent-amber`。**选中态统一成 accent-soft 垫色 + accent-strong 文字**（抽屉菜单加左侧 2px 竖条），修「选中项看着发灰」；`el-segmented` 轨道用 sunken、选中项用 accent-soft。
 - **上一批**：`fill-fix4` —— 凹槽类表面统一复用 `--color-sunken`（暗色值 `#1f1e1b`→`#2f2b24`；原来与卡片同值，滑块轨道 / segmented 选中项 / hover / collapse 底在夜里全看不见），删掉上一批新造的 `--color-well(-strong)`；`el-slider` / `el-segmented` 的变量直接盖在组件上。视频封面 7 个滑块弃用 `show-input`，改「拖动条 + `el-input-number` 88px + 单位文字」。
 - **上一批**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
 - **EP 无对应物、故意自造（别再硬套）**：①背景图缩略图 `<button>`（显示用户上传的图，`el-button` 没有图片内容形态）；②`PreviewFrame`（16:9 深底容器 + 工具栏点空白淡出）；③底部悬浮定位层（`el-affix` 是滚动固钉，不解决居中 + 安全区）；④隐藏 `<input type="file">`（`el-upload` 功能过剩）。
