@@ -81,12 +81,14 @@ function blurredBg(img, key) {
   octx.drawImage(b, 0, 0)
   octx.filter = 'none'
 
-  cacheCanvas = out
-  cacheKey = key
-  /* 连 pad 一起返回：调用方必须只取中心 W×H 那块。
+  /* 连 pad 一起缓存：调用方必须只取中心 W×H 那块。
      模糊核在图像边界外是透明的，所以 out 最外圈那 pad 宽的一条被模糊成了半透明；
-     把整张从 (0,0) 画进目标画布，四周就会透出底色。 */
-  return { canvas: out, pad }
+     把整张从 (0,0) 画进目标画布，四周就会透出底色。
+     注意缓存里存的也必须是这个对象 —— 命中时直接返回它，否则调用方拿到裸 canvas，
+     bg.canvas 是 undefined，导出就报 drawImage 参数类型不对。 */
+  cacheCanvas = { canvas: out, pad }
+  cacheKey = key
+  return cacheCanvas
 }
 
 export function resetBgCache() {
