@@ -172,7 +172,7 @@ function itemClass(i, value) {
   <button
     ref="trigger"
     type="button"
-    class="flex h-9 w-full min-w-0 items-center gap-1.5 rounded-ctl border border-line-2 bg-surface px-2.5 text-xs text-ink hover:border-line-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50"
+    class="flex h-9 w-full min-w-0 items-center gap-1.5 rounded-ctl border border-line-2 bg-surface px-2.5 text-xs text-ink hover:border-line-2 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50"
     :disabled="disabled"
     :aria-expanded="isOpen"
     aria-haspopup="listbox"
@@ -203,7 +203,7 @@ function itemClass(i, value) {
       ref="panel"
       role="listbox"
       :style="panelStyle"
-      class="z-[60] overflow-y-auto rounded-panel border border-line-3 bg-surface p-1 shadow-float"
+      class="z-[60] overflow-y-auto rounded-panel border border-line-2 bg-surface p-1 shadow-float"
     >
       <li v-if="!options.length" class="px-2.5 py-1.5 text-xs text-muted" role="presentation">
         没有可选项

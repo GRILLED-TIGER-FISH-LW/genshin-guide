@@ -48,7 +48,7 @@ const isNumber = computed(() => props.type === 'number')
 const fieldClass = computed(() => [
   'w-full min-w-0 rounded-ctl border bg-surface px-3 text-sm text-ink',
   'placeholder:text-muted',
-  'hover:border-line-3',
+  'hover:border-line-2',
   'focus-visible:outline-2 focus-visible:outline-offset-1',
   'disabled:pointer-events-none disabled:opacity-50 disabled:bg-sunken',
   'readonly:bg-sunken',
