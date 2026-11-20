@@ -48,13 +48,11 @@ html.dark {
   --el-fill-color-light: var(--color-surface-2);
   --el-fill-color-lighter: var(--color-surface);
   --el-fill-color-extra-light: var(--color-surface);
-  /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
-     暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
-     白天 surface-2 与 surface 只差 3/255，segmented 的底几乎看不出来。
-     改用 tokens 里专门的 --color-well（昼夜各一档具体色）。
-     不用 color-mix：老浏览器（iOS Safari < 16.2）不支持，变量会变成无效值，等于没改。 */
-  --el-fill-color-dark: var(--color-well);
-  --el-fill-color-darker: var(--color-well-strong);
+  /* EP 的「下沉 / 轨道」填充：直接用 --color-sunken（暗色值已改成比 surface 亮一档，
+     见 tokens.css —— 原来暗色下两者同值，滑块轨道和 hover 直接消失）。
+     不新造令牌，也不用 color-mix：老浏览器（iOS Safari < 16.2）不支持，变量会变成无效值。 */
+  --el-fill-color-dark: var(--color-sunken);
+  --el-fill-color-darker: var(--color-sunken);
   --el-fill-color-blank: var(--color-surface);
 
   --el-mask-color: var(--color-mask);
@@ -138,15 +136,19 @@ html.dark {
   flex: none;
 }
 
-/* el-slider 的数字框：EP 默认 130px 把滑块挤得太短，72px 够放 4 位数。
-   写在非分层（EP 的 CSS 不带 @layer，Tailwind 的 w-* 压不动它）。 */
-.el-slider__input {
-  width: 72px;
+/* 下面两条都盖在组件上：EP 在 .el-slider / .el-segmented 自己的选择器里定义过这些变量，
+   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。
+   一律复用 --color-sunken（暗色值比 surface 亮一档，见 tokens.css）。 */
+
+/* 滑块轨道与刻度点 */
+.el-slider {
+  --el-slider-runway-bg-color: var(--color-sunken);
+  --el-slider-stop-bg-color: var(--color-sunken);
 }
 
-/* el-segmented 的底由组件级变量控制（EP 在自己的选择器上定义了 --el-segmented-bg-color），
-   在 :root 里写同名变量会被它遮住，必须直接盖在组件上。
-   也不沿用 --el-fill-color-light：那个还管着输入框底和 hover，改它影响面太大。 */
+/* 分段菜单：容器用卡片色（与下面的大框一致），选中项反过来用凹槽色，靠底色差区分 */
 .el-segmented {
-  --el-segmented-bg-color: var(--color-well);
+  --el-segmented-bg-color: var(--color-surface);
+  --el-segmented-item-selected-bg-color: var(--color-sunken);
+  --el-segmented-item-selected-color: var(--color-ink);
 }
