@@ -13,13 +13,16 @@
 :root,
 html.dark {
   --el-color-primary: var(--color-accent);
-  --el-color-primary-rgb: 204, 120, 92;
+  --el-color-primary-rgb: 217, 119, 87;   /* = Orange #d97757，换了强调色这里必须跟着换 */
   --el-color-primary-dark-2: var(--color-accent-strong);
-  --el-color-primary-light-3: color-mix(in srgb, var(--color-accent) 70%, var(--color-canvas));
-  --el-color-primary-light-5: color-mix(in srgb, var(--color-accent) 50%, var(--color-canvas));
-  --el-color-primary-light-7: color-mix(in srgb, var(--color-accent) 30%, var(--color-canvas));
-  --el-color-primary-light-8: color-mix(in srgb, var(--color-accent) 20%, var(--color-canvas));
-  --el-color-primary-light-9: color-mix(in srgb, var(--color-accent) 10%, var(--color-canvas));
+  /* 浅色档写死混好的值：color-mix 在 iOS Safari < 16.2 是无效值，
+     变量会变成 invalid，EP 拿到空的 background 就整块消失。
+     下面五档 = Orange 与 canvas 分别按 70/50/30/20/10% 混出来的。 */
+  --el-color-primary-light-3: #e09b83;
+  --el-color-primary-light-5: #e5b4a0;
+  --el-color-primary-light-7: #eaccbc;
+  --el-color-primary-light-8: #ecd8cb;
+  --el-color-primary-light-9: #efe4da;
 
   --el-color-success: var(--color-success);
   --el-color-warning: var(--color-warning);
@@ -56,24 +59,26 @@ html.dark {
   --el-fill-color-blank: var(--color-surface);
 
   --el-mask-color: var(--color-mask);
-  --el-mask-color-extra-light: color-mix(in srgb, var(--color-mask) 50%, transparent);
+  --el-mask-color-extra-light: rgba(20, 20, 19, 0.16);
 
   --el-disabled-bg-color: var(--color-sunken);
   --el-disabled-text-color: var(--color-faint);
   --el-disabled-border-color: var(--color-line);
 
-  --el-box-shadow: 0 2px 8px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
-  --el-box-shadow-light: 0 2px 12px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
-  --el-box-shadow-dark: 0 4px 16px 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
+  --el-box-shadow: 0 2px 8px 0 rgba(20, 20, 19, 0.08);
+  --el-box-shadow-light: 0 2px 12px 0 rgba(20, 20, 19, 0.06);
+  --el-box-shadow-dark: 0 4px 16px 0 rgba(20, 20, 19, 0.12);
 }
 
-/* 暗色下 --color-accent-strong 跟 --color-accent 同色，按下态需要更暗一档 */
+/* 暗色下按下态要比 --color-accent 更暗一档（accent-strong 在暗色是提亮的，不能直接用） */
 html.dark {
-  --el-color-primary-dark-2: color-mix(in srgb, var(--color-accent) 85%, #000000);
+  --el-color-primary-dark-2: #b8654a;
 
-  /* 暗色下 line-2 对卡片只有 1.14:1，人眼分辨不出；
-     掺 faint 抬到约 1.9:1 才和白天观感相当 */
-  --el-border-color: color-mix(in srgb, var(--color-faint) 40%, var(--color-line-2));
+  /* 暗色下 --color-line 对卡片只有 1.14:1，人眼分辨不出；这里是「faint 40% + line-2 60%」
+     混好的固定值，抬到约 1.9:1，和白天观感相当。
+     ⚠ 原来写的是 color-mix，老浏览器算无效值 → 整套输入框在暗色下**没有边框**（看着像没描边的块），
+     滑块轨道也跟着一起塌掉。 */
+  --el-border-color: #5a564f;
 }
 
 /* UID 输入框：旅闻 / 赠礼套装两个页面共用同一个宽度，必须永远一致
@@ -137,20 +142,22 @@ html.dark {
 }
 
 /* 下面两条都盖在组件上：EP 在 .el-slider / .el-segmented 自己的选择器里定义过这些变量，
-   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。
-   一律复用 --color-sunken（暗色值比 surface 亮一档，见 tokens.css）。 */
+   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。 */
 
-/* 滑块轨道与刻度点 */
+/* 滑块轨道：和文本框 / 单选框的描边用同一条 --el-border-color（EP 默认用的是 border-color-light，
+   我们两个都映射到 --color-line，所以看起来是与输入框边框同色）。
+   不要拿凹槽色 sunken 当轨道 —— 那是「凹进去的面」的色，不是描边色。 */
 .el-slider {
-  --el-slider-runway-bg-color: var(--color-sunken);
-  --el-slider-stop-bg-color: var(--color-sunken);
+  --el-slider-runway-bg-color: var(--el-border-color);
 }
 
-/* 分段菜单：轨道用凹槽色，选中项用 accent-soft + accent 文字 —— 与抽屉菜单同一套「选中」语言。
-   别拿 sunken 当选中色，那看起来就是一块灰底、像没选中。
-   这些是 EP 的组件级变量，写在 :root 会被遮住，必须盖在组件上。 */
+/* 分段菜单：垫色跟它所在的面一致 —— 用卡片色 --color-surface
+   （= 下面 el-card 大框的底：白天亮米白、夜里浅黑灰），并补一条和卡片同样的 1px 描边，
+   否则整块控件落到卡片上就"消失"了。
+   选中项回到 EP 默认（primary 实心 + 白字），与「小字号 / 大字号」那组 el-radio-button 一致 ——
+   不用自造的 accent-soft，那等于给自己多一套「选中」语言。
+   EP 的组件级变量写在 :root 会被遮住，必须盖在组件上。 */
 .el-segmented {
-  --el-segmented-bg-color: var(--color-sunken);
-  --el-segmented-item-selected-bg-color: var(--color-accent-soft);
-  --el-segmented-item-selected-color: var(--color-accent-strong);
+  --el-segmented-bg-color: var(--color-surface);
+  border: 1px solid var(--el-border-color-light);
 }
