@@ -232,12 +232,14 @@ onActivated(render)
       <PreviewFrame>
         <canvas ref="cv" class="block size-full" />
 
-        <p
+        <el-text
           v-if="!bg"
-          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+          tag="p"
+          size="small"
+          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-white/50"
         >
           还没上传背景图，先在下面选一张
-        </p>
+        </el-text>
 
         <template #toolbar>
           <el-button
@@ -257,8 +259,8 @@ onActivated(render)
     <!-- pb-24 给悬浮导出按钮让位，否则最后一段会被压在下面 -->
     <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
-        <div class="rounded-panel border border-line bg-surface p-3">
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">画布</el-text>
+        <el-card shadow="never">
           <div class="flex min-h-9 items-center gap-3">
             <!-- 缩略图选择器：显示的是用户自己的图，EP 没有「图片内容的按钮」形态，保留原生 -->
             <button
@@ -271,9 +273,13 @@ onActivated(render)
               <img v-if="bg" :src="bg" alt="" class="size-full object-cover" />
             </button>
 
-            <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
+            <el-text
+              size="small"
+              class="min-w-0 truncate"
+              :class="bg ? 'ah-text-ink' : 'ah-text-muted'"
+            >
               {{ bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图' }}
-            </span>
+            </el-text>
 
             <input
               ref="bgInput"
@@ -285,35 +291,41 @@ onActivated(render)
               @change="pickBg"
             />
           </div>
-        </div>
+        </el-card>
       </section>
 
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">文字内容</h2>
-        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
-          <div class="grid gap-1">
-            <span class="text-xs text-muted">主标题</span>
-            <el-input v-model="title" type="textarea" :rows="2" placeholder="输入合集主标题" />
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">文字内容</el-text>
+        <el-card shadow="never">
+          <div class="grid grid-cols-1 gap-3">
+            <div class="grid gap-1">
+              <el-text size="small" class="ah-text-muted">主标题</el-text>
+              <el-input v-model="title" type="textarea" :rows="2" placeholder="输入合集主标题" />
+            </div>
+            <div class="grid gap-1">
+              <el-text size="small" class="ah-text-muted">副标题</el-text>
+              <el-input v-model="subtitle" type="textarea" :rows="2" placeholder="输入合集副标题" />
+            </div>
           </div>
-          <div class="grid gap-1">
-            <span class="text-xs text-muted">副标题</span>
-            <el-input v-model="subtitle" type="textarea" :rows="2" placeholder="输入合集副标题" />
-          </div>
-        </div>
+        </el-card>
       </section>
 
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
-        <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
-          <el-icon class="shrink-0 text-muted"><EditPen /></el-icon>
-          <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
-          <!-- el-select 默认撑满父级，宽度只能由外面这层容器定（EP 的 CSS 不带 @layer，w-* 会被压掉） -->
-          <div class="w-32 shrink-0">
-            <el-select v-model="fontFile" placeholder="选择字体" aria-label="选择字体">
-              <el-option v-for="o in fontOptions" :key="o.value" :label="o.label" :value="o.value" />
-            </el-select>
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">
+          字体（仅作用于导出图片）
+        </el-text>
+        <el-card shadow="never">
+          <div class="flex items-center gap-2.5">
+            <el-icon class="shrink-0 text-muted"><EditPen /></el-icon>
+            <el-text size="small" class="ah-text-muted min-w-0 flex-1 truncate">{{ fontLabel }}</el-text>
+            <!-- el-select 默认撑满父级，宽度只能由外面这层容器定（EP 的 CSS 不带 @layer，w-* 会被压掉） -->
+            <div class="w-32 shrink-0">
+              <el-select v-model="fontFile" placeholder="选择字体" aria-label="选择字体">
+                <el-option v-for="o in fontOptions" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+            </div>
           </div>
-        </div>
+        </el-card>
       </section>
     </main>
 
