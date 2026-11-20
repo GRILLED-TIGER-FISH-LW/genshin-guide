@@ -305,7 +305,10 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`ep-export-text` —— 角色一图流配置导出只留文字：`exportConfig` 走 `textOnly()`，清空 `charImg` / `bgImg` / `nameBgImg` / `teamCoreImg` / 武器 / 圣遗物 / 配队头像等图片字段（dataURL 太大），字段结构不变，载入后按名字重新匹配；与 `public/saves/characters/*.json` 存法一致。上一批 `ep-fix-icons`：侧栏小圆点补 `mr-2`、`image-loader.js` 改用条目 `key` 拼图地址。 —— 侧栏子项小圆点补 `mr-2`；`image-loader.js` 的 `getPath` 改用条目 `key`（代号）拼地址，不再用字典键（编号），修武器 / 圣遗物 / 头像图标全白。
+- **最后合并**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
+- **EP 无对应物、故意自造（别再硬套）**：①背景图缩略图 `<button>`（显示用户上传的图，`el-button` 没有图片内容形态）；②`PreviewFrame`（16:9 深底容器 + 工具栏点空白淡出）；③底部悬浮定位层（`el-affix` 是滚动固钉，不解决居中 + 安全区）；④隐藏 `<input type="file">`（`el-upload` 功能过剩）。
+- **首页卡片规则（两个仓库一致）**：半栏由 `el-col :span="12"` 定；水平间距用 `:gutter="12"`（只吃 number，写数组会变 NaN），垂直间距补 `row-gap`；卡片固定 132px，标题与描述各 `line-clamp: 2`；描述不超过 12 个汉字。
+- **滑块**：`el-slider` 一律带 `show-input :show-input-controls="false" input-size="small"`，拖动条和右侧数字框双向同步，别只给拖动条。
 - **样式底座**：`tokens.css` / `base.css` / `app.css` 已与冒险之证线上逐字节对齐（`tokens.css` 含全套字号 `--text-body-sm` 等、控件尺寸 `--spacing-icon-btn`；`app.css` 含 EP 主题映射与 `html.dark` 暗色）。改样式先对齐这两个仓库，别只改一边。
 - **字典约定**：`public/shared/image-dict.js` 里，武器 / 圣遗物的键是**编号**（只用于内部防重与排序），真实代号在条目的 `key` 字段；角色恰好键就是代号。拼图地址、匹配都按 `name` 与 `key` 走，绝不能拿键当代号。
 - **三个 md 的更新约定**：每批 reorg 合并后按需更新 `AGENTS.md`（最后合并 / 约定）、`README.md`（用户可见的功能说明）、`CHANGELOG.md`；`CHANGELOG` 一天只保留一条，同一天多次改动合并进同一条，与冒险之证一致。

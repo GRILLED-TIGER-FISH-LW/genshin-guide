@@ -823,7 +823,7 @@ onMounted(async () => {
         <el-card v-if="s.guideType === 'character'" shadow="never">
           <div class="grid gap-2">
             <el-text size="small" class="ah-text-muted">立绘 X 位置</el-text>
-            <el-slider v-model="s.characterX" :min="0" :max="W" />
+            <el-slider v-model="s.characterX" :min="0" :max="W" show-input :show-input-controls="false" input-size="small" />
           </div>
         </el-card>
 
@@ -896,7 +896,7 @@ onMounted(async () => {
 
               <div class="grid gap-2">
                 <el-text size="small" class="ah-text-muted">X 位置</el-text>
-                <el-slider v-model="f.x" :min="0" :max="W" />
+                <el-slider v-model="f.x" :min="0" :max="W" show-input :show-input-controls="false" input-size="small" />
               </div>
               <div class="grid gap-2">
                 <el-text size="small" class="ah-text-muted">缩放</el-text>
@@ -904,12 +904,15 @@ onMounted(async () => {
                   :model-value="Math.round(f.scale * 100)"
                   :min="10"
                   :max="200"
+                  show-input
+                  :show-input-controls="false"
+                  input-size="small"
                   @update:model-value="f.scale = $event / 100"
                 />
               </div>
               <div class="grid gap-2">
                 <el-text size="small" class="ah-text-muted">圆角</el-text>
-                <el-slider v-model="f.rounded" :min="0" :max="100" />
+                <el-slider v-model="f.rounded" :min="0" :max="100" show-input :show-input-controls="false" input-size="small" />
               </div>
 
               <el-checkbox v-model="f.underMiddle">置于中层背景下方</el-checkbox>
@@ -965,11 +968,11 @@ onMounted(async () => {
 
           <div class="mt-4 grid gap-2">
             <el-text size="small" class="ah-text-muted">背景亮度</el-text>
-            <el-slider v-model="s.midBrightness" :min="-100" :max="100" />
+            <el-slider v-model="s.midBrightness" :min="-100" :max="100" show-input :show-input-controls="false" input-size="small" />
           </div>
           <div class="mt-4 grid gap-2">
             <el-text size="small" class="ah-text-muted">背景模糊</el-text>
-            <el-slider v-model="s.midBlur" :min="0" :max="100" />
+            <el-slider v-model="s.midBlur" :min="0" :max="100" show-input :show-input-controls="false" input-size="small" />
           </div>
         </el-card>
       </section>
@@ -1053,7 +1056,7 @@ onMounted(async () => {
             </div>
             <div class="grid gap-2">
               <el-text size="small" class="ah-text-muted">文字亮度</el-text>
-              <el-slider v-model="s.capTextBrightness" :min="0" :max="200" />
+              <el-slider v-model="s.capTextBrightness" :min="0" :max="200" show-input :show-input-controls="false" input-size="small" />
             </div>
           </div>
         </el-card>
