@@ -5,12 +5,12 @@ import SolarIcon from '../components/SolarIcon.vue'
 /* 一句描述（<=1 行）。不写数量 —— 数量随数据会变，改起来容易漏。
    三行结构（图标 / 标题 / 描述）+ 描述锁两行高，是卡片严格等高的前提。 */
 const DESC = {
-  character: '武器 / 圣遗物 / 天赋 / 命座总览',
-  'image-dict': '维护图片字典 · 查缺补漏',
-  'video-cover': '视频封面 / 合集封面排版',
-  'image-tools': '背景修改 / 双图羽化 / 图层拼接',
-  chart: '雷达图 / 柱状图',
-  tier: 'S / A / B 三档排行',
+  character: '角色培养材料总览',
+  'image-dict': '图片字典维护与查漏',
+  'video-cover': '视频与合集封面排版',
+  'image-tools': '图片批处理与合成',
+  chart: '雷达图与柱状图',
+  tier: '角色强度分档',
 }
 </script>
 
@@ -64,8 +64,8 @@ const DESC = {
 
 /* 固定高度：卡片不再随标题长短高低不齐 */
 .ah-home__card {
-  /* 半栏宽度下「图片字典编辑器」要折两行、描述最长 18 字要折三行，132px 装不下，固定 152px */
-  height: 152px;
+  /* 与冒险之证一致：固定 132px，标题与描述各最多两行 */
+  height: 132px;
   color: inherit;
   transition: background-color var(--el-transition-duration-fast);
 }
@@ -126,9 +126,9 @@ const DESC = {
 
 .ah-home__desc {
   display: -webkit-box;
-  /* 三行：半栏下 13px 字一行约 6~7 个汉字，「背景修改 / 双图羽化 / 图层拼接」要三行才够 */
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  /* 两行：描述统一压到 12 个汉字以内，一句话说清用途（见上面的 DESC） */
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   color: var(--el-text-color-secondary);
   font-size: var(--el-font-size-small);
