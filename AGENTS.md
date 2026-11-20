@@ -118,6 +118,8 @@
 - 色板取 Claude（`#f5f0e8` 底 / `#141413` 字 / `#cc785c` 强调），几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
 - 深色模式**靠变量覆盖**（`[data-theme="dark"]`），不用 `dark:` 前缀。
 - 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
+- **凹槽类表面**（滑块轨道、`el-segmented` 选中项、卡片 hover、collapse 底）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档（`#2f2b24` vs `#1f1e1b`），否则这些地方整片看不见。
+- EP 组件自己的变量（`--el-slider-runway-bg-color`、`--el-segmented-*`）要在**组件选择器上**盖，写在 `:root` 会被 EP 组件级定义和暗色 css-vars 遮住。
 - **列表里的缩略图统一 40px（`size-10`）**，正好等于表单控件高度，所以和输入框天然对齐；再小的（如备选）32px。
 
 ### 控件高度
@@ -305,10 +307,11 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
+- **最后合并**：`fill-fix4` —— 凹槽类表面统一复用 `--color-sunken`（暗色值 `#1f1e1b`→`#2f2b24`；原来与卡片同值，滑块轨道 / segmented 选中项 / hover / collapse 底在夜里全看不见），删掉上一批新造的 `--color-well(-strong)`；`el-slider` / `el-segmented` 的变量直接盖在组件上。视频封面 7 个滑块弃用 `show-input`，改「拖动条 + `el-input-number` 88px + 单位文字」。
+- **上一批**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
 - **EP 无对应物、故意自造（别再硬套）**：①背景图缩略图 `<button>`（显示用户上传的图，`el-button` 没有图片内容形态）；②`PreviewFrame`（16:9 深底容器 + 工具栏点空白淡出）；③底部悬浮定位层（`el-affix` 是滚动固钉，不解决居中 + 安全区）；④隐藏 `<input type="file">`（`el-upload` 功能过剩）。
 - **首页卡片规则（两个仓库一致）**：半栏由 `el-col :span="12"` 定；水平间距用 `:gutter="12"`（只吃 number，写数组会变 NaN），垂直间距补 `row-gap`；卡片固定 132px，标题与描述各 `line-clamp: 2`；描述不超过 12 个汉字。
-- **滑块**：`el-slider` 一律带 `show-input :show-input-controls="false" input-size="small"`，拖动条和右侧数字框双向同步，别只给拖动条。
+- **滑块**：不用 `el-slider` 的 `show-input`（它的数字框宽度被 EP 写死在 130px 里，也塞不进单位）。一律「`el-slider class="min-w-0 flex-1"` + `el-input-number style="width: 88px" size="small" controls-position="right"` + 单位 `<el-text class="shrink-0">`」三项一行，两个控件绑同一个值；标签里不写单位，单位单独显示。
 - **样式底座**：`tokens.css` / `base.css` / `app.css` 已与冒险之证线上逐字节对齐（`tokens.css` 含全套字号 `--text-body-sm` 等、控件尺寸 `--spacing-icon-btn`；`app.css` 含 EP 主题映射与 `html.dark` 暗色）。改样式先对齐这两个仓库，别只改一边。
 - **字典约定**：`public/shared/image-dict.js` 里，武器 / 圣遗物的键是**编号**（只用于内部防重与排序），真实代号在条目的 `key` 字段；角色恰好键就是代号。拼图地址、匹配都按 `name` 与 `key` 走，绝不能拿键当代号。
 - **三个 md 的更新约定**：每批 reorg 合并后按需更新 `AGENTS.md`（最后合并 / 约定）、`README.md`（用户可见的功能说明）、`CHANGELOG.md`；`CHANGELOG` 一天只保留一条，同一天多次改动合并进同一条，与冒险之证一致。
