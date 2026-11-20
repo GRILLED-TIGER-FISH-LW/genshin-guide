@@ -7,387 +7,770 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：home-ep —— 首页与冒险之证一比一复刻。
-#   首页：el-scrollbar + el-row gutter 12 + el-col span 12（恒半栏）+ el-card 固定 132px
-#         + 标题折两行 + 图标顶部对齐。
-#   顶栏：两个原生 button → el-button circle。
-#   侧栏：恢复 EP 默认头部（自带关闭按钮），子工具小圆点 bg-line-3（令牌不存在）改 line-2。
-#   暗色：main.js 补 dark css-vars、useTheme 与 index.html 首帧同时切 html.dark
-#         （EP 只认这个类，不认 data-theme）。
-#   顺带：全站 7 处 line-3 改 line-2（这些类因为缺令牌从来没生效过）。
+# 最近一批：cover-ep —— 首页描述不再省略 + 合集封面换 EP 控件 + 修半透明边缘。
+#   ①首页：卡片 132→152px，描述改成折三行（半栏 13px 字一行约 6~7 个汉字，18 字要三行）
+#   ②合集封面半透明边缘的真根因：blurredBg 生成的画布比目标大 2×pad（给模糊核留余量），
+#     模糊核在边界外是透明的，所以最外圈那 pad 宽的一条被模糊成半透明；
+#     drawCover 把整张从 (0,0) 画进去，四周就透出底色。
+#     改成 blurredBg 返回 { canvas, pad }，绘制时取中心 W×H。
+#   ③合集封面控件：Btn/Dropdown/Field/Icon/Modal/DockCta/useToast 全部换 EP
+#     （el-button / el-select / el-input / el-icon / ElMessageBox / ElMessage）。
 
 == MOVES ==
 
 == EDITS ==
 ### src/views/Home.vue
 <<<<
-<template>
-  <el-row class="ah-home">
-    <el-col v-for="t in TOOLS" :key="t.key" :xs="24" :sm="12" :md="8" :lg="6">
-      <RouterLink :to="'/' + t.key" class="ah-home__link">
-        <el-card shadow="never" class="ah-home__card">
-          <span class="ah-home__icon" aria-hidden="true">
-            <SolarIcon :name="t.icon" :size="18" />
-          </span>
-
-          <div class="ah-home__body">
-            <div class="ah-home__title">{{ t.label }}</div>
-            <div class="ah-home__desc">{{ DESC[t.key] }}</div>
-          </div>
-        </el-card>
-      </RouterLink>
-    </el-col>
-  </el-row>
-</template>
+  /* 半栏宽度下「图片字典编辑器」要折两行，104px 装不下，固定 132px */
+  height: 132px;
 >>>>
 <<<<
-<template>
-  <el-scrollbar class="ah-home__scroll">
-    <el-row class="ah-home" :gutter="12">
-      <el-col v-for="t in TOOLS" :key="t.key" :span="12">
-        <RouterLink :to="'/' + t.key" class="ah-home__link">
-          <el-card shadow="never" class="ah-home__card">
-            <div class="ah-home__inner">
-              <span class="ah-home__icon" aria-hidden="true">
-                <SolarIcon :name="t.icon" :size="18" />
-              </span>
-
-              <div class="ah-home__body">
-                <div class="ah-home__title">{{ t.label }}</div>
-                <div class="ah-home__desc">{{ DESC[t.key] }}</div>
-              </div>
-            </div>
-          </el-card>
-        </RouterLink>
-      </el-col>
-    </el-row>
-  </el-scrollbar>
-</template>
+  /* 半栏宽度下「图片字典编辑器」要折两行、描述最长 18 字要折三行，132px 装不下，固定 152px */
+  height: 152px;
 >>>>
 ### src/views/Home.vue
 <<<<
-<style scoped>
-.ah-home {
-  padding: 12px;
-  column-gap: 12px;
-  row-gap: 12px;
-}
-
-.ah-home__link {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
-
-.ah-home__link:focus-visible {
-  outline: 2px solid var(--el-color-primary);
-  outline-offset: 2px;
-}
-
-.ah-home__card {
-  color: inherit;
-  transition: background-color var(--el-transition-duration-fast);
-}
-
-.ah-home__link:hover .ah-home__card,
-.ah-home__link:focus-visible .ah-home__card {
-  background-color: var(--el-fill-color-dark);
-}
-
-.ah-home__card :deep(.el-card__body) {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.ah-home__icon {
-  display: grid;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--el-border-radius-base);
-  place-items: center;
-  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
-  color: var(--color-accent-strong);
-}
-
-[data-theme='dark'] .ah-home__icon {
-  background-color: color-mix(in srgb, var(--color-accent) 18%, #1f1e1b);
-}
-
-.ah-home__body {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.ah-home__title {
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .ah-home__desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  overflow: hidden;
-}
-</style>
 >>>>
 <<<<
-<style scoped>
-/* 与冒险之证首页一比一：只写 EP 不提供的三件事——卡片固定高度、图标块尺寸、两行截断。
-   宽度固定半栏由 el-col 的 :span="12" 决定，水平间距由 el-row 的 gutter 决定；
-   垂直间距 EP 不提供，只能给 el-row 补 row-gap（gutter 只吃 number，写成数组会变 NaN）。
-   圆角 / 内边距 / 字号 / 颜色全部走 EP 默认值与站点令牌。 */
-.ah-home__scroll {
-  height: 100%;
-}
-
-.ah-home {
-  padding: 12px;
-  row-gap: 12px;
-}
-
-.ah-home__link {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
-
-.ah-home__link:focus-visible {
-  outline: 2px solid var(--el-color-primary);
-  outline-offset: 2px;
-}
-
-/* 固定高度：卡片不再随标题长短高低不齐 */
-.ah-home__card {
-  /* 半栏宽度下「图片字典编辑器」要折两行，104px 装不下，固定 132px */
-  height: 132px;
-  color: inherit;
-  transition: background-color var(--el-transition-duration-fast);
-}
-
-.ah-home__link:hover .ah-home__card,
-.ah-home__link:focus-visible .ah-home__card {
-  background-color: var(--el-fill-color-dark);
-}
-
-/* EP 的 card 体默认不撑满，固定高度必须补这一行 */
-.ah-home__card :deep(.el-card__body) {
-  box-sizing: border-box;
-  height: 100%;
-}
-
-.ah-home__inner {
-  display: flex;
-  gap: 12px;
-  /* 顶部对齐：标题折两行时图标不会跟着上下浮动，所有卡片的图标落在同一水平线 */
-  align-items: flex-start;
-  height: 100%;
-}
-
-.ah-home__icon {
-  display: grid;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--el-border-radius-base);
-  place-items: center;
-  /* 垫色昼夜各一档：白天 12% 陶土橙叠 #faf9f5，黑夜 18% 叠 #1f1e1b */
-  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
-  color: var(--color-accent-strong);
-}
-
-[data-theme='dark'] .ah-home__icon {
-  background-color: color-mix(in srgb, var(--color-accent) 18%, #1f1e1b);
-}
-
-.ah-home__body {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.ah-home__title {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  font-weight: 500;
-  overflow: hidden;
-  /* 半栏放不下 7 个字（「图片字典编辑器」），折到第二行而不是省略成 … */
-  word-break: break-word;
-}
-
 .ah-home__desc {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  overflow: hidden;
+  /* 三行：半栏下 13px 字一行约 6~7 个汉字，「背景修改 / 双图羽化 / 图层拼接」要三行才够 */
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+>>>>
+### src/lib/collectionCover.js
+<<<<
+  cacheCanvas = out
+  cacheKey = key
+  return out
 }
-</style>
->>>>
-### src/components/AppNav.vue
-<<<<
-    <button
-      type="button"
-      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-      aria-label="打开菜单"
-      @click="$emit('open-menu')"
-    >
-      <SolarIcon name="solar:hamburger-menu" size="20" aria-hidden="true" />
-    </button>
 >>>>
 <<<<
-    <el-button circle aria-label="打开菜单" @click="$emit('open-menu')">
-      <SolarIcon name="solar:hamburger-menu" size="20" aria-hidden="true" />
-    </el-button>
+  cacheCanvas = out
+  cacheKey = key
+  /* 连 pad 一起返回：调用方必须只取中心 W×H 那块。
+     模糊核在图像边界外是透明的，所以 out 最外圈那 pad 宽的一条被模糊成了半透明；
+     把整张从 (0,0) 画进目标画布，四周就会透出底色。 */
+  return { canvas: out, pad }
+}
 >>>>
-### src/components/AppNav.vue
+### src/lib/collectionCover.js
 <<<<
-    <button
-      type="button"
-      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-      :aria-label="themeLabel"
-      @click="toggleTheme"
-    >
-      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" :bold="true" size="20" aria-hidden="true" />
-    </button>
+  const bg = bgImg ? blurredBg(bgImg, key) : null
+  if (bg) {
+    ctx.drawImage(bg, 0, 0)
+  } else {
 >>>>
 <<<<
-    <el-button circle :aria-label="themeLabel" @click="toggleTheme">
-      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" :bold="true" size="20" aria-hidden="true" />
-    </el-button>
+  const bg = bgImg ? blurredBg(bgImg, key) : null
+  if (bg) {
+    /* 只取中心 W×H：四周那圈 pad 是给模糊核留的余量，模糊后是半透明的，
+       直接画整张会让预览和导出的图片四周出现半透明边缘 */
+    ctx.drawImage(bg.canvas, bg.pad, bg.pad, W, H, 0, 0, W, H)
+  } else {
 >>>>
-### src/components/AppDrawer.vue
+### src/views/CollectionCover.vue
 <<<<
-    size="256px"
-    :with-header="false"
-    aria-label="工具导航"
-    class="ah-drawer"
-  >
-    <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
-      <h2 class="text-heading-5 text-ink">功能导航</h2>
+<script setup>
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import Btn from '../components/Btn.vue'
+import DockCta from '../components/DockCta.vue'
+import Dropdown from '../components/Dropdown.vue'
+import Field from '../components/Field.vue'
+import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
+import PreviewFrame from '../components/PreviewFrame.vue'
+import { useToast } from '../composables/useToast.js'
+import * as cover from '../lib/collectionCover.js'
+
+const toast = useToast()
+
+const cv = ref(null)
+const title = ref('')
+const subtitle = ref('')
+const bg = ref('')
+
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
+const fontList = ref([])
+
+/* fontFile 是「选了哪个」，loaded 是「装进 document.fonts 的是哪个」。
+   两者分开，才不用把状态塞进 DOM 里再读回来。 */
+const fontFile = ref('')
+const loaded = ref('')
+const fontData = ref('')
+const fontStatus = ref('') /* '' | 'loading' | 'error' */
+
+const askClear = ref(false)
+const exporting = ref(false)
+
+let bgImg = null
+
+const fontItem = computed(() => fontList.value.find((f) => f.file === loaded.value) || null)
+
+const fontLabel = computed(() => {
+  if (fontStatus.value === 'loading') return '正在加载…'
+  if (fontStatus.value === 'error') return '字体加载失败，重新选一个即可'
+  return fontItem.value ? `当前：${fontItem.value.name}` : '默认系统字体'
+})
+
+const fontOptions = computed(() => [
+  { value: '', label: '默认系统字体' },
+  ...fontList.value.map((f) => ({ value: f.file, label: f.name })),
+])
+
+/* 快速输入时丢弃过期的那一次绘制 */
+let seq = 0
+
+async function render() {
+  const el = cv.value
+  if (!el) return
+  const my = ++seq
+  /* 字体还在解析时 document.fonts 没就绪，画出来会是回退字体 */
+  try {
+    await document.fonts?.ready
+  } catch {
+    /* 老浏览器没有 fonts.ready，直接画 */
+  }
+  if (my !== seq) return
+
+  cover.drawCover(el, {
+    bgImg,
+    key: bg.value,
+    title: title.value,
+    subtitle: subtitle.value,
+    fontName: fontItem.value?.name ?? '',
+  })
+}
+
+function persist() {
+  cover.save({
+    bg: bg.value,
+    title: title.value,
+    subtitle: subtitle.value,
+    fontFileName: loaded.value,
+    fontName: fontItem.value?.name ?? '',
+    fontData: fontData.value,
+  })
+}
+
+/* ------------------------------------------------------------------ 背景图 */
+
+async function pickBg(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+
+  let data
+  try {
+    data = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(new Error('读取图片失败'))
+      reader.readAsDataURL(file)
+    })
+  } catch (err) {
+    toast.error(err.message)
+    return
+  }
+
+  bg.value = data
+  bgImg = await cover.loadImage(data)
+  if (!bgImg) toast.error('图片无法解析，换一张试试')
+  await render()
+  persist()
+}
+
+/* ------------------------------------------------------------------ 字体 */
+
+watch(fontFile, async (file) => {
+  if (file === loaded.value) return
+
+  if (!file) {
+    cover.dropFont()
+    loaded.value = ''
+    fontData.value = ''
+    fontStatus.value = ''
+    await render()
+    persist()
+    return
+  }
+
+  const item = fontList.value.find((f) => f.file === file)
+  if (!item) return
+
+  fontStatus.value = 'loading'
+  try {
+    const data = await cover.fetchFontData(file)
+    if (!(await cover.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    fontData.value = data
+    loaded.value = file
+    fontStatus.value = ''
+  } catch (err) {
+    cover.dropFont()
+    loaded.value = ''
+    fontData.value = ''
+    fontStatus.value = 'error'
+    toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
+  }
+
+  await render()
+  persist()
+})
+
+/* ------------------------------------------------------------------ 导出 */
+
+async function exportPng() {
+  const el = cv.value
+  if (!el || exporting.value) return
+  exporting.value = true
+
+  try {
+    await render()
+    const blob = await cover.toPng(el)
+    if (!blob) throw new Error('画布导出失败')
+    if (blob.size > 5 * 1024 * 1024) throw new Error('图片超过 5MB，请降低分辨率')
+
+    cover.download(blob, cover.pngName(title.value))
+    toast.success('导出成功')
+  } catch (err) {
+    toast.error(`导出失败：${err.message}`)
+  } finally {
+    exporting.value = false
+  }
+}
+
+/* ------------------------------------------------------------------ 清空 */
+
+async function clearAll() {
+  askClear.value = false
+  title.value = ''
+  subtitle.value = ''
+  bg.value = ''
+  bgImg = null
+  fontFile.value = ''
+  loaded.value = ''
+  fontData.value = ''
+  fontStatus.value = ''
+  cover.resetBgCache()
+  cover.dropFont()
+  await render()
+  persist()
+}
+
+/* ------------------------------------------------------------------ 启动 */
+
+watch([title, subtitle, loaded], render)
+
+onMounted(async () => {
+  try {
+    fontList.value = await cover.fetchFontList()
+  } catch (err) {
+    toast.error(err.message)
+  }
+
+  const saved = await cover.loadSaved()
+  if (saved) {
+    title.value = saved.title ?? ''
+    subtitle.value = saved.subtitle ?? ''
+    bg.value = saved.bg ?? ''
+    fontData.value = saved.fontData ?? ''
+
+    if (bg.value) bgImg = await cover.loadImage(bg.value)
+    if (saved.fontFileName && fontData.value) {
+      const item = fontList.value.find((f) => f.file === saved.fontFileName)
+      /* 装得上就沿用，装不上就当默认字体，不打扰用户 */
+      if (item && (await cover.installFont({ name: item.name, data: fontData.value }))) {
+        loaded.value = saved.fontFileName
+        fontFile.value = saved.fontFileName
+      } else {
+        fontData.value = ''
+      }
+    }
+  }
+
+  await render()
+})
+
+/* KeepAlive 会保留实例，但切回来时补一次绘制最稳 */
+onActivated(render)
+</script>
+>>>>
+<<<<
+<script setup>
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { Delete, EditPen } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import PreviewFrame from '../components/PreviewFrame.vue'
+import * as cover from '../lib/collectionCover.js'
+
+const cv = ref(null)
+const title = ref('')
+const subtitle = ref('')
+const bg = ref('')
+
+/* 背景图：热区只有左边那颗缩略图（以前整行包在 <label> 里，点文字也会弹选图） */
+const bgInput = ref(null)
+const fontList = ref([])
+
+/* fontFile 是「选了哪个」，loaded 是「装进 document.fonts 的是哪个」。
+   两者分开，才不用把状态塞进 DOM 里再读回来。 */
+const fontFile = ref('')
+const loaded = ref('')
+const fontData = ref('')
+const fontStatus = ref('') /* '' | 'loading' | 'error' */
+
+const exporting = ref(false)
+
+let bgImg = null
+
+const fontItem = computed(() => fontList.value.find((f) => f.file === loaded.value) || null)
+
+const fontLabel = computed(() => {
+  if (fontStatus.value === 'loading') return '正在加载…'
+  if (fontStatus.value === 'error') return '字体加载失败，重新选一个即可'
+  return fontItem.value ? `当前：${fontItem.value.name}` : '默认系统字体'
+})
+
+const fontOptions = computed(() => [
+  { value: '', label: '默认系统字体' },
+  ...fontList.value.map((f) => ({ value: f.file, label: f.name })),
+])
+
+/* 快速输入时丢弃过期的那一次绘制 */
+let seq = 0
+
+async function render() {
+  const el = cv.value
+  if (!el) return
+  const my = ++seq
+  /* 字体还在解析时 document.fonts 没就绪，画出来会是回退字体 */
+  try {
+    await document.fonts?.ready
+  } catch {
+    /* 老浏览器没有 fonts.ready，直接画 */
+  }
+  if (my !== seq) return
+
+  cover.drawCover(el, {
+    bgImg,
+    key: bg.value,
+    title: title.value,
+    subtitle: subtitle.value,
+    fontName: fontItem.value?.name ?? '',
+  })
+}
+
+function persist() {
+  cover.save({
+    bg: bg.value,
+    title: title.value,
+    subtitle: subtitle.value,
+    fontFileName: loaded.value,
+    fontName: fontItem.value?.name ?? '',
+    fontData: fontData.value,
+  })
+}
+
+/* ------------------------------------------------------------------ 背景图 */
+
+async function pickBg(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+
+  let data
+  try {
+    data = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(new Error('读取图片失败'))
+      reader.readAsDataURL(file)
+    })
+  } catch (err) {
+    ElMessage.error(err.message)
+    return
+  }
+
+  bg.value = data
+  bgImg = await cover.loadImage(data)
+  if (!bgImg) ElMessage.error('图片无法解析，换一张试试')
+  await render()
+  persist()
+}
+
+/* ------------------------------------------------------------------ 字体 */
+
+watch(fontFile, async (file) => {
+  if (file === loaded.value) return
+
+  if (!file) {
+    cover.dropFont()
+    loaded.value = ''
+    fontData.value = ''
+    fontStatus.value = ''
+    await render()
+    persist()
+    return
+  }
+
+  const item = fontList.value.find((f) => f.file === file)
+  if (!item) return
+
+  fontStatus.value = 'loading'
+  try {
+    const data = await cover.fetchFontData(file)
+    if (!(await cover.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    fontData.value = data
+    loaded.value = file
+    fontStatus.value = ''
+  } catch (err) {
+    cover.dropFont()
+    loaded.value = ''
+    fontData.value = ''
+    fontStatus.value = 'error'
+    ElMessage.error(`字体 [${item.name}] 加载失败：${err.message}`)
+  }
+
+  await render()
+  persist()
+})
+
+/* ------------------------------------------------------------------ 导出 */
+
+async function exportPng() {
+  const el = cv.value
+  if (!el || exporting.value) return
+  exporting.value = true
+
+  try {
+    await render()
+    const blob = await cover.toPng(el)
+    if (!blob) throw new Error('画布导出失败')
+    if (blob.size > 5 * 1024 * 1024) throw new Error('图片超过 5MB，请降低分辨率')
+
+    cover.download(blob, cover.pngName(title.value))
+    ElMessage.success('导出成功')
+  } catch (err) {
+    ElMessage.error(`导出失败：${err.message}`)
+  } finally {
+    exporting.value = false
+  }
+}
+
+/* ------------------------------------------------------------------ 清空 */
+
+function confirmClear() {
+  ElMessageBox.confirm('确定清空合集封面吗？', '清空配置', {
+    type: 'warning',
+    confirmButtonText: '清空',
+    cancelButtonText: '取消',
+    confirmButtonClass: 'el-button--danger',
+  })
+    .then(clearAll)
+    .catch(() => {})
+}
+
+async function clearAll() {
+  title.value = ''
+  subtitle.value = ''
+  bg.value = ''
+  bgImg = null
+  fontFile.value = ''
+  loaded.value = ''
+  fontData.value = ''
+  fontStatus.value = ''
+  cover.resetBgCache()
+  cover.dropFont()
+  await render()
+  persist()
+}
+
+/* ------------------------------------------------------------------ 启动 */
+
+watch([title, subtitle, loaded], render)
+
+onMounted(async () => {
+  try {
+    fontList.value = await cover.fetchFontList()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
+
+  const saved = await cover.loadSaved()
+  if (saved) {
+    title.value = saved.title ?? ''
+    subtitle.value = saved.subtitle ?? ''
+    bg.value = saved.bg ?? ''
+    fontData.value = saved.fontData ?? ''
+
+    if (bg.value) bgImg = await cover.loadImage(bg.value)
+    if (saved.fontFileName && fontData.value) {
+      const item = fontList.value.find((f) => f.file === saved.fontFileName)
+      /* 装得上就沿用，装不上就当默认字体，不打扰用户 */
+      if (item && (await cover.installFont({ name: item.name, data: fontData.value }))) {
+        loaded.value = saved.fontFileName
+        fontFile.value = saved.fontFileName
+      } else {
+        fontData.value = ''
+      }
+    }
+  }
+
+  await render()
+})
+
+/* KeepAlive 会保留实例，但切回来时补一次绘制最稳 */
+onActivated(render)
+</script>
+>>>>
+### src/views/CollectionCover.vue
+<<<<
+<template>
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
+    <!-- 预览固定在顶部，只有表单区滚动 -->
+    <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
+      <PreviewFrame>
+        <canvas ref="cv" class="block size-full" />
+
+        <p
+          v-if="!bg"
+          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+        >
+          还没上传背景图，先在下面选一张
+        </p>
+
+        <template #toolbar>
+          <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
+          <Btn
+            variant="float-danger"
+            size="md"
+            square
+            aria-label="清空合集封面"
+            title="清空"
+            @click.stop="askClear = true"
+          >
+            <template #icon><Icon name="ui.trash" /></template>
+          </Btn>
+        </template>
+      </PreviewFrame>
     </div>
 
-    <nav class="ah-drawer__nav" aria-label="工具菜单">
+    <!-- pb-24 给悬浮导出按钮让位，否则最后一段会被压在下面 -->
+    <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
+        <div class="rounded-panel border border-line bg-surface p-3">
+          <div class="flex min-h-9 items-center gap-3">
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="bg" :src="bg" alt="" class="size-full object-cover" />
+            </button>
+
+            <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
+              {{ bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图' }}
+            </span>
+
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">文字内容</h2>
+        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
+          <Field
+            v-model="title"
+            type="textarea"
+            :rows="2"
+            label="主标题"
+            placeholder="输入合集主标题"
+          />
+          <Field
+            v-model="subtitle"
+            type="textarea"
+            :rows="2"
+            label="副标题"
+            placeholder="输入合集副标题"
+          />
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
+        <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
+          <span class="grid size-5 shrink-0 place-items-center text-muted" aria-hidden="true">
+            <Icon name="ui.textFont" size="sm" />
+          </span>
+          <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
+          <!-- Dropdown 根节点自带 w-full，宽度只能由外面这层容器定 -->
+          <div class="w-32 shrink-0">
+            <Dropdown
+              v-model="fontFile"
+              :options="fontOptions"
+              label="选择字体"
+              placeholder="选择字体"
+            />
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 悬浮导出：位置/尺寸全在 DockCta 里，这里只给文案和动作 -->
+    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
+
+    <Modal
+      v-model="askClear"
+      title="清空配置"
+      message="确定清空合集封面吗？"
+      danger
+      @confirm="clearAll"
+    />
+  </div>
+</template>
 >>>>
 <<<<
-    size="256px"
-    title="功能导航"
-    aria-label="工具导航"
-    class="ah-drawer"
-  >
-    <nav class="ah-drawer__nav" aria-label="工具菜单">
->>>>
-### src/components/AppDrawer.vue
-<<<<
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
->>>>
-<<<<
-                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-2'"
->>>>
-### src/main.js
-<<<<
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
->>>>
-<<<<
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-import 'element-plus/theme-chalk/dark/css-vars.css'
->>>>
-### src/composables/useTheme.js
-<<<<
-  root.dataset.theme = next
-  if (meta) meta.setAttribute('content', THEME_COLOR[next])
->>>>
-<<<<
-  root.dataset.theme = next
-  /* EP 的暗色只认 html.dark 类，不认 data-theme —— 两套必须同时设 */
-  root.classList.toggle('dark', next === 'dark')
-  if (meta) meta.setAttribute('content', THEME_COLOR[next])
->>>>
-### index.html
-<<<<
-        root.dataset.theme = dark ? "dark" : "light";
->>>>
-<<<<
-        root.dataset.theme = dark ? "dark" : "light";
-        /* EP 的暗色只认 html.dark 类，不认 data-theme —— 首帧就要同时设上，否则刷新瞬间 EP 组件是白的 */
-        root.classList.toggle("dark", dark);
->>>>
-### src/views/ImageDict.vue
-<<<<
-'border-line-3 bg-surface-2'
->>>>
-<<<<
-'border-line-2 bg-surface-2'
->>>>
-### src/components/Btn.vue
-<<<<
-border border-line-3 shadow-float
->>>>
-<<<<
-border border-line-2 shadow-float
->>>>
-### src/components/Dropdown.vue
-<<<<
-text-xs text-ink hover:border-line-3
->>>>
-<<<<
-text-xs text-ink hover:border-line-2
->>>>
-### src/components/Dropdown.vue
-<<<<
-rounded-panel border border-line-3 bg-surface
->>>>
-<<<<
-rounded-panel border border-line-2 bg-surface
->>>>
-### src/components/Field.vue
-<<<<
-'hover:border-line-3',
->>>>
-<<<<
-'hover:border-line-2',
->>>>
-### src/components/FrameLayer.vue
-<<<<
-border-2 border-line-3 border-t-accent
->>>>
-<<<<
-border-2 border-line-2 border-t-accent
+<template>
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
+    <!-- 预览固定在顶部，只有表单区滚动 -->
+    <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
+      <PreviewFrame>
+        <canvas ref="cv" class="block size-full" />
+
+        <p
+          v-if="!bg"
+          class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs text-white/50"
+        >
+          还没上传背景图，先在下面选一张
+        </p>
+
+        <template #toolbar>
+          <el-button
+            type="danger"
+            plain
+            circle
+            aria-label="清空合集封面"
+            title="清空"
+            @click.stop="confirmClear"
+          >
+            <el-icon><Delete /></el-icon>
+          </el-button>
+        </template>
+      </PreviewFrame>
+    </div>
+
+    <!-- pb-24 给悬浮导出按钮让位，否则最后一段会被压在下面 -->
+    <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
+        <div class="rounded-panel border border-line bg-surface p-3">
+          <div class="flex min-h-9 items-center gap-3">
+            <!-- 缩略图选择器：显示的是用户自己的图，EP 没有「图片内容的按钮」形态，保留原生 -->
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              :class="bg ? 'border-line' : 'border-dashed border-line-2'"
+              aria-label="上传背景图"
+              @click="bgInput?.click()"
+            >
+              <img v-if="bg" :src="bg" alt="" class="size-full object-cover" />
+            </button>
+
+            <span class="min-w-0 truncate text-xs" :class="bg ? 'text-body' : 'text-muted'">
+              {{ bg ? '已载入背景图（点左侧小图更换）' : '点左侧小图上传背景图' }}
+            </span>
+
+            <input
+              ref="bgInput"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="pickBg"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">文字内容</h2>
+        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
+          <div class="grid gap-1">
+            <span class="text-xs text-muted">主标题</span>
+            <el-input v-model="title" type="textarea" :rows="2" placeholder="输入合集主标题" />
+          </div>
+          <div class="grid gap-1">
+            <span class="text-xs text-muted">副标题</span>
+            <el-input v-model="subtitle" type="textarea" :rows="2" placeholder="输入合集副标题" />
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-2">
+        <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
+        <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
+          <el-icon class="shrink-0 text-muted"><EditPen /></el-icon>
+          <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
+          <!-- el-select 默认撑满父级，宽度只能由外面这层容器定（EP 的 CSS 不带 @layer，w-* 会被压掉） -->
+          <div class="w-32 shrink-0">
+            <el-select v-model="fontFile" placeholder="选择字体" aria-label="选择字体">
+              <el-option v-for="o in fontOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 悬浮导出：EP 没有「底部悬浮主操作」组件，定位这一层留着，按钮本体用 el-button -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+    >
+      <el-button
+        type="primary"
+        size="large"
+        class="pointer-events-auto shadow-float"
+        :loading="exporting"
+        @click="exportPng"
+      >
+        导出图片
+      </el-button>
+    </div>
+  </div>
+</template>
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "<el-scrollbar" src/views/Home.vue
-grep -q ':gutter="12"' src/views/Home.vue
-grep -q ':span="12"' src/views/Home.vue
-grep -q "height: 132px" src/views/Home.vue
-! grep -q "column-gap" src/views/Home.vue
-! grep -q 'xs="24"' src/views/Home.vue
-[ "$(grep -c "<el-button" src/components/AppNav.vue)" -eq 2 ]
-! grep -q "<button" src/components/AppNav.vue
-grep -q 'title="功能导航"' src/components/AppDrawer.vue
-! grep -q "with-header" src/components/AppDrawer.vue
-grep -q "el-sub-menu" src/components/AppDrawer.vue
-! grep -rq "line-3" src
-grep -q "dark/css-vars.css" src/main.js
-grep -q "classList.toggle..dark." src/composables/useTheme.js
-grep -q "classList.toggle..dark." index.html
+grep -q "height: 152px" src/views/Home.vue
+grep -q "line-clamp: 3" src/views/Home.vue
+grep -q "return { canvas: out, pad }" src/lib/collectionCover.js
+grep -q "ctx.drawImage(bg.canvas, bg.pad, bg.pad, W, H, 0, 0, W, H)" src/lib/collectionCover.js
+! grep -q "drawImage(bg, 0, 0)" src/lib/collectionCover.js
+! grep -q "useToast" src/views/CollectionCover.vue
+! grep -q "<Btn" src/views/CollectionCover.vue
+! grep -q "<Dropdown" src/views/CollectionCover.vue
+! grep -q "<Field" src/views/CollectionCover.vue
+! grep -q "<Modal" src/views/CollectionCover.vue
+! grep -q "<DockCta" src/views/CollectionCover.vue
+grep -q "el-select" src/views/CollectionCover.vue
+grep -q "ElMessageBox.confirm" src/views/CollectionCover.vue
+grep -q "PreviewFrame" src/views/CollectionCover.vue
