@@ -10,6 +10,11 @@
   --color-surface: #faf9f5;
   --color-surface-2: #f7f3ec;
   --color-sunken: #e8e0d2;
+  /* 凹槽底：分段菜单 / 滑块轨道 / hover 一类「凹进去」的表面。
+     必须和卡片（surface）拉开档次，昼夜都要看得出来 ——
+     原来借用 sunken，白天只比卡片深一点、夜里与卡片同值。 */
+  --color-well: #e6dfd4;
+  --color-well-strong: #dcd3c3;
   --color-hover: #efe9de;
   /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
   --color-thumb: #e8e0d2;
@@ -168,6 +173,8 @@
   --color-surface: #1f1e1b;
   --color-surface-2: #252320;
   --color-sunken: #1f1e1b;
+  --color-well: #332f29;
+  --color-well-strong: #3d3830;
   --color-hover: #252320;
   --color-thumb: #252320;
 

@@ -51,10 +51,10 @@ html.dark {
   /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
      暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
      白天 surface-2 与 surface 只差 3/255，segmented 的底几乎看不出来。
-     掺一点 faint：白天偏灰、夜里偏亮，两种主题下都能看出「这是凹进去的轨道」。 */
-  --el-fill-color-dark: color-mix(in srgb, var(--color-faint) 24%, var(--color-surface-2));
-  --el-fill-color-darker: color-mix(in srgb, var(--color-faint) 34%, var(--color-surface-2));
-  --el-segmented-bg-color: color-mix(in srgb, var(--color-faint) 20%, var(--color-surface-2));
+     改用 tokens 里专门的 --color-well（昼夜各一档具体色）。
+     不用 color-mix：老浏览器（iOS Safari < 16.2）不支持，变量会变成无效值，等于没改。 */
+  --el-fill-color-dark: var(--color-well);
+  --el-fill-color-darker: var(--color-well-strong);
   --el-fill-color-blank: var(--color-surface);
 
   --el-mask-color: var(--color-mask);
@@ -142,4 +142,11 @@ html.dark {
    写在非分层（EP 的 CSS 不带 @layer，Tailwind 的 w-* 压不动它）。 */
 .el-slider__input {
   width: 72px;
+}
+
+/* el-segmented 的底由组件级变量控制（EP 在自己的选择器上定义了 --el-segmented-bg-color），
+   在 :root 里写同名变量会被它遮住，必须直接盖在组件上。
+   也不沿用 --el-fill-color-light：那个还管着输入框底和 hover，改它影响面太大。 */
+.el-segmented {
+  --el-segmented-bg-color: var(--color-well);
 }
