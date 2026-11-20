@@ -1,21 +1,21 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import Btn from '../components/Btn.vue'
-import DockCta from '../components/DockCta.vue'
-import Dropdown from '../components/Dropdown.vue'
-import Field from '../components/Field.vue'
-import Icon from '../components/Icon.vue'
-import Modal from '../components/Modal.vue'
+import {
+  Aim,
+  ArrowDown,
+  ArrowUp,
+  Delete,
+  Download,
+  EditPen,
+  Plus,
+  Upload,
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import PreviewFrame from '../components/PreviewFrame.vue'
-import Radios from '../components/Radios.vue'
-import Seg from '../components/Seg.vue'
-import Slider from '../components/Slider.vue'
-import { useToast } from '../composables/useToast.js'
 import * as fonts from '../lib/fonts.js'
 import * as cover from '../lib/videoCover.js'
 
 const { W, H, LOGO } = cover
-const toast = useToast()
 
 /* 整份状态就一个对象：存档、导入导出、旧配置兼容都靠它字段名与旧版一致 */
 const s = reactive(cover.fresh())
@@ -79,27 +79,34 @@ const subPlaced = computed(() => {
 
 /* ------------------------------------------------------------------ 模式 */
 
+const pendingMode = ref('')
+const modeLabels = cover.MODE_SUB_LABELS
+
 const mode = computed({
   get: () => s.guideType,
   set: (value) => {
     if (value === s.guideType) return
     pendingMode.value = value
-    askMode.value = true
+    askSwitchMode()
   },
 })
 
-const askMode = ref(false)
-const pendingMode = ref('')
-const modeLabels = cover.MODE_SUB_LABELS
-
-const modeMessage = computed(() => {
+/* 切换模式会重置主标题 / 副标题 / 胶囊文字，先问一句再动 */
+function askSwitchMode() {
   const lost = cover.lostOnSwitch(s)
   const tail = lost.length ? ` 同时会清空：${lost.join('、')}。` : ''
-  return `切换到「${cover.MODE_LABEL[pendingMode.value] ?? pendingMode.value}」后，主标题、副标题、胶囊标签会按新模式重置。${tail}`
-})
+  ElMessageBox.confirm(
+    `切换到「${cover.MODE_LABEL[pendingMode.value] ?? pendingMode.value}」后，主标题、副标题、胶囊标签会按新模式重置。${tail}`,
+    '切换攻略模式',
+    { type: 'warning', confirmButtonText: '切换', cancelButtonText: '取消' },
+  )
+    .then(confirmMode)
+    .catch(() => {
+      pendingMode.value = ''
+    })
+}
 
 async function confirmMode() {
-  askMode.value = false
   if (!pendingMode.value) return
   cover.applyMode(s, pendingMode.value)
   pendingMode.value = ''
@@ -122,7 +129,7 @@ async function pickBg(e) {
   try {
     s.bg = await readAsDataURL(file)
   } catch (err) {
-    toast.error(err.message)
+    ElMessage.error(err.message)
     return
   }
   await reloadBg()
@@ -158,7 +165,7 @@ async function matchCharacter() {
   if (art) {
     const img = await cover.loadImage(art)
     s.characterArt = img ? { url: art, w: img.width, h: img.height } : null
-    if (!img) toast.error(`立绘加载失败：${art}`)
+    if (!img) ElMessage.error(`立绘加载失败：${art}`)
   } else {
     s.characterArt = null
   }
@@ -181,7 +188,7 @@ async function matchBoss() {
     const url = await cover.findMonsterIcon(name)
     if (!url) {
       s.bossAvatar = null
-      toast.error(`未找到「${name}」的怪物图标`)
+      ElMessage.error(`未找到「${name}」的怪物图标`)
       return
     }
     const img = await cover.loadImage(url)
@@ -189,7 +196,7 @@ async function matchBoss() {
     s.bossAvatar = { url, w: img.width, h: img.height }
   } catch (err) {
     s.bossAvatar = null
-    toast.error(`图标加载失败：${err.message}`)
+    ElMessage.error(`图标加载失败：${err.message}`)
   }
 }
 
@@ -223,7 +230,7 @@ async function onFloatFile(e) {
     img = await cover.loadImage(url)
     if (!img) throw new Error('图片无法解析')
   } catch (err) {
-    toast.error(err.message)
+    ElMessage.error(err.message)
     return
   }
 
@@ -306,7 +313,7 @@ watch(fontFile, async (file) => {
     s.fontName = ''
     s.fontFileName = ''
     fontStatus.value = 'error'
-    toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
+    ElMessage.error(`字体 [${item.name}] 加载失败：${err.message}`)
   }
 })
 
@@ -344,7 +351,7 @@ async function ensureFont() {
     s.fontData = ''
     s.fontName = ''
     fontStatus.value = 'error'
-    toast.error(`字体「${item.name}」没能加载：${err.message}，导出会用默认字体`)
+    ElMessage.error(`字体「${item.name}」没能加载：${err.message}，导出会用默认字体`)
     return false
   }
 }
@@ -388,17 +395,17 @@ async function exportPng() {
     /* 字体跟着 SVG 一起进导出图：CSS 在 bakeSvg 里用 createElementNS 内嵌 */
     const fontCss = s.fontName && s.fontData ? fonts.fontFaceCss(s.fontName, s.fontData) : ''
     if (!fontCss && (s.fontName || s.fontFileName)) {
-      toast.error('字体没能加载，这次导出用的是默认字体')
+      ElMessage.error('字体没能加载，这次导出用的是默认字体')
     }
 
     const { blob, lost, font } = await cover.svgToPng(svg, fontCss)
     if (!blob) throw new Error('画布导出失败')
     cover.download(blob, cover.pngName(s))
-    if (lost) toast.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
-    else if (font) toast.success(`导出成功（已嵌入字体：${s.fontName}）`)
-    else toast.success('导出成功')
+    if (lost) ElMessage.error(`有 ${lost} 张图没能烘进导出图（网络 / 跨域拿不到），导出图里会缺这几张`)
+    else if (font) ElMessage.success(`导出成功（已嵌入字体：${s.fontName}）`)
+    else ElMessage.success('导出成功')
   } catch (err) {
-    toast.error(`导出失败：${err.message}`)
+    ElMessage.error(`导出失败：${err.message}`)
   } finally {
     exporting.value = false
   }
@@ -423,18 +430,26 @@ async function importJson(e) {
 
     if (!s.capLogo && dicts.logos.length) s.capLogo = cover.logoUrl(dicts.logos[0].file)
     await reloadBg()
-    toast.success('配置导入成功')
+    ElMessage.success('配置导入成功')
   } catch (err) {
-    toast.error(`导入失败：${err.message}`)
+    ElMessage.error(`导入失败：${err.message}`)
   }
 }
 
 /* ------------------------------------------------------------------ 清空 */
 
-const askClear = ref(false)
+function confirmClear() {
+  ElMessageBox.confirm('确定清空视频封面所有配置吗？', '清空配置', {
+    type: 'warning',
+    confirmButtonText: '清空',
+    cancelButtonText: '取消',
+    confirmButtonClass: 'el-button--danger',
+  })
+    .then(clearAll)
+    .catch(() => {})
+}
 
 async function clearAll() {
-  askClear.value = false
   Object.assign(s, cover.fresh())
   fonts.dropFont()
   fontFile.value = ''
@@ -456,7 +471,7 @@ onMounted(async () => {
   try {
     fontList.value = await fonts.fetchFontList()
   } catch (err) {
-    toast.error(err.message)
+    ElMessage.error(err.message)
   }
 
   const saved = await cover.loadSaved()
@@ -749,57 +764,50 @@ onMounted(async () => {
         </svg>
 
         <template #toolbar>
-          <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
-          <Btn
-            variant="float"
-            size="md"
-            square
+          <el-button
+            :type="s.showGuides ? 'primary' : 'default'"
+            plain
+            circle
             :aria-pressed="s.showGuides"
             aria-label="参考线"
             title="参考线"
             @click.stop="s.showGuides = !s.showGuides"
           >
-            <template #icon><Icon name="ui.guides" /></template>
-          </Btn>
+            <el-icon><Aim /></el-icon>
+          </el-button>
 
-          <Btn
-            variant="float"
-            size="md"
-            square
-            aria-label="导出配置"
-            title="导出配置"
-            @click.stop="exportJson"
-          >
-            <template #icon><Icon name="ui.export" /></template>
-          </Btn>
+          <el-button plain circle aria-label="导出配置" title="导出配置" @click.stop="exportJson">
+            <el-icon><Download /></el-icon>
+          </el-button>
 
-          <Btn
-            variant="float"
-            size="md"
-            square
+          <el-button
+            plain
+            circle
             aria-label="导入配置"
             title="导入配置"
             @click.stop="importInput?.click()"
           >
-            <template #icon><Icon name="ui.import" /></template>
-          </Btn>
+            <el-icon><Upload /></el-icon>
+          </el-button>
 
-          <Btn
-            variant="float-danger"
-            size="md"
-            square
+          <el-button
+            type="danger"
+            plain
+            circle
             aria-label="清空"
             title="清空"
-            @click.stop="askClear = true"
+            @click.stop="confirmClear"
           >
-            <template #icon><Icon name="ui.trash" /></template>
-          </Btn>
+            <el-icon><Delete /></el-icon>
+          </el-button>
 
           <input
             ref="importInput"
             type="file"
             accept=".json,application/json"
             class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
             @change="importJson"
           />
         </template>
@@ -809,27 +817,32 @@ onMounted(async () => {
     <main class="grid min-h-0 grid-cols-1 content-start gap-4 overflow-y-auto p-3 pb-24">
       <!-- ① 攻略模式 -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">攻略模式</h2>
-        <Seg v-model="mode" :options="cover.MODE_OPTIONS" full />
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">攻略模式</el-text>
+        <el-segmented v-model="mode" :options="cover.MODE_OPTIONS" block />
 
-        <div
-          v-if="s.guideType === 'character'"
-          class="rounded-panel border border-line bg-surface p-3"
-        >
-          <Slider v-model="s.characterX" label="立绘 X 位置" :min="0" :max="W" unit="px" />
-        </div>
+        <el-card v-if="s.guideType === 'character'" shadow="never">
+          <div class="grid gap-2">
+            <el-text size="small" class="ah-text-muted">立绘 X 位置</el-text>
+            <el-slider v-model="s.characterX" :min="0" :max="W" />
+          </div>
+        </el-card>
 
-        <div v-if="s.guideType === 'custom'" class="rounded-panel border border-line bg-surface p-3">
+        <el-card v-if="s.guideType === 'custom'" shadow="never">
           <div class="mb-3 flex items-center justify-between gap-2">
-            <span class="text-xs text-muted">浮动素材</span>
-            <Btn variant="secondary" size="sm" square aria-label="添加浮动素材" @click="addFloat">
-              <template #icon><Icon name="ui.plus" /></template>
-            </Btn>
+            <el-text size="small" class="ah-text-muted">浮动素材</el-text>
+            <el-button plain circle size="small" aria-label="添加浮动素材" @click="addFloat">
+              <el-icon><Plus /></el-icon>
+            </el-button>
           </div>
 
-          <p v-if="!s.floatImg.length" class="py-4 text-center text-xs text-muted">
+          <el-text
+            v-if="!s.floatImg.length"
+            tag="p"
+            size="small"
+            class="ah-text-muted block py-4 text-center"
+          >
             还没有浮动素材，点右上角加号添加
-          </p>
+          </el-text>
 
           <div v-else class="grid grid-cols-1 gap-2">
             <div
@@ -845,59 +858,61 @@ onMounted(async () => {
                   title="点击更换图片"
                   @click="replaceFloat(f.id)"
                 />
-                <span class="min-w-0 flex-1 truncate text-xs text-muted">{{ f.w }}×{{ f.h }}</span>
+                <el-text size="small" class="ah-text-muted min-w-0 flex-1 truncate">
+                  {{ f.w }}×{{ f.h }}
+                </el-text>
 
-                <Btn
-                  variant="secondary"
-                  size="sm"
-                  square
+                <el-button
+                  plain
+                  circle
+                  size="small"
                   aria-label="上移"
                   :disabled="i === 0"
                   @click="moveFloat(i, -1)"
                 >
-                  <template #icon><Icon name="ui.arrowUp" /></template>
-                </Btn>
-                <Btn
-                  variant="secondary"
-                  size="sm"
-                  square
+                  <el-icon><ArrowUp /></el-icon>
+                </el-button>
+                <el-button
+                  plain
+                  circle
+                  size="small"
                   aria-label="下移"
                   :disabled="i === s.floatImg.length - 1"
                   @click="moveFloat(i, 1)"
                 >
-                  <template #icon><Icon name="ui.arrowDown" /></template>
-                </Btn>
-                <Btn
-                  variant="danger"
-                  size="sm"
-                  square
-                  class="border border-danger/30"
+                  <el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <el-button
+                  type="danger"
+                  plain
+                  circle
+                  size="small"
                   aria-label="删除"
                   @click="s.floatImg.splice(i, 1)"
                 >
-                  <template #icon><Icon name="ui.trash" /></template>
-                </Btn>
+                  <el-icon><Delete /></el-icon>
+                </el-button>
               </div>
 
-              <Slider v-model="f.x" label="X 位置" :min="0" :max="W" unit="px" />
-              <Slider
-                :model-value="Math.round(f.scale * 100)"
-                label="缩放"
-                :min="10"
-                :max="200"
-                unit="%"
-                @update:model-value="f.scale = $event / 100"
-              />
-              <Slider v-model="f.rounded" label="圆角" :min="0" :max="100" unit="%" />
-
-              <label class="flex cursor-pointer items-center gap-2 text-xs text-muted">
-                <input
-                  v-model="f.underMiddle"
-                  type="checkbox"
-                  class="size-4 shrink-0 accent-accent"
+              <div class="grid gap-2">
+                <el-text size="small" class="ah-text-muted">X 位置</el-text>
+                <el-slider v-model="f.x" :min="0" :max="W" />
+              </div>
+              <div class="grid gap-2">
+                <el-text size="small" class="ah-text-muted">缩放</el-text>
+                <el-slider
+                  :model-value="Math.round(f.scale * 100)"
+                  :min="10"
+                  :max="200"
+                  @update:model-value="f.scale = $event / 100"
                 />
-                置于中层背景下方
-              </label>
+              </div>
+              <div class="grid gap-2">
+                <el-text size="small" class="ah-text-muted">圆角</el-text>
+                <el-slider v-model="f.rounded" :min="0" :max="100" />
+              </div>
+
+              <el-checkbox v-model="f.underMiddle">置于中层背景下方</el-checkbox>
             </div>
           </div>
 
@@ -906,16 +921,19 @@ onMounted(async () => {
             type="file"
             accept="image/*"
             class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
             @change="onFloatFile"
           />
-        </div>
+        </el-card>
       </section>
 
       <!-- ② 画布背景 -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">画布背景</h2>
-        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">画布背景</el-text>
+        <el-card shadow="never">
           <div class="flex min-h-9 items-center gap-3">
+            <!-- 缩略图选择器：显示的是用户自己的图，EP 没有「图片内容的按钮」形态，保留原生 -->
             <button
               type="button"
               class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
@@ -926,9 +944,13 @@ onMounted(async () => {
               <img v-if="s.bg" :src="s.bg" alt="" class="size-full object-cover" />
             </button>
 
-            <span class="min-w-0 truncate text-xs" :class="s.bg ? 'text-body' : 'text-muted'">
+            <el-text
+              size="small"
+              class="min-w-0 truncate"
+              :class="s.bg ? 'ah-text-ink' : 'ah-text-muted'"
+            >
               {{ bgLabel }}
-            </span>
+            </el-text>
 
             <input
               ref="bgInput"
@@ -941,138 +963,162 @@ onMounted(async () => {
             />
           </div>
 
-          <Slider v-model="s.midBrightness" label="背景亮度" :min="-100" :max="100" unit="%" />
-          <Slider v-model="s.midBlur" label="背景模糊" :min="0" :max="100" unit="%" />
-        </div>
+          <div class="mt-4 grid gap-2">
+            <el-text size="small" class="ah-text-muted">背景亮度</el-text>
+            <el-slider v-model="s.midBrightness" :min="-100" :max="100" />
+          </div>
+          <div class="mt-4 grid gap-2">
+            <el-text size="small" class="ah-text-muted">背景模糊</el-text>
+            <el-slider v-model="s.midBlur" :min="0" :max="100" />
+          </div>
+        </el-card>
       </section>
 
       <!-- ③ 主标题（自定义模式才有） -->
       <section v-if="s.guideType === 'custom'" class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">主标题</h2>
-        <div class="rounded-panel border border-line bg-surface p-3">
-          <Field
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">主标题</el-text>
+        <el-card shadow="never">
+          <el-input
             v-model="s.mainText"
             type="textarea"
             :rows="2"
             placeholder="输入主标题（支持回车两行）"
           />
-        </div>
+        </el-card>
       </section>
 
       <!-- ④ 副标题 -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">副标题</h2>
-        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
-          <Field
-            v-model="s.sub1"
-            :label="sub1Label"
-            :placeholder="sub1Readonly ? '自动生成' : '第一行文字'"
-            :readonly="sub1Readonly"
-            @blur="s.guideType === 'boss' && matchBoss()"
-          />
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">副标题</el-text>
+        <el-card shadow="never">
+          <div class="grid grid-cols-1 gap-4">
+            <div class="grid gap-1">
+              <el-text size="small" class="ah-text-muted">{{ sub1Label }}</el-text>
+              <el-input
+                v-model="s.sub1"
+                :placeholder="sub1Readonly ? '自动生成' : '第一行文字'"
+                :readonly="sub1Readonly"
+                @blur="s.guideType === 'boss' && matchBoss()"
+              />
+            </div>
 
-          <Radios
-            v-if="s.guideType === 'custom'"
-            :model-value="String(s.sub1Size)"
-            label="第一行字号"
-            :options="cover.SUB_SIZE_OPTIONS"
-            @update:model-value="s.sub1Size = Number($event)"
-          />
+            <el-radio-group
+              v-if="s.guideType === 'custom'"
+              :model-value="String(s.sub1Size)"
+              @update:model-value="s.sub1Size = Number($event)"
+            >
+              <el-radio-button
+                v-for="o in cover.SUB_SIZE_OPTIONS"
+                :key="o.value"
+                :label="o.value"
+              >
+                {{ o.label }}
+              </el-radio-button>
+            </el-radio-group>
 
-          <Field
-            v-model="s.sub2"
-            :label="sub2Label"
-            placeholder="第二行文字"
-            @blur="s.guideType === 'character' && matchCharacter()"
-          />
+            <div class="grid gap-1">
+              <el-text size="small" class="ah-text-muted">{{ sub2Label }}</el-text>
+              <el-input
+                v-model="s.sub2"
+                placeholder="第二行文字"
+                @blur="s.guideType === 'character' && matchCharacter()"
+              />
+            </div>
 
-          <Radios
-            v-if="s.guideType === 'custom'"
-            :model-value="String(s.sub2Size)"
-            label="第二行字号"
-            :options="cover.SUB_SIZE_OPTIONS"
-            @update:model-value="s.sub2Size = Number($event)"
-          />
-        </div>
+            <el-radio-group
+              v-if="s.guideType === 'custom'"
+              :model-value="String(s.sub2Size)"
+              @update:model-value="s.sub2Size = Number($event)"
+            >
+              <el-radio-button
+                v-for="o in cover.SUB_SIZE_OPTIONS"
+                :key="o.value"
+                :label="o.value"
+              >
+                {{ o.label }}
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+        </el-card>
       </section>
 
       <!-- ⑤ 胶囊标签 -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">胶囊标签</h2>
-        <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
-          <Field
-            v-if="s.guideType === 'custom'"
-            v-model="s.capText"
-            label="标签文字"
-            placeholder="如：攻略 / 速刷"
-          />
-          <Slider v-model="s.capTextBrightness" label="文字亮度" :min="0" :max="200" unit="%" />
-        </div>
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">胶囊标签</el-text>
+        <el-card shadow="never">
+          <div class="grid grid-cols-1 gap-4">
+            <div v-if="s.guideType === 'custom'" class="grid gap-1">
+              <el-text size="small" class="ah-text-muted">标签文字</el-text>
+              <el-input v-model="s.capText" placeholder="如：攻略 / 速刷" />
+            </div>
+            <div class="grid gap-2">
+              <el-text size="small" class="ah-text-muted">文字亮度</el-text>
+              <el-slider v-model="s.capTextBrightness" :min="0" :max="200" />
+            </div>
+          </div>
+        </el-card>
       </section>
 
       <!-- ⑥ 字体 -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
-        <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
-          <span class="grid size-5 shrink-0 place-items-center text-muted" aria-hidden="true">
-            <Icon name="ui.textFont" size="sm" />
-          </span>
-          <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
-          <div class="w-32 shrink-0">
-            <Dropdown
-              v-model="fontFile"
-              :options="fontOptions"
-              label="选择字体"
-              placeholder="选择字体"
-            />
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">
+          字体（仅作用于导出图片）
+        </el-text>
+        <el-card shadow="never">
+          <div class="flex items-center gap-2.5">
+            <el-icon class="shrink-0"><EditPen /></el-icon>
+            <el-text size="small" class="ah-text-muted min-w-0 flex-1 truncate">
+              {{ fontLabel }}
+            </el-text>
+            <div class="w-32 shrink-0">
+              <el-select v-model="fontFile" placeholder="选择字体" aria-label="选择字体">
+                <el-option v-for="o in fontOptions" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+            </div>
           </div>
-        </div>
+        </el-card>
       </section>
 
       <!-- ⑦ 游戏 Logo -->
       <section class="grid grid-cols-1 gap-2">
-        <h2 class="px-1 text-xs font-medium text-muted">游戏 Logo</h2>
-        <div class="flex items-center gap-3 rounded-panel border border-line bg-surface p-3">
-          <img
-            v-if="s.capLogo"
-            :src="s.capLogo"
-            alt=""
-            class="size-9 shrink-0 rounded-ctl border border-line-2 object-cover"
-          />
-          <span
-            v-else
-            class="size-9 shrink-0 rounded-ctl border border-dashed border-line-2 bg-canvas"
-            aria-hidden="true"
-          ></span>
-          <!-- ml-auto：推开到右边；宽度只到装得下一个名字 -->
-          <div class="ml-auto w-32 shrink-0">
-            <Dropdown
-              v-model="logoFile"
-              :options="logoOptions"
-              label="游戏 Logo"
-              placeholder="选择 Logo"
+        <el-text tag="h2" size="small" class="ah-text-muted px-1 font-medium">游戏 Logo</el-text>
+        <el-card shadow="never">
+          <div class="flex items-center gap-3">
+            <img
+              v-if="s.capLogo"
+              :src="s.capLogo"
+              alt=""
+              class="size-9 shrink-0 rounded-ctl border border-line-2 object-cover"
             />
+            <span
+              v-else
+              class="size-9 shrink-0 rounded-ctl border border-dashed border-line-2 bg-canvas"
+              aria-hidden="true"
+            ></span>
+            <!-- ml-auto：推开到右边；宽度只到装得下一个名字 -->
+            <div class="ml-auto w-32 shrink-0">
+              <el-select v-model="logoFile" placeholder="选择 Logo" aria-label="游戏 Logo">
+                <el-option v-for="o in logoOptions" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+            </div>
           </div>
-        </div>
+        </el-card>
       </section>
     </main>
 
-    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
-
-    <Modal
-      v-model="askMode"
-      title="切换攻略模式"
-      :message="modeMessage"
-      @confirm="confirmMode"
-      @cancel="pendingMode = ''"
-    />
-
-    <Modal
-      v-model="askClear"
-      title="清空配置"
-      message="确定清空视频封面所有配置吗？"
-      danger
-      @confirm="clearAll"
-    />
+    <!-- 悬浮导出：EP 没有「底部悬浮主操作」，定位这层留着，按钮本体用 el-button -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+    >
+      <el-button
+        type="primary"
+        size="large"
+        class="pointer-events-auto shadow-float"
+        :loading="exporting"
+        @click="exportPng"
+      >
+        导出图片
+      </el-button>
+    </div>
   </div>
 </template>
