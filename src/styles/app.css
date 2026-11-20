@@ -48,8 +48,13 @@ html.dark {
   --el-fill-color-light: var(--color-surface-2);
   --el-fill-color-lighter: var(--color-surface);
   --el-fill-color-extra-light: var(--color-surface);
-  --el-fill-color-dark: var(--color-sunken);
-  --el-fill-color-darker: var(--color-sunken);
+  /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
+     暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
+     白天 surface-2 与 surface 只差 3/255，segmented 的底几乎看不出来。
+     掺一点 faint：白天偏灰、夜里偏亮，两种主题下都能看出「这是凹进去的轨道」。 */
+  --el-fill-color-dark: color-mix(in srgb, var(--color-faint) 24%, var(--color-surface-2));
+  --el-fill-color-darker: color-mix(in srgb, var(--color-faint) 34%, var(--color-surface-2));
+  --el-segmented-bg-color: color-mix(in srgb, var(--color-faint) 20%, var(--color-surface-2));
   --el-fill-color-blank: var(--color-surface);
 
   --el-mask-color: var(--color-mask);
@@ -131,4 +136,10 @@ html.dark {
 .ah-uid {
   width: calc((100% - 16px) / 3);
   flex: none;
+}
+
+/* el-slider 的数字框：EP 默认 130px 把滑块挤得太短，72px 够放 4 位数。
+   写在非分层（EP 的 CSS 不带 @layer，Tailwind 的 w-* 压不动它）。 */
+.el-slider__input {
+  width: 72px;
 }
