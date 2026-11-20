@@ -64,8 +64,8 @@ const DESC = {
 
 /* 固定高度：卡片不再随标题长短高低不齐 */
 .ah-home__card {
-  /* 半栏宽度下「图片字典编辑器」要折两行，104px 装不下，固定 132px */
-  height: 132px;
+  /* 半栏宽度下「图片字典编辑器」要折两行、描述最长 18 字要折三行，132px 装不下，固定 152px */
+  height: 152px;
   color: inherit;
   transition: background-color var(--el-transition-duration-fast);
 }
@@ -126,8 +126,9 @@ const DESC = {
 
 .ah-home__desc {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  /* 三行：半栏下 13px 字一行约 6~7 个汉字，「背景修改 / 双图羽化 / 图层拼接」要三行才够 */
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   color: var(--el-text-color-secondary);
   font-size: var(--el-font-size-small);

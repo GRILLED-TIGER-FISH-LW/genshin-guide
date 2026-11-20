@@ -83,7 +83,10 @@ function blurredBg(img, key) {
 
   cacheCanvas = out
   cacheKey = key
-  return out
+  /* 连 pad 一起返回：调用方必须只取中心 W×H 那块。
+     模糊核在图像边界外是透明的，所以 out 最外圈那 pad 宽的一条被模糊成了半透明；
+     把整张从 (0,0) 画进目标画布，四周就会透出底色。 */
+  return { canvas: out, pad }
 }
 
 export function resetBgCache() {
@@ -159,7 +162,9 @@ export function drawCover(canvas, { bgImg, key, title, subtitle, fontName } = {}
 
   const bg = bgImg ? blurredBg(bgImg, key) : null
   if (bg) {
-    ctx.drawImage(bg, 0, 0)
+    /* 只取中心 W×H：四周那圈 pad 是给模糊核留的余量，模糊后是半透明的，
+       直接画整张会让预览和导出的图片四周出现半透明边缘 */
+    ctx.drawImage(bg.canvas, bg.pad, bg.pad, W, H, 0, 0, W, H)
   } else {
     ctx.fillStyle = EMPTY_BG
     ctx.fillRect(0, 0, W, H)

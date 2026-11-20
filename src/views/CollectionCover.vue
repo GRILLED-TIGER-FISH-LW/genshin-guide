@@ -1,16 +1,9 @@
 <script setup>
 import { computed, onActivated, onMounted, ref, watch } from 'vue'
-import Btn from '../components/Btn.vue'
-import DockCta from '../components/DockCta.vue'
-import Dropdown from '../components/Dropdown.vue'
-import Field from '../components/Field.vue'
-import Icon from '../components/Icon.vue'
-import Modal from '../components/Modal.vue'
+import { Delete, EditPen } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import PreviewFrame from '../components/PreviewFrame.vue'
-import { useToast } from '../composables/useToast.js'
 import * as cover from '../lib/collectionCover.js'
-
-const toast = useToast()
 
 const cv = ref(null)
 const title = ref('')
@@ -28,7 +21,6 @@ const loaded = ref('')
 const fontData = ref('')
 const fontStatus = ref('') /* '' | 'loading' | 'error' */
 
-const askClear = ref(false)
 const exporting = ref(false)
 
 let bgImg = null
@@ -97,13 +89,13 @@ async function pickBg(e) {
       reader.readAsDataURL(file)
     })
   } catch (err) {
-    toast.error(err.message)
+    ElMessage.error(err.message)
     return
   }
 
   bg.value = data
   bgImg = await cover.loadImage(data)
-  if (!bgImg) toast.error('图片无法解析，换一张试试')
+  if (!bgImg) ElMessage.error('图片无法解析，换一张试试')
   await render()
   persist()
 }
@@ -138,7 +130,7 @@ watch(fontFile, async (file) => {
     loaded.value = ''
     fontData.value = ''
     fontStatus.value = 'error'
-    toast.error(`字体 [${item.name}] 加载失败：${err.message}`)
+    ElMessage.error(`字体 [${item.name}] 加载失败：${err.message}`)
   }
 
   await render()
@@ -159,9 +151,9 @@ async function exportPng() {
     if (blob.size > 5 * 1024 * 1024) throw new Error('图片超过 5MB，请降低分辨率')
 
     cover.download(blob, cover.pngName(title.value))
-    toast.success('导出成功')
+    ElMessage.success('导出成功')
   } catch (err) {
-    toast.error(`导出失败：${err.message}`)
+    ElMessage.error(`导出失败：${err.message}`)
   } finally {
     exporting.value = false
   }
@@ -169,8 +161,18 @@ async function exportPng() {
 
 /* ------------------------------------------------------------------ 清空 */
 
+function confirmClear() {
+  ElMessageBox.confirm('确定清空合集封面吗？', '清空配置', {
+    type: 'warning',
+    confirmButtonText: '清空',
+    cancelButtonText: '取消',
+    confirmButtonClass: 'el-button--danger',
+  })
+    .then(clearAll)
+    .catch(() => {})
+}
+
 async function clearAll() {
-  askClear.value = false
   title.value = ''
   subtitle.value = ''
   bg.value = ''
@@ -193,7 +195,7 @@ onMounted(async () => {
   try {
     fontList.value = await cover.fetchFontList()
   } catch (err) {
-    toast.error(err.message)
+    ElMessage.error(err.message)
   }
 
   const saved = await cover.loadSaved()
@@ -238,17 +240,16 @@ onActivated(render)
         </p>
 
         <template #toolbar>
-          <!-- 底下是什么颜色不知道，所以用 float 变体；危险那颗用 float-danger（自带红描边） -->
-          <Btn
-            variant="float-danger"
-            size="md"
-            square
+          <el-button
+            type="danger"
+            plain
+            circle
             aria-label="清空合集封面"
             title="清空"
-            @click.stop="askClear = true"
+            @click.stop="confirmClear"
           >
-            <template #icon><Icon name="ui.trash" /></template>
-          </Btn>
+            <el-icon><Delete /></el-icon>
+          </el-button>
         </template>
       </PreviewFrame>
     </div>
@@ -259,6 +260,7 @@ onActivated(render)
         <h2 class="px-1 text-xs font-medium text-muted">画布</h2>
         <div class="rounded-panel border border-line bg-surface p-3">
           <div class="flex min-h-9 items-center gap-3">
+            <!-- 缩略图选择器：显示的是用户自己的图，EP 没有「图片内容的按钮」形态，保留原生 -->
             <button
               type="button"
               class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-ctl border bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
@@ -289,52 +291,45 @@ onActivated(render)
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">文字内容</h2>
         <div class="grid grid-cols-1 gap-3 rounded-panel border border-line bg-surface p-3">
-          <Field
-            v-model="title"
-            type="textarea"
-            :rows="2"
-            label="主标题"
-            placeholder="输入合集主标题"
-          />
-          <Field
-            v-model="subtitle"
-            type="textarea"
-            :rows="2"
-            label="副标题"
-            placeholder="输入合集副标题"
-          />
+          <div class="grid gap-1">
+            <span class="text-xs text-muted">主标题</span>
+            <el-input v-model="title" type="textarea" :rows="2" placeholder="输入合集主标题" />
+          </div>
+          <div class="grid gap-1">
+            <span class="text-xs text-muted">副标题</span>
+            <el-input v-model="subtitle" type="textarea" :rows="2" placeholder="输入合集副标题" />
+          </div>
         </div>
       </section>
 
       <section class="grid grid-cols-1 gap-2">
         <h2 class="px-1 text-xs font-medium text-muted">字体（仅作用于导出图片）</h2>
         <div class="flex items-center gap-2.5 rounded-panel border border-line bg-surface p-3">
-          <span class="grid size-5 shrink-0 place-items-center text-muted" aria-hidden="true">
-            <Icon name="ui.textFont" size="sm" />
-          </span>
+          <el-icon class="shrink-0 text-muted"><EditPen /></el-icon>
           <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
-          <!-- Dropdown 根节点自带 w-full，宽度只能由外面这层容器定 -->
+          <!-- el-select 默认撑满父级，宽度只能由外面这层容器定（EP 的 CSS 不带 @layer，w-* 会被压掉） -->
           <div class="w-32 shrink-0">
-            <Dropdown
-              v-model="fontFile"
-              :options="fontOptions"
-              label="选择字体"
-              placeholder="选择字体"
-            />
+            <el-select v-model="fontFile" placeholder="选择字体" aria-label="选择字体">
+              <el-option v-for="o in fontOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- 悬浮导出：位置/尺寸全在 DockCta 里，这里只给文案和动作 -->
-    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
-
-    <Modal
-      v-model="askClear"
-      title="清空配置"
-      message="确定清空合集封面吗？"
-      danger
-      @confirm="clearAll"
-    />
+    <!-- 悬浮导出：EP 没有「底部悬浮主操作」组件，定位这一层留着，按钮本体用 el-button -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+    >
+      <el-button
+        type="primary"
+        size="large"
+        class="pointer-events-auto shadow-float"
+        :loading="exporting"
+        @click="exportPng"
+      >
+        导出图片
+      </el-button>
+    </div>
   </div>
 </template>
