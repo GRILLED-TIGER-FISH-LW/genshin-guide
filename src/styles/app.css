@@ -146,9 +146,11 @@ html.dark {
   --el-slider-stop-bg-color: var(--color-sunken);
 }
 
-/* 分段菜单：容器用卡片色（与下面的大框一致），选中项反过来用凹槽色，靠底色差区分 */
+/* 分段菜单：轨道用凹槽色，选中项用 accent-soft + accent 文字 —— 与抽屉菜单同一套「选中」语言。
+   别拿 sunken 当选中色，那看起来就是一块灰底、像没选中。
+   这些是 EP 的组件级变量，写在 :root 会被遮住，必须盖在组件上。 */
 .el-segmented {
-  --el-segmented-bg-color: var(--color-surface);
-  --el-segmented-item-selected-bg-color: var(--color-sunken);
-  --el-segmented-item-selected-color: var(--color-ink);
+  --el-segmented-bg-color: var(--color-sunken);
+  --el-segmented-item-selected-bg-color: var(--color-accent-soft);
+  --el-segmented-item-selected-color: var(--color-accent-strong);
 }
