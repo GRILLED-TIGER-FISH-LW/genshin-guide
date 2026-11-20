@@ -25,6 +25,8 @@
 - **经过**：① 不再新造颜色 —— 删掉 `--color-well` / `--color-well-strong`，根子在 `--color-sunken` 的暗色值：它是 `#1f1e1b`，与 `--color-surface` 同值，所以滑块轨道、分段菜单选中项、卡片 hover、collapse 底在夜里整片看不见；改成 `#2f2b24`（比卡片亮一档）后，凹槽类表面一律复用它。② `el-segmented` 容器用卡片色、选中项反过来用 `--color-sunken`，靠底色差区分。③ `el-slider` 的轨道变量 `--el-slider-runway-bg-color` 直接盖在 `.el-slider` 上（暗色 `css-vars.css` 还会再盖一次，靠 `:root` 的 `--el-fill-color-dark` 间接继承指不上）。④ 视频封面 7 个滑块弃用 `show-input`，改成「`el-slider` + `el-input-number`（88px）+ 单位文字」三项一行，标签去掉「（px）」「（%）」。
 - **结果**：夜里滑块轨道、分段菜单选中项、hover、collapse 底都看得见；分段菜单垫色与下面的大框一致；7 个滑块都能直接打字输数值，单位单独显示、标签干净。样式约定同步写进 `AGENTS.md`（凹槽色复用 sunken、EP 组件级变量的盖法、滑块写法）。
 
+- **补充（同批 · 配色对齐官方色板）**：侧边菜单选中的那一项看着发灰，对照 Claude 官方调色板一查，令牌里不少是手调的中间色 —— 强调写的是 `#cc785c`（官方 Orange 是 `#d97757`）、凹槽 `#e8e0d2`（官方 Light Gray 是 `#e8e6dc`）、页面底 `#f5f0e8`、hover `#efe9de`、success 是亮绿 `#5db872`（官方 Green 是 `#788c5d`），官方 Blue `#6a9bcc` 干脆没有。改法：① 令牌全量对齐七色，中性色只在两个纯色之间对半混（不再手调色相），暗色 `canvas` 用 Dark、`sunken` 提到 `#302d27`；调色板没有的红 / 黄留作 `danger` / `warning`；删掉调色板外的 `accent-teal` / `accent-amber`。② **选中态定成一套**：`accent-soft` 垫色（12% → 16%，原来太淡等于灰底）+ `accent-strong` 文字 + 抽屉菜单左侧 2px `accent` 竖条，`el-menu` 的 `active-color` 同步；`el-segmented` 轨道改回 `sunken`、选中项改用 `accent-soft` + `accent-strong`。结果：全站只剩官方七色（加红 / 黄两支语义色），抽屉与分段菜单的选中项一眼能看出是橙色调选中状态。约定写进 `AGENTS.md`。
+
 ### 2026-11-19 · 首页、顶栏与侧边菜单按冒险之证一比一对齐
 
 - **起因**：首页卡片排布、顶栏按钮、侧栏图标与文字间距、配色与冒险之证仓库（提瓦特冒险之证）不一致，要求一比一复刻。另外角色一图流的武器 / 圣遗物 / 头像图标都读不出来，侧栏子功能的小圆点与标题贴在一起。

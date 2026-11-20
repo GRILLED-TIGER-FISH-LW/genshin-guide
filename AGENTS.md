@@ -115,7 +115,21 @@
 ### 令牌与几何
 
 - 颜色、圆角、阴影、缓动都在 `tokens.css` 的 `@theme` 里，**改颜色只改这一个文件**（并同步另一仓库）。
-- 色板取 Claude（`#f5f0e8` 底 / `#141413` 字 / `#cc785c` 强调），几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
+- 色板取 **Claude 官方七色**，几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
+
+  | 角色 | 色值 | 用在哪 |
+  |---|---|---|
+  | Dark | `#141413` | 主文字（白天）/ 深色页面底（夜间） |
+  | Light | `#faf9f5` | 卡片、浅色底 / 夜间主文字 |
+  | Mid Gray | `#b0aea5` | 次级元素：需要看得见的边、次要图标 |
+  | Light Gray | `#e8e6dc` | 微妙背景：凹槽 `sunken`、`surface-2`、默认分隔线 |
+  | Orange | `#d97757` | 主强调 `accent`（按钮、选中态、链接） |
+  | Blue | `#6a9bcc` | 次强调 `info` |
+  | Green | `#788c5d` | `success` |
+
+- **两个纯色之间不够用的档，只能在这两个纯色之间混**（注释里标比例，如 `canvas` = Light + Light Gray 对半）。手调色相出来的中间色会发灰发黄，已经全部清掉。
+- 调色板没有的两支语义色自己留：`danger` 红（危险操作）、`warning` 黄（取 Orange 的色相压暗），别和 accent 混用。
+- **选中态全站一套**：`accent-soft` 垫色 + `accent-strong` 文字（抽屉菜单再加左侧 2px `accent` 竖条），`el-segmented` 的轨道用 `sunken`、选中项用 `accent-soft`。别拿 `sunken` 当选中色 —— 那是一块灰底，看着像没选中。
 - 深色模式**靠变量覆盖**（`[data-theme="dark"]`），不用 `dark:` 前缀。
 - 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
 - **凹槽类表面**（滑块轨道、`el-segmented` 选中项、卡片 hover、collapse 底）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档（`#2f2b24` vs `#1f1e1b`），否则这些地方整片看不见。
@@ -307,7 +321,8 @@
 
 ### 当前状态（每批合并后更新；下一轮开工先读这段，别去现场探索）
 
-- **最后合并**：`fill-fix4` —— 凹槽类表面统一复用 `--color-sunken`（暗色值 `#1f1e1b`→`#2f2b24`；原来与卡片同值，滑块轨道 / segmented 选中项 / hover / collapse 底在夜里全看不见），删掉上一批新造的 `--color-well(-strong)`；`el-slider` / `el-segmented` 的变量直接盖在组件上。视频封面 7 个滑块弃用 `show-input`，改「拖动条 + `el-input-number` 88px + 单位文字」。
+- **最后合并**：`palette-fix` —— 令牌对齐 Claude 官方七色：`accent` 由手调的 `#cc785c` 换成 Orange `#d97757`（`accent-soft` 12% → 16%）、`success` 换 Green `#788c5d`、新增 `info` Blue `#6a9bcc`；中性色改成「两个纯色之间对半混」（`canvas` = Light+Light Gray、`surface-2`/`sunken`/`line` = Light Gray、`line-2` = Light Gray+Mid Gray），暗色 `canvas` → Dark `#141413`、`sunken` → `#302d27`；删掉调色板外的 `accent-teal` / `accent-amber`。**选中态统一成 accent-soft 垫色 + accent-strong 文字**（抽屉菜单加左侧 2px 竖条），修「选中项看着发灰」；`el-segmented` 轨道用 sunken、选中项用 accent-soft。
+- **上一批**：`fill-fix4` —— 凹槽类表面统一复用 `--color-sunken`（暗色值 `#1f1e1b`→`#2f2b24`；原来与卡片同值，滑块轨道 / segmented 选中项 / hover / collapse 底在夜里全看不见），删掉上一批新造的 `--color-well(-strong)`；`el-slider` / `el-segmented` 的变量直接盖在组件上。视频封面 7 个滑块弃用 `show-input`，改「拖动条 + `el-input-number` 88px + 单位文字」。
 - **上一批**：`home-unify` —— 首页与两个封面工具回归 EP。首页：卡片固定 132px（标题/描述各最多两行，描述统一压到 12 个汉字以内、一句话说清用途）、顶栏 `el-button circle`、抽屉回默认头部、暗色三件套（`dark/css-vars.css` + `useTheme` 与 `index.html` 首帧同时切 `html.dark`）、全站 `line-3` 改 `line-2`（令牌不存在，类不生成）。合集封面 + 视频封面的自造控件全部换 EP；修合集封面「模糊背景画布比目标大 2×pad，模糊核边界外透明 → 整张画进去就透边」与「缓存存裸 canvas → 导出 drawImage 报参数类型错」。
 - **EP 无对应物、故意自造（别再硬套）**：①背景图缩略图 `<button>`（显示用户上传的图，`el-button` 没有图片内容形态）；②`PreviewFrame`（16:9 深底容器 + 工具栏点空白淡出）；③底部悬浮定位层（`el-affix` 是滚动固钉，不解决居中 + 安全区）；④隐藏 `<input type="file">`（`el-upload` 功能过剩）。
 - **首页卡片规则（两个仓库一致）**：半栏由 `el-col :span="12"` 定；水平间距用 `:gutter="12"`（只吃 number，写数组会变 NaN），垂直间距补 `row-gap`；卡片固定 132px，标题与描述各 `line-clamp: 2`；描述不超过 12 个汉字。

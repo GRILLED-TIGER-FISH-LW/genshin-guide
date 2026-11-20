@@ -118,7 +118,7 @@ function go(path) {
   --el-menu-bg-color: transparent;
   --el-menu-text-color: var(--color-body);
   --el-menu-hover-bg-color: var(--color-hover);
-  --el-menu-active-color: var(--color-ink);
+  --el-menu-active-color: var(--color-accent-strong);
   border: 0;
   background: transparent;
 }
@@ -129,9 +129,12 @@ function go(path) {
 }
 
 .ah-drawer__menu :deep(.el-menu-item.is-active) {
+  /* 选中态 = accent-soft 垫色 + accent 文字 + 左侧 2px 竖条（inset 阴影，不占位）。
+     accent-soft 从 12% 提到 16%：再淡就看着像灰底，等于没选中。 */
   background-color: var(--color-accent-soft);
-  color: var(--color-ink);
+  color: var(--color-accent-strong);
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .ah-drawer__menu :deep(.el-menu-item:focus-visible) {
