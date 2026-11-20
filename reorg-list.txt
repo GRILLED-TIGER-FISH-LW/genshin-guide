@@ -7,17 +7,22 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：fill-fix4 —— ①不再新造颜色：删掉 --color-well / --color-well-strong，
-#   改为修 --color-sunken 的暗色值（原来与 surface 同值 #1f1e1b，滑块轨道 / 分段菜单选中项 /
-#   hover / collapse 底全看不见），凹槽类表面一律复用 sunken；②数字框带单位：弃用 el-slider 的
-#   show-input（宽度被 EP 写死 130px、塞不进单位），改成「el-slider + el-input-number(88px) + 单位文字」；
-#   ③同批更新 AGENTS.md / CHANGELOG.md。
+# 最近一批：palette-fix —— ①令牌对齐 Claude 官方七色（Dark/Light/Mid Gray/Light Gray/Orange/Blue/Green）：
+#   accent 由手调的 #cc785c 改成 Orange #d97757、success 换 Green #788c5d、新增 info Blue #6a9bcc；
+#   中性色改成「两个纯色之间对半混」，删掉手调的 #f5f0e8 / #e8e0d2 / #efe9de 与临时造的 --color-well；
+#   暗色 canvas 用 Dark #141413、sunken 提到 #302d27（原来与卡片同值，凹槽看不见）。
+#   ②选中态统一：accent-soft 垫色（12%→16%）+ accent-strong 文字（抽屉菜单加左侧 2px 竖条），
+#   el-segmented 轨道用 sunken、选中项用 accent-soft —— 修「选中的菜单看着发灰」。
+#   ③（仅本仓库）视频封面 7 个滑块改成 拖动条 + 数字框 + 单位。
 
 == MOVES ==
 
 == EDITS ==
 ### src/styles/tokens.css
 <<<<
+  /* ---------- 表面 ---------- */
+  --color-canvas: #f5f0e8;
+  --color-surface: #faf9f5;
   --color-surface-2: #f7f3ec;
   --color-sunken: #e8e0d2;
   /* 凹槽底：分段菜单 / 滑块轨道 / hover 一类「凹进去」的表面。
@@ -25,21 +30,140 @@
      原来借用 sunken，白天只比卡片深一点、夜里与卡片同值。 */
   --color-well: #e6dfd4;
   --color-well-strong: #dcd3c3;
+  --color-hover: #efe9de;
+  /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+  --color-thumb: #e8e0d2;
+  /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
+  --color-preview: #181715;
 >>>>
 <<<<
-  --color-surface-2: #f7f3ec;
-  --color-sunken: #e8e0d2;
+  /* ---------- 表面 ----------
+     只用 Claude 官方调色板的四个中性：Dark #141413 · Light #faf9f5 · Mid Gray #b0aea5 · Light Gray #e8e6dc。
+     两档之间不够用时，在这两个纯色之间对半混（注释里标比例），**不再手调色相** ——
+     之前手调的那几个中间色（比官方 Light Gray 更黄一档）就是「看着发灰、发黄」的来源。 */
+  --color-canvas: #f1f0e8;      /* Light + Light Gray 对半：页面底 */
+  --color-surface: #faf9f5;     /* Light：卡片 / 输入框 / 弹窗 */
+  --color-surface-2: #e8e6dc;   /* Light Gray：微妙背景（浮层按钮、说明块） */
+  --color-sunken: #e8e6dc;      /* Light Gray：凹槽 —— 滑块轨道、分段菜单轨道、hover、折叠底 */
+  --color-hover: #eceae2;       /* Light Gray : Light ≈ 3:1 */
+  /* 图像/缩略图底：透明 PNG 的衬底，深色下要比卡片亮 */
+  --color-thumb: #e8e6dc;
+  /* 预览框底：图片 / 视频的衬底，始终深色、不随主题变（所以要令牌，不要 utility 里的裸 hex） */
+  --color-preview: #141413;
 >>>>
 ### src/styles/tokens.css
 <<<<
+  --color-canvas: #181715;
+  --color-surface: #1f1e1b;
+  --color-surface-2: #252320;
   --color-sunken: #1f1e1b;
   --color-well: #332f29;
   --color-well-strong: #3d3830;
+  --color-hover: #252320;
+  --color-thumb: #252320;
 >>>>
 <<<<
-  /* 凹槽类表面（滑块轨道 / 分段菜单选中项 / 卡片 hover / collapse 底）一律用它，
-     所以暗色下必须比 surface 亮一档 —— 原来的 #1f1e1b 与 surface 同值，这些地方全看不见 */
-  --color-sunken: #2f2b24;
+  --color-canvas: #141413;      /* Dark：深色页面底 */
+  --color-surface: #1f1e1b;     /* 比页面亮一档：卡片（其余中性都在 Dark 与 Light 之间取档） */
+  --color-surface-2: #2a2823;
+  --color-sunken: #302d27;      /* 凹槽必须比卡片亮一档 —— 与卡片同值时滑块轨道 / 选中项整片看不见 */
+  --color-hover: #2a2823;
+  --color-thumb: #2a2823;
+>>>>
+### src/styles/tokens.css
+<<<<
+  /* ---------- 描边 ---------- */
+  --color-line: #ebe6df;
+  --color-line-2: #e6dfd8;
+>>>>
+<<<<
+  /* ---------- 描边 ---------- */
+  --color-line: #e8e6dc;        /* Light Gray：默认分隔线，够淡 */
+  --color-line-2: #cccac1;      /* Light Gray + Mid Gray 对半：需要看得见的边 */
+>>>>
+### src/styles/tokens.css
+<<<<
+  --color-line: #26231f;
+  --color-line-2: #302c27;
+>>>>
+<<<<
+  --color-line: #302d27;
+  --color-line-2: #3d3a33;
+>>>>
+### src/styles/tokens.css
+<<<<
+  /* ---------- 强调 ---------- */
+  --color-accent: #cc785c;
+  --color-accent-strong: #a9583e;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.12);
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
+>>>>
+<<<<
+  /* ---------- 强调 ----------
+     Orange #d97757 是唯一强调色；Blue #6a9bcc 只做次强调（信息类）；Green #788c5d 归到语义的 success。 */
+  --color-accent: #d97757;         /* Orange */
+  --color-accent-strong: #b85c3c;  /* Orange 压深：小字、选中项文字、hover 文字 */
+  --color-accent-solid: #d97757;   /* 实心按钮底 */
+  --color-accent-hover: #c9684a;   /* 实心按钮 hover */
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(217, 119, 87, 0.16);  /* 选中态垫色：12% 会被看成灰底 */
+  --color-info: #6a9bcc;           /* Blue：次强调 / 信息提示 */
+  --color-info-soft: rgba(106, 155, 204, 0.14);
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
+>>>>
+### src/styles/tokens.css
+<<<<
+  --color-accent: #cc785c;
+  --color-accent-strong: #cc785c;
+  --color-accent-solid: #a9583e;
+  --color-accent-hover: #a9583e;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(204, 120, 92, 0.18);
+>>>>
+<<<<
+  --color-accent: #d97757;
+  --color-accent-strong: #e08b6e;  /* 暗底上要提亮一档才够对比 */
+  --color-accent-solid: #d97757;
+  --color-accent-hover: #e08b6e;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: rgba(217, 119, 87, 0.22);
+  --color-info: #6a9bcc;
+  --color-info-soft: rgba(106, 155, 204, 0.2);
+>>>>
+### src/styles/tokens.css
+<<<<
+  --color-danger: #c64545;
+  --color-danger-soft: #f8e9e7;
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-mask: rgba(20, 20, 19, 0.32);
+>>>>
+<<<<
+  --color-danger: #c64545;      /* 调色板没有红：危险操作只能自留一支 */
+  --color-danger-soft: #f8e9e7;
+  --color-success: #788c5d;     /* Green */
+  --color-warning: #b8791f;     /* 调色板没有黄：取 Orange 的色相压暗，别和 danger 的红混 */
+  --color-mask: rgba(20, 20, 19, 0.32);
+>>>>
+### src/styles/tokens.css
+<<<<
+  --color-danger: #e07070;
+  --color-danger-soft: rgba(224, 112, 112, 0.14);
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+>>>>
+<<<<
+  --color-danger: #e07070;
+  --color-danger-soft: rgba(224, 112, 112, 0.14);
+  --color-success: #788c5d;
+  --color-warning: #d8a44a;
 >>>>
 ### src/styles/app.css
 <<<<
@@ -52,9 +176,8 @@
   --el-fill-color-darker: var(--color-well-strong);
 >>>>
 <<<<
-  /* EP 的「下沉 / 轨道」填充：直接用 --color-sunken（暗色值已改成比 surface 亮一档，
-     见 tokens.css —— 原来暗色下两者同值，滑块轨道和 hover 直接消失）。
-     不新造令牌，也不用 color-mix：老浏览器（iOS Safari < 16.2）不支持，变量会变成无效值。 */
+  /* EP 的「下沉 / 轨道」填充：直接用 --color-sunken（Light Gray；暗色下比卡片亮一档，
+     见 tokens.css）。不新造令牌，也不用 color-mix：老浏览器（iOS Safari < 16.2）不支持。 */
   --el-fill-color-dark: var(--color-sunken);
   --el-fill-color-darker: var(--color-sunken);
 >>>>
@@ -74,21 +197,45 @@
 }
 >>>>
 <<<<
-/* 下面两条都盖在组件上：EP 在 .el-slider / .el-segmented 自己的选择器里定义过这些变量，
-   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。
-   一律复用 --color-sunken（暗色值比 surface 亮一档，见 tokens.css）。 */
-
-/* 滑块轨道与刻度点 */
+/* 滑块轨道与刻度点：凹槽色。EP 在 .el-slider 上定义过这些变量，
+   暗色 css-vars.css 还会再盖一次，所以必须盖在组件上。 */
 .el-slider {
   --el-slider-runway-bg-color: var(--color-sunken);
   --el-slider-stop-bg-color: var(--color-sunken);
 }
 
-/* 分段菜单：容器用卡片色（与下面的大框一致），选中项反过来用凹槽色，靠底色差区分 */
+/* 分段菜单：轨道用凹槽色（sunken），选中项用 accent-soft + accent 文字。
+   别拿 sunken 当「选中色」—— 那看起来就是一块灰底，跟没选中一样。
+   这些是 EP 的组件级变量，写在 :root 会被遮住，必须盖在组件上。 */
 .el-segmented {
-  --el-segmented-bg-color: var(--color-surface);
-  --el-segmented-item-selected-bg-color: var(--color-sunken);
-  --el-segmented-item-selected-color: var(--color-ink);
+  --el-segmented-bg-color: var(--color-sunken);
+  --el-segmented-item-selected-bg-color: var(--color-accent-soft);
+  --el-segmented-item-selected-color: var(--color-accent-strong);
+}
+>>>>
+### src/components/AppDrawer.vue
+<<<<
+  --el-menu-active-color: var(--color-ink);
+>>>>
+<<<<
+  --el-menu-active-color: var(--color-accent-strong);
+>>>>
+### src/components/AppDrawer.vue
+<<<<
+.ah-drawer__menu :deep(.el-menu-item.is-active) {
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+>>>>
+<<<<
+.ah-drawer__menu :deep(.el-menu-item.is-active) {
+  /* 选中态 = accent-soft 垫色 + accent 文字 + 左侧 2px 竖条（inset 阴影，不占位）。
+     accent-soft 从 12% 提到 16%：再淡就看着像灰底，等于没选中。 */
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 >>>>
 ### src/views/VideoCover.vue
@@ -248,27 +395,39 @@
 >>>>
 ### AGENTS.md
 <<<<
+- 色板取 Claude（`#f5f0e8` 底 / `#141413` 字 / `#cc785c` 强调），几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
+>>>>
+<<<<
+- 色板取 **Claude 官方七色**，几何取 Notion（控件 8px 矩形、卡片 12px、**胶囊只给页签和徽章**）。
+
+  | 角色 | 色值 | 用在哪 |
+  |---|---|---|
+  | Dark | `#141413` | 主文字（白天）/ 深色页面底（夜间） |
+  | Light | `#faf9f5` | 卡片、浅色底 / 夜间主文字 |
+  | Mid Gray | `#b0aea5` | 次级元素：需要看得见的边、次要图标 |
+  | Light Gray | `#e8e6dc` | 微妙背景：凹槽 `sunken`、`surface-2`、默认分隔线 |
+  | Orange | `#d97757` | 主强调 `accent`（按钮、选中态、链接） |
+  | Blue | `#6a9bcc` | 次强调 `info` |
+  | Green | `#788c5d` | `success` |
+
+- **两个纯色之间不够用的档，只能在这两个纯色之间混**（注释里标比例，如 `canvas` = Light + Light Gray 对半）。手调色相出来的色会发灰发黄，已经全部清掉。
+- 调色板没有的两支语义色自己留：`danger` 红（危险操作）、`warning` 黄（取 Orange 的色相压暗），别和 accent 混用。
+- **选中态全站一套**：`accent-soft` 垫色 + `accent-strong` 文字（抽屉菜单再加左侧 2px `accent` 竖条）。别拿 `sunken` 当选中色 —— 那是一块灰底，看着像没选中。
+>>>>
+### AGENTS.md
+<<<<
+- **最后合并**：
+>>>>
+<<<<
+- **最后合并**：`palette-fix` —— 令牌对齐 Claude 官方七色：`accent` `#cc785c` → `#d97757`（Orange，`accent-soft` 12% → 16%）、`success` → Green `#788c5d`、新增 `info` Blue `#6a9bcc`；中性色不再手调，`canvas` = Light+Light Gray 对半、`surface-2`/`sunken`/`line` = Light Gray `#e8e6dc`、`line-2` = Light Gray+Mid Gray 对半；暗色 `canvas` → `#141413`、`sunken` 提到 `#302d27`（比卡片亮一档）。删掉临时造的 `--color-well(-strong)`。**选中态统一成 accent-soft 垫色 + accent-strong 文字**（抽屉菜单加左侧 2px 竖条），修「选中项看着发灰」；`el-segmented` 轨道用 sunken、选中项用 accent-soft。
+- **上一批**：
+>>>>
+### AGENTS.md
+<<<<
 - **滑块**：`el-slider` 一律带 `show-input :show-input-controls="false" input-size="small"`，拖动条和右侧数字框双向同步，别只给拖动条。
 >>>>
 <<<<
-- **滑块**：不用 `el-slider` 的 `show-input`（它的数字框宽度被 EP 写死在 130px 里，也塞不进单位）。一律「`el-slider class="min-w-0 flex-1"` + `el-input-number style="width: 88px" size="small" controls-position="right"` + 单位 `<el-text class="shrink-0">`」三项一行，两个控件绑同一个值；标签里不写单位，单位单独显示。
->>>>
-### AGENTS.md
-<<<<
-- 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
->>>>
-<<<<
-- 颜色一律走令牌（`bg-surface-2` / `border-line-3` / `shadow-float`…），不写裸 hex。
-- **凹槽类表面**（滑块轨道、`el-segmented` 选中项、卡片 hover、collapse 底）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档（`#2f2b24` vs `#1f1e1b`），否则这些地方整片看不见。
-- EP 组件自己的变量（`--el-slider-runway-bg-color`、`--el-segmented-*`）要在**组件选择器上**盖，写在 `:root` 会被 EP 组件级定义和暗色 css-vars 遮住。
->>>>
-### AGENTS.md
-<<<<
-- **最后合并**：`home-unify`
->>>>
-<<<<
-- **最后合并**：`fill-fix4` —— 凹槽类表面统一复用 `--color-sunken`（暗色值 `#1f1e1b`→`#2f2b24`；原来与卡片同值，滑块轨道 / segmented 选中项 / hover / collapse 底在夜里全看不见），删掉上一批新造的 `--color-well(-strong)`；`el-slider` / `el-segmented` 的变量直接盖在组件上。视频封面 7 个滑块弃用 `show-input`，改「拖动条 + `el-input-number` 88px + 单位文字」。
-- **上一批**：`home-unify`
+- **滑块**：不用 `el-slider` 的 `show-input`（它的数字框宽度被 EP 写死在 130px 里，也塞不进单位）。一律「`el-slider class="min-w-0 flex-1"` + `el-input-number style="width: 88px" size="small" controls-position="right"` + 单位 `<el-text class="shrink-0">`」三项一行，两个控件绑同一个值；标签里不写单位。
 >>>>
 ### CHANGELOG.md
 <<<<
@@ -279,11 +438,11 @@
 <<<<
 ## 2026 年 11 月
 
-### 2026-11-21 · 凹槽类表面改回复用 `--color-sunken`（修暗色值），滑块换成「拖动条 + 数字框 + 单位」
+### 2026-11-21 · 配色对齐 Claude 官方七色；选中态不再发灰；滑块换成「拖动条 + 数字框 + 单位」
 
-- **起因**：上一批给滑块轨道和分段菜单选中项新造了一对 `--color-well` / `--color-well-strong`，结果分段菜单的垫色还是不跟下面的大框一致；滑块右边的数值框又是 `el-slider` 自带的 `show-input`（宽度被 EP 写死 130px，也塞不进单位），单位只能挤在标签里写「（px）」「（%）」。
-- **经过**：① 不再新造颜色 —— 删掉 `--color-well` / `--color-well-strong`，根子在 `--color-sunken` 的暗色值：它是 `#1f1e1b`，与 `--color-surface` 同值，所以滑块轨道、分段菜单选中项、卡片 hover、collapse 底在夜里整片看不见；改成 `#2f2b24`（比卡片亮一档）后，凹槽类表面一律复用它。② `el-segmented` 容器用卡片色、选中项反过来用 `--color-sunken`，靠底色差区分。③ `el-slider` 的轨道变量 `--el-slider-runway-bg-color` 直接盖在 `.el-slider` 上（暗色 `css-vars.css` 还会再盖一次，靠 `:root` 的 `--el-fill-color-dark` 间接继承指不上）。④ 视频封面 7 个滑块弃用 `show-input`，改成「`el-slider` + `el-input-number`（88px）+ 单位文字」三项一行，标签去掉「（px）」「（%）」。
-- **结果**：夜里滑块轨道、分段菜单选中项、hover、collapse 底都看得见；分段菜单垫色与下面的大框一致；7 个滑块都能直接打字输数值，单位单独显示、标签干净。样式约定同步写进 `AGENTS.md`（凹槽色复用 sunken、EP 组件级变量的盖法、滑块写法）。
+- **起因**：侧边菜单里选中的那一项看着发灰，不像被选中；对照 Claude 官方调色板一查，令牌里不少值是手调的中间色 —— 强调色写的是 `#cc785c`（官方 Orange 是 `#d97757`）、凹槽色 `#e8e0d2`（官方 Light Gray 是 `#e8e6dc`）、页面底 `#f5f0e8`、hover `#efe9de`、success 是亮绿 `#5db872`（官方 Green 是 `#788c5d`），而官方的 Blue `#6a9bcc` 干脆没有。
+- **经过**：① 令牌全量对齐七色 —— `accent` / `accent-strong` / `accent-solid` / `accent-hover` / `accent-soft` 全部按 Orange 重算，`success` 换 Green，新增 `info` / `info-soft`（Blue）；`canvas` 用 Light + Light Gray 对半，`surface-2` / `sunken` / `line` 用 Light Gray，`line-2` 用 Light Gray + Mid Gray 对半，暗色 `canvas` 用 Dark、`sunken` 提到 `#302d27`（原来和卡片同值，凹槽整片看不见）。调色板没有的红 / 黄留作 `danger` / `warning` 两支。② 选中态固定成一套：`accent-soft` 垫色（12% → 16%，原来太淡等于灰底）+ `accent-strong` 文字 + 抽屉菜单左侧 2px `accent` 竖条；`el-menu` 的 `active-color` 同步；`el-segmented` 轨道用 `sunken`、选中项用 `accent-soft` + `accent-strong`。③ 视频封面 7 个滑块弃用 `show-input`，改「`el-slider` + `el-input-number`（88px）+ 单位文字」三项一行，标签去掉「（px）」「（%）」。
+- **结果**：全站强调色、深浅中性、语义色只剩官方七色（外加红黄两支语义色），不再有手调的中间色；侧边菜单、分段菜单的选中项一眼能看出是橙色调的选中状态；凹槽（滑块轨道、分段轨道、折叠底）昼夜都看得见；7 个滑块能直接打字输数值、单位单独显示。约定写进 `AGENTS.md`。
 
 
 >>>>
@@ -292,13 +451,20 @@
 
 == CHECKS ==
 ! grep -rq "color-well" src
-grep -q "color-sunken: #2f2b24" src/styles/tokens.css
+grep -q "accent: #d97757" src/styles/tokens.css
+grep -q "accent-soft: rgba(217, 119, 87, 0.16)" src/styles/tokens.css
+grep -q "info: #6a9bcc" src/styles/tokens.css
+grep -q "success: #788c5d" src/styles/tokens.css
+grep -q "sunken: #e8e6dc" src/styles/tokens.css
+grep -q "sunken: #302d27" src/styles/tokens.css
+! grep -q "#cc785c\|#e8e0d2\|#f5f0e8\|#efe9de" src/styles/tokens.css
+grep -q "el-segmented-item-selected-bg-color: var(--color-accent-soft)" src/styles/app.css
+grep -q "el-menu-active-color: var(--color-accent-strong)" src/components/AppDrawer.vue
+grep -q "2026-11-21" CHANGELOG.md
+grep -q "Orange" AGENTS.md
 grep -q "el-slider-runway-bg-color: var(--color-sunken)" src/styles/app.css
-grep -q "el-segmented-item-selected-bg-color: var(--color-sunken)" src/styles/app.css
 ! grep -q "el-slider__input" src/styles/app.css
 ! grep -q "show-input" src/views/VideoCover.vue
 [ "$(grep -c '<el-input-number' src/views/VideoCover.vue)" -eq 7 ]
 [ "$(grep -c 'shrink-0">px' src/views/VideoCover.vue)" -eq 2 ]
 [ "$(grep -c 'shrink-0">%' src/views/VideoCover.vue)" -eq 5 ]
-grep -q "2026-11-21" CHANGELOG.md
-grep -q "el-input-number style=\"width: 88px\"" AGENTS.md
