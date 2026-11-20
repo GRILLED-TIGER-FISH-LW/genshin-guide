@@ -7,19 +7,43 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：fill-fix —— ①控件「凹槽」在某个主题下看不见：暗色 --color-sunken 与 surface 同值，
-#   --el-fill-color-dark（滑块轨道/hover）直接等于卡片色；白天 surface-2 与 surface 只差 3/255，
-#   segmented 的底几乎看不出。改成掺 faint 的 color-mix，两种主题都能辨。顺带给 segmented 单独设底。
-#   ②el-slider 数字框 EP 默认 130px 太宽，收成 72px；7 个滑块标签补单位（px / %）。
+# 最近一批：fill-fix2 —— 上一版 fill-fix 没生效，两个原因：
+#   ①--el-segmented-bg-color 是组件级变量（EP 在 .el-segmented 上定义），
+#     在 :root 写同名变量会被遮住，横向菜单的底一点没变；
+#   ②color-mix() 在老浏览器（iOS Safari < 16.2）不支持，--el-fill-color-dark 变成无效值，
+#     滑块轨道也没变。
+#   改法：tokens 里加 --color-well / --color-well-strong（昼夜各一档具体色），
+#   app.css 直接引用；segmented 的底盖在组件选择器上。
 
 == MOVES ==
 
 == EDITS ==
-### src/styles/app.css
+### src/styles/tokens.css
 <<<<
-  --el-fill-color-dark: var(--color-sunken);
-  --el-fill-color-darker: var(--color-sunken);
+  --color-surface-2: #f7f3ec;
+  --color-sunken: #e8e0d2;
 >>>>
+<<<<
+  --color-surface-2: #f7f3ec;
+  --color-sunken: #e8e0d2;
+  /* 凹槽底：分段菜单 / 滑块轨道 / hover 一类「凹进去」的表面。
+     必须和卡片（surface）拉开档次，昼夜都要看得出来 ——
+     原来借用 sunken，白天只比卡片深一点、夜里与卡片同值。 */
+  --color-well: #e6dfd4;
+  --color-well-strong: #dcd3c3;
+>>>>
+### src/styles/tokens.css
+<<<<
+  --color-surface-2: #252320;
+  --color-sunken: #1f1e1b;
+>>>>
+<<<<
+  --color-surface-2: #252320;
+  --color-sunken: #1f1e1b;
+  --color-well: #332f29;
+  --color-well-strong: #3d3830;
+>>>>
+### src/styles/app.css
 <<<<
   /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
      暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
@@ -29,82 +53,41 @@
   --el-fill-color-darker: color-mix(in srgb, var(--color-faint) 34%, var(--color-surface-2));
   --el-segmented-bg-color: color-mix(in srgb, var(--color-faint) 20%, var(--color-surface-2));
 >>>>
+<<<<
+  /* EP 的「下沉 / 轨道」填充：tokens 里 surface / surface-2 / sunken 三档差得太小 ——
+     暗色下 sunken 与 surface 同值（都 #1f1e1b），滑块轨道和 hover 直接消失；
+     白天 surface-2 与 surface 只差 3/255，segmented 的底几乎看不出来。
+     改用 tokens 里专门的 --color-well（昼夜各一档具体色）。
+     不用 color-mix：老浏览器（iOS Safari < 16.2）不支持，变量会变成无效值，等于没改。 */
+  --el-fill-color-dark: var(--color-well);
+  --el-fill-color-darker: var(--color-well-strong);
+>>>>
 ### src/styles/app.css
 <<<<
-.ah-uid {
-  width: calc((100% - 16px) / 3);
-  flex: none;
-}
->>>>
-<<<<
-.ah-uid {
-  width: calc((100% - 16px) / 3);
-  flex: none;
-}
-
-/* el-slider 的数字框：EP 默认 130px 把滑块挤得太短，72px 够放 4 位数。
-   写在非分层（EP 的 CSS 不带 @layer，Tailwind 的 w-* 压不动它）。 */
 .el-slider__input {
   width: 72px;
 }
 >>>>
-### src/views/VideoCover.vue
 <<<<
->立绘 X 位置</el-text>
->>>>
-<<<<
->立绘 X 位置（px）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->X 位置</el-text>
->>>>
-<<<<
->X 位置（px）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->缩放</el-text>
->>>>
-<<<<
->缩放（%）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->圆角</el-text>
->>>>
-<<<<
->圆角（%）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->背景亮度</el-text>
->>>>
-<<<<
->背景亮度（%）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->背景模糊</el-text>
->>>>
-<<<<
->背景模糊（%）</el-text>
->>>>
-### src/views/VideoCover.vue
-<<<<
->文字亮度</el-text>
->>>>
-<<<<
->文字亮度（%）</el-text>
+.el-slider__input {
+  width: 72px;
+}
+
+/* el-segmented 的底由组件级变量控制（EP 在自己的选择器上定义了 --el-segmented-bg-color），
+   在 :root 里写同名变量会被它遮住，必须直接盖在组件上。
+   也不沿用 --el-fill-color-light：那个还管着输入框底和 hover，改它影响面太大。 */
+.el-segmented {
+  --el-segmented-bg-color: var(--color-well);
+}
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "el-fill-color-dark: color-mix" src/styles/app.css
-grep -q "el-segmented-bg-color" src/styles/app.css
-grep -q "el-slider__input" src/styles/app.css
-grep -q "el-slider__input {" src/styles/app.css
-[ "$(grep -o "（px）\|（%）" src/views/VideoCover.vue | wc -l | tr -d " ")" = "7" ]
-grep -q "立绘 X 位置（px）" src/views/VideoCover.vue
-grep -q "背景模糊（%）" src/views/VideoCover.vue
+grep -q "color-well: #e6dfd4" src/styles/tokens.css
+grep -q "color-well: #332f29" src/styles/tokens.css
+grep -q "color-well-strong: #3d3830" src/styles/tokens.css
+! grep -q "el-fill-color-dark: color-mix" src/styles/app.css
+grep -q "el-fill-color-dark: var(--color-well)" src/styles/app.css
+grep -q ".el-segmented {" src/styles/app.css
+grep -q "el-segmented-bg-color: var(--color-well)" src/styles/app.css
