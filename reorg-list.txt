@@ -1,78 +1,393 @@
 # 清单文件：给 .github/workflows/reorg.yml 读的。四段，每段开头一行 == 段名 ==。
-# 最近一批：ep-export-text —— 配置 JSON 导出只留文字，图片不落盘（载入后按名字重新匹配）
+#   MOVES    一行一条：旧路径 -> 新路径
+#   EDITS    一条一个块：### 文件路径，然后 <<<< 原文 >>>>，再 <<<< 新文 >>>>（原文逐字、在该文件里唯一）
+#            —— 这一段里不要写 # 注释行（会被当成文件路径）
+#            —— 一个 ### 只能跟一对块；同一文件要改多处，就重复写几遍 ### 路径
+#   DELETES  一行一个路径（文件或目录都行）
+#   CHECKS   一行一条命令，非 0 即中止
+# 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
+#
+# 最近一批：home-ep —— 首页与冒险之证一比一复刻。
+#   首页：el-scrollbar + el-row gutter 12 + el-col span 12（恒半栏）+ el-card 固定 132px
+#         + 标题折两行 + 图标顶部对齐。
+#   顶栏：两个原生 button → el-button circle。
+#   侧栏：恢复 EP 默认头部（自带关闭按钮），子工具小圆点 bg-line-3（令牌不存在）改 line-2。
+#   暗色：main.js 补 dark css-vars、useTheme 与 index.html 首帧同时切 html.dark
+#         （EP 只认这个类，不认 data-theme）。
+#   顺带：全站 7 处 line-3 改 line-2（这些类因为缺令牌从来没生效过）。
 
 == MOVES ==
 
 == EDITS ==
-### src/views/CharacterGuide.vue
+### src/views/Home.vue
 <<<<
-async function exportConfig() {
-  const text = JSON.stringify({ ...toRaw(s), fontData: '' }, null, 2)
-  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
-  toast.success('配置已导出')
+<template>
+  <el-row class="ah-home">
+    <el-col v-for="t in TOOLS" :key="t.key" :xs="24" :sm="12" :md="8" :lg="6">
+      <RouterLink :to="'/' + t.key" class="ah-home__link">
+        <el-card shadow="never" class="ah-home__card">
+          <span class="ah-home__icon" aria-hidden="true">
+            <SolarIcon :name="t.icon" :size="18" />
+          </span>
+
+          <div class="ah-home__body">
+            <div class="ah-home__title">{{ t.label }}</div>
+            <div class="ah-home__desc">{{ DESC[t.key] }}</div>
+          </div>
+        </el-card>
+      </RouterLink>
+    </el-col>
+  </el-row>
+</template>
+>>>>
+<<<<
+<template>
+  <el-scrollbar class="ah-home__scroll">
+    <el-row class="ah-home" :gutter="12">
+      <el-col v-for="t in TOOLS" :key="t.key" :span="12">
+        <RouterLink :to="'/' + t.key" class="ah-home__link">
+          <el-card shadow="never" class="ah-home__card">
+            <div class="ah-home__inner">
+              <span class="ah-home__icon" aria-hidden="true">
+                <SolarIcon :name="t.icon" :size="18" />
+              </span>
+
+              <div class="ah-home__body">
+                <div class="ah-home__title">{{ t.label }}</div>
+                <div class="ah-home__desc">{{ DESC[t.key] }}</div>
+              </div>
+            </div>
+          </el-card>
+        </RouterLink>
+      </el-col>
+    </el-row>
+  </el-scrollbar>
+</template>
+>>>>
+### src/views/Home.vue
+<<<<
+<style scoped>
+.ah-home {
+  padding: 12px;
+  column-gap: 12px;
+  row-gap: 12px;
 }
->>>>
-<<<<
-/* 导出前把图片字段清空：配置 JSON 只存文字（名字 / 数值 / 描述），
-   图片是用 dataURL 塞在 state 里的，动辄几 MB；而载入后会按名字重新问字典，
-   所以图不必跟着文件走。结构（字段本身）保持不变，导入时照常归一化。
-   —— 与 public/saves/characters/*.json 在线存档的存法一致。 */
-function textOnly(data) {
-  const out = structuredClone(toRaw(data))
-  out.fontData = ''
 
-  for (const key of ['charImg', 'bgImg', 'nameBgImg']) {
-    out[key] = ''
-    out[`${key}Meta`] = null
-  }
-  out.teamCoreImg = ''
-
-  for (const list of Object.values(out.weaponData || {})) {
-    for (const w of list) w.img = ''
-  }
-  for (const a of out.artifactData || []) {
-    a.img = ''
-    a.img1 = ''
-    a.img2 = ''
-  }
-  for (const t of out.teamData || []) {
-    for (const c of t.chars || []) {
-      c.img = ''
-      for (const alt of c.alts || []) alt.img = ''
-    }
-  }
-  return out
+.ah-home__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
 }
 
-async function exportConfig() {
-  const text = JSON.stringify(textOnly(s), null, 2)
-  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
-  toast.success('配置已导出（仅文字）')
+.ah-home__link:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
->>>>
 
-### CHANGELOG.md
-<<<<
-- **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
->>>>
-<<<<
-- **结果**：首页、顶栏、侧边菜单的布局、字号、配色与冒险之证仓库完全一致，夜间模式组件也真正变深；顶栏按钮尺寸正常，侧栏图标与文字、小圆点与标题都有间距；角色一图流的武器、圣遗物、头像图标全部能正常显示。
-- **补充（配置导出）**：角色一图流的配置 JSON 改为**只导出文字**——图片是以 dataURL 塞在状态里的（动辄几 MB），而载入后会按名字重新问字典，所以导出时把 `charImg` / `bgImg` / `nameBgImg` / 武器 / 圣遗物 / 配队头像等图片字段统一清空，字段结构保持不变；与 `public/saves/characters/*.json` 在线存档的存法一致，整份文件回到几十 KB。
->>>>
+.ah-home__card {
+  color: inherit;
+  transition: background-color var(--el-transition-duration-fast);
+}
 
-### AGENTS.md
-<<<<
-- **最后合并**：`ep-fix-icons`
+.ah-home__link:hover .ah-home__card,
+.ah-home__link:focus-visible .ah-home__card {
+  background-color: var(--el-fill-color-dark);
+}
+
+.ah-home__card :deep(.el-card__body) {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ah-home__icon {
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--el-border-radius-base);
+  place-items: center;
+  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
+  color: var(--color-accent-strong);
+}
+
+[data-theme='dark'] .ah-home__icon {
+  background-color: color-mix(in srgb, var(--color-accent) 18%, #1f1e1b);
+}
+
+.ah-home__body {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ah-home__title {
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ah-home__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+  overflow: hidden;
+}
+</style>
 >>>>
 <<<<
-- **最后合并**：`ep-export-text` —— 角色一图流配置导出只留文字：`exportConfig` 走 `textOnly()`，清空 `charImg` / `bgImg` / `nameBgImg` / `teamCoreImg` / 武器 / 圣遗物 / 配队头像等图片字段（dataURL 太大），字段结构不变，载入后按名字重新匹配；与 `public/saves/characters/*.json` 存法一致。上一批 `ep-fix-icons`：侧栏小圆点补 `mr-2`、`image-loader.js` 改用条目 `key` 拼图地址。
+<style scoped>
+/* 与冒险之证首页一比一：只写 EP 不提供的三件事——卡片固定高度、图标块尺寸、两行截断。
+   宽度固定半栏由 el-col 的 :span="12" 决定，水平间距由 el-row 的 gutter 决定；
+   垂直间距 EP 不提供，只能给 el-row 补 row-gap（gutter 只吃 number，写成数组会变 NaN）。
+   圆角 / 内边距 / 字号 / 颜色全部走 EP 默认值与站点令牌。 */
+.ah-home__scroll {
+  height: 100%;
+}
+
+.ah-home {
+  padding: 12px;
+  row-gap: 12px;
+}
+
+.ah-home__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ah-home__link:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+/* 固定高度：卡片不再随标题长短高低不齐 */
+.ah-home__card {
+  /* 半栏宽度下「图片字典编辑器」要折两行，104px 装不下，固定 132px */
+  height: 132px;
+  color: inherit;
+  transition: background-color var(--el-transition-duration-fast);
+}
+
+.ah-home__link:hover .ah-home__card,
+.ah-home__link:focus-visible .ah-home__card {
+  background-color: var(--el-fill-color-dark);
+}
+
+/* EP 的 card 体默认不撑满，固定高度必须补这一行 */
+.ah-home__card :deep(.el-card__body) {
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.ah-home__inner {
+  display: flex;
+  gap: 12px;
+  /* 顶部对齐：标题折两行时图标不会跟着上下浮动，所有卡片的图标落在同一水平线 */
+  align-items: flex-start;
+  height: 100%;
+}
+
+.ah-home__icon {
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--el-border-radius-base);
+  place-items: center;
+  /* 垫色昼夜各一档：白天 12% 陶土橙叠 #faf9f5，黑夜 18% 叠 #1f1e1b */
+  background-color: color-mix(in srgb, var(--color-accent) 12%, #faf9f5);
+  color: var(--color-accent-strong);
+}
+
+[data-theme='dark'] .ah-home__icon {
+  background-color: color-mix(in srgb, var(--color-accent) 18%, #1f1e1b);
+}
+
+.ah-home__body {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ah-home__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
+  font-weight: 500;
+  overflow: hidden;
+  /* 半栏放不下 7 个字（「图片字典编辑器」），折到第二行而不是省略成 … */
+  word-break: break-word;
+}
+
+.ah-home__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+  overflow: hidden;
+}
+</style>
+>>>>
+### src/components/AppNav.vue
+<<<<
+    <button
+      type="button"
+      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+      aria-label="打开菜单"
+      @click="$emit('open-menu')"
+    >
+      <SolarIcon name="solar:hamburger-menu" size="20" aria-hidden="true" />
+    </button>
+>>>>
+<<<<
+    <el-button circle aria-label="打开菜单" @click="$emit('open-menu')">
+      <SolarIcon name="solar:hamburger-menu" size="20" aria-hidden="true" />
+    </el-button>
+>>>>
+### src/components/AppNav.vue
+<<<<
+    <button
+      type="button"
+      class="grid size-icon-btn shrink-0 place-items-center rounded-md border border-line-2 bg-surface text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+      :aria-label="themeLabel"
+      @click="toggleTheme"
+    >
+      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" :bold="true" size="20" aria-hidden="true" />
+    </button>
+>>>>
+<<<<
+    <el-button circle :aria-label="themeLabel" @click="toggleTheme">
+      <SolarIcon :name="theme === 'dark' ? 'solar:moon' : 'solar:sun-2'" :bold="true" size="20" aria-hidden="true" />
+    </el-button>
+>>>>
+### src/components/AppDrawer.vue
+<<<<
+    size="256px"
+    :with-header="false"
+    aria-label="工具导航"
+    class="ah-drawer"
+  >
+    <div class="flex h-14 shrink-0 items-center border-b border-line px-4">
+      <h2 class="text-heading-5 text-ink">功能导航</h2>
+    </div>
+
+    <nav class="ah-drawer__nav" aria-label="工具菜单">
+>>>>
+<<<<
+    size="256px"
+    title="功能导航"
+    aria-label="工具导航"
+    class="ah-drawer"
+  >
+    <nav class="ah-drawer__nav" aria-label="工具菜单">
+>>>>
+### src/components/AppDrawer.vue
+<<<<
+                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-3'"
+>>>>
+<<<<
+                :class="subOf === s.key && toolOf === t.key ? 'bg-accent' : 'bg-line-2'"
+>>>>
+### src/main.js
+<<<<
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+>>>>
+<<<<
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import 'element-plus/theme-chalk/dark/css-vars.css'
+>>>>
+### src/composables/useTheme.js
+<<<<
+  root.dataset.theme = next
+  if (meta) meta.setAttribute('content', THEME_COLOR[next])
+>>>>
+<<<<
+  root.dataset.theme = next
+  /* EP 的暗色只认 html.dark 类，不认 data-theme —— 两套必须同时设 */
+  root.classList.toggle('dark', next === 'dark')
+  if (meta) meta.setAttribute('content', THEME_COLOR[next])
+>>>>
+### index.html
+<<<<
+        root.dataset.theme = dark ? "dark" : "light";
+>>>>
+<<<<
+        root.dataset.theme = dark ? "dark" : "light";
+        /* EP 的暗色只认 html.dark 类，不认 data-theme —— 首帧就要同时设上，否则刷新瞬间 EP 组件是白的 */
+        root.classList.toggle("dark", dark);
+>>>>
+### src/views/ImageDict.vue
+<<<<
+'border-line-3 bg-surface-2'
+>>>>
+<<<<
+'border-line-2 bg-surface-2'
+>>>>
+### src/components/Btn.vue
+<<<<
+border border-line-3 shadow-float
+>>>>
+<<<<
+border border-line-2 shadow-float
+>>>>
+### src/components/Dropdown.vue
+<<<<
+text-xs text-ink hover:border-line-3
+>>>>
+<<<<
+text-xs text-ink hover:border-line-2
+>>>>
+### src/components/Dropdown.vue
+<<<<
+rounded-panel border border-line-3 bg-surface
+>>>>
+<<<<
+rounded-panel border border-line-2 bg-surface
+>>>>
+### src/components/Field.vue
+<<<<
+'hover:border-line-3',
+>>>>
+<<<<
+'hover:border-line-2',
+>>>>
+### src/components/FrameLayer.vue
+<<<<
+border-2 border-line-3 border-t-accent
+>>>>
+<<<<
+border-2 border-line-2 border-t-accent
 >>>>
 
 == DELETES ==
 
 == CHECKS ==
-grep -q "function textOnly" src/views/CharacterGuide.vue
-grep -q "JSON.stringify(textOnly(s), null, 2)" src/views/CharacterGuide.vue
-grep -q "out.teamCoreImg = ''" src/views/CharacterGuide.vue
-! grep -q "JSON.stringify({ ...toRaw(s), fontData: '' }" src/views/CharacterGuide.vue
-grep -q "ep-export-text" AGENTS.md
+grep -q "<el-scrollbar" src/views/Home.vue
+grep -q ':gutter="12"' src/views/Home.vue
+grep -q ':span="12"' src/views/Home.vue
+grep -q "height: 132px" src/views/Home.vue
+! grep -q "column-gap" src/views/Home.vue
+! grep -q 'xs="24"' src/views/Home.vue
+[ "$(grep -c "<el-button" src/components/AppNav.vue)" -eq 2 ]
+! grep -q "<button" src/components/AppNav.vue
+grep -q 'title="功能导航"' src/components/AppDrawer.vue
+! grep -q "with-header" src/components/AppDrawer.vue
+grep -q "el-sub-menu" src/components/AppDrawer.vue
+! grep -rq "line-3" src
+grep -q "dark/css-vars.css" src/main.js
+grep -q "classList.toggle..dark." src/composables/useTheme.js
+grep -q "classList.toggle..dark." index.html
