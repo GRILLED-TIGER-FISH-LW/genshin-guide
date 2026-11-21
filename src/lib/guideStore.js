@@ -182,88 +182,162 @@ export async function fetchRepoSave(name, theme) {
 /* =========================================================================
  * 补齐素材
  * -------------------------------------------------------------------------
- * 存档里只有名字，图要按名字问字典。顺序请求、一张接一张：一次载入最多二十几张
- * 图，不值得为它写并发池。
+ * 存档里只有名字，图要按名字问字典。
  *
- * force=false（载入存档）：只补缺的 —— 手删过的（*Deleted）和自己传过的都不动。
- * force=true（「从字典补素材」按钮）：立绘 / 元素图 / 大背景 / 1 号位头像按当前
- * 角色名与主题色重算一遍。旧版那颗按钮就是这个语义（`matchStyleImages()` 不带
- * onlyEmpty 参数时一律覆盖），照抄成「只补缺」就会出现「改了角色名再按没反应」。
+ * 【什么时候补】三个入口都补：首屏恢复草稿、载入在线存档、导入配置。
+ *   以前只有「从字典补素材」那颗按钮会补，而且是「图是空的才补」——
+ *   存档里存着一条早就 404 的旧链接（不等于空）就被跳过，所以必须手点一下。
+ *
+ * 【谁说了算】手传的（*Manual）和手删的（*Deleted）一律不动；剩下的
+ *   **每次都按当前字典重算**，不再看「现在有没有值」。
+ *
+ * 【怎么补】先把「要补哪几张」列成任务清单，最多 6 个并发跑完，
+ *   最后一次性写回 —— 以前是串行 await，界面上一张一张蹦。
  * ========================================================================= */
-export async function rematchMissing(d, force = false) {
+
+/* 并发池：同时最多 limit 个任务；返回与任务同序的结果 */
+async function runPool(tasks, limit = 6) {
+  const out = new Array(tasks.length)
+  let next = 0
+  const worker = async () => {
+    while (next < tasks.length) {
+      const k = next++
+      out[k] = await tasks[k]()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+  return out
+}
+
+export async function rematchMissing(d) {
   /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
   const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
 
-  if (force) {
-    /* 先清空 + 清掉手删标记，下面几段就会按新名字重算；字典里查不到就留空（回到占位图） */
-    d.charImg = ''
-    d.charImgDeleted = false
-    d.bgImg = ''
-    d.bgImgDeleted = false
-    d.nameBgImg = ''
-    d.nameBgImgDeleted = false
-  }
+  /* 大背景用的是名片图。注意规则在 config.characters.card 里 ——
+     config.characters 那一层的 prefix/ext 是头像规则，拿它去拼 card.key 会拼出头像 */
+  const cardCfg = (await dictConfig('characters'))?.card
+  const cardSrc = entry?.card?.alt && cardCfg?.alt ? cardCfg.alt : cardCfg
+  const element = themeToElementName(d.theme)
 
-  if (entry) {
-    /* 用户手动删过的图不补（*Deleted 就是干这个的） */
-    if (!d.charImg && !d.charImgDeleted && entry.art?.url) {
-      const meta = await loadImageMeta(entry.art.url)
-      if (meta) {
-        d.charImg = entry.art.url
+  /* 每张图一个任务：只发请求，返回「拿到之后怎么落」；
+     全部回来再一次性赋值，界面只刷新一次 */
+  const tasks = []
+
+  /* 立绘 */
+  if (!d.charImgManual && !d.charImgDeleted && entry?.art?.url) {
+    const url = entry.art.url
+    tasks.push(async () => {
+      const meta = await loadImageMeta(url)
+      return () => {
+        d.charImg = url
         d.charImgMeta = meta
         d.charImgManual = false
       }
-    }
+    })
+  }
 
-    /* 大背景用的是名片图。注意规则在 config.characters.card 里 ——
-       config.characters 那一层的 prefix/ext 是头像规则，拿它去拼 card.key 会拼出头像 */
-    const cardCfg = (await dictConfig('characters'))?.card
-    const cardSrc = entry.card?.alt && cardCfg?.alt ? cardCfg.alt : cardCfg
-    if (!d.bgImg && !d.bgImgDeleted && cardSrc?.prefix && entry.card?.key) {
-      d.bgImg = cardSrc.prefix + entry.card.key + (cardSrc.ext || '')
+  /* 大背景 = 名片图 */
+  if (!d.bgImgManual && !d.bgImgDeleted && cardSrc?.prefix && entry?.card?.key) {
+    const url = cardSrc.prefix + entry.card.key + (cardSrc.ext || '')
+    tasks.push(async () => () => {
+      d.bgImg = url
       d.bgImgManual = false
-    }
+    })
+  }
 
-    /* 1 号位头像就是主角色：按按钮时（force）跟着换角色，前提是没自己传过 */
-    if (force ? !d.teamCoreImgManual : !d.teamCoreImg) {
-      const avatar = await matchIcon('characters', d.charName)
-      if (avatar) {
-        d.teamCoreImg = avatar
+  /* 1 号位头像就是主角色（自己传过的不动） */
+  if (!d.teamCoreImgManual) {
+    const name = d.charName
+    tasks.push(async () => {
+      const url = await matchIcon('characters', name)
+      return () => {
+        d.teamCoreImg = url || ''
         d.teamCoreImgManual = false
-      } else if (force) {
-        d.teamCoreImg = ''
       }
-    }
+    })
   }
 
-  const element = themeToElementName(d.theme)
-  if (!d.nameBgImg && !d.nameBgImgDeleted && element) {
-    d.nameBgImg = `${ELEMENT_DIR}${element}.png`
-    d.nameBgImgMeta = await loadImageMeta(d.nameBgImg)
-    d.nameBgImgManual = false
+  /* 元素图 */
+  if (!d.nameBgImgManual && !d.nameBgImgDeleted && element) {
+    const url = `${ELEMENT_DIR}${element}.png`
+    tasks.push(async () => {
+      const meta = await loadImageMeta(url)
+      return () => {
+        d.nameBgImg = url
+        d.nameBgImgMeta = meta
+        d.nameBgImgManual = false
+      }
+    })
   }
 
+  /* 武器图标 */
   for (const type of WEAPON_ORDER) {
     for (const w of d.weaponData[type] || []) {
-      if (w.name && !w.img) w.img = await matchIcon('weapons', w.name)
+      if (!w.name || w.imgManual) continue
+      const name = w.name
+      tasks.push(async () => {
+        const url = await matchIcon('weapons', name)
+        return () => {
+          w.img = url || ''
+          w.imgManual = false
+        }
+      })
     }
   }
 
-  for (const a of d.artifactData || []) {
-    if (a.type === 'double') {
-      if (a.name1 && !a.img1) a.img1 = await matchIcon('artifacts', a.name1)
-      if (a.name2 && !a.img2) a.img2 = await matchIcon('artifacts', a.name2)
-    } else if (a.name && !a.img) {
-      a.img = await matchIcon('artifacts', a.name)
+  /* 圣遗物图标（散搭是两个） */
+  for (const art of d.artifactData || []) {
+    if (art.type === 'double') {
+      for (const n of [1, 2]) {
+        const name = art[`name${n}`]
+        if (!name || art[`img${n}Manual`]) continue
+        tasks.push(async () => {
+          const url = await matchIcon('artifacts', name)
+          return () => {
+            art[`img${n}`] = url || ''
+            art[`img${n}Manual`] = false
+          }
+        })
+      }
+    } else if (art.name && !art.imgManual) {
+      const name = art.name
+      tasks.push(async () => {
+        const url = await matchIcon('artifacts', name)
+        return () => {
+          art.img = url || ''
+          art.imgManual = false
+        }
+      })
     }
   }
 
+  /* 配队成员（0 号位是主角，不在这里）与备选 */
   for (const team of d.teamData || []) {
     for (const c of (team.chars || []).slice(1, 4)) {
-      if (c.name && !c.img) c.img = await matchIcon('characters', c.name)
+      if (c.name && !c.imgManual) {
+        const name = c.name
+        tasks.push(async () => {
+          const url = await matchIcon('characters', name)
+          return () => {
+            c.img = url || ''
+            c.imgManual = false
+          }
+        })
+      }
       for (const alt of c.alts || []) {
-        if (alt.name && !alt.img) alt.img = await matchIcon('characters', alt.name)
+        if (!alt.name || alt.imgManual) continue
+        const name = alt.name
+        tasks.push(async () => {
+          const url = await matchIcon('characters', name)
+          return () => {
+            alt.img = url || ''
+            alt.imgManual = false
+          }
+        })
       }
     }
   }
+
+  const applies = await runPool(tasks)
+  for (const apply of applies) if (apply) apply()
 }
