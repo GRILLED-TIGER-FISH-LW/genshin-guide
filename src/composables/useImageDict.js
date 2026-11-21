@@ -125,12 +125,12 @@ const OFFICIAL_TRAVELER_RE = /^UI_AvatarIcon_Player(Boy|Girl)/i
    旅行者·冰 和旅行者共用头像和名片，只有立绘不同 ——
    字典的 key 不能重复（那是个对象），所以给它一个自己的 key（中文名），
    头像用 url 指回旅行者那张图（仓库里的图，走站点绝对路径）。 */
-const TRAVELER_ICON = `${BASE}images/game/UI_AvatarIcon_Traveler.webp`
+const TRAVELER_ICON = `${BASE}images/game/旅行者.webp`
 const TRAVELER_CARD = 'Ysxf6'
 const FORCED_LOCAL = {
   characters: [
     {
-      key: 'Traveler',
+      key: '旅行者',
       name: '旅行者',
       order: 1,
       star: 5,
@@ -815,6 +815,13 @@ export function useImageDict() {
     if (row && tab.value === 'characters' && needFill(row)) {
       hydrate(row, row.key ? 'avatar' : 'name')
     }
+  }
+
+  /* 让选中重新指到这行。代号（角色）/ 序号（其余分类）一改，身份就变了，
+     activeRow 会按旧身份找不到行、详情栏被 v-if 关掉 ——
+     表现就是「内容一更新，界面弹回列表」。所以每次改完都要 reselect 一次。 */
+  function reselect(row) {
+    if (row) activeKey.value = identOf(tab.value, row)
   }
 
   /* ---------------- 槽位 ---------------- */
@@ -1840,6 +1847,7 @@ export function useImageDict() {
     removeRow,
     clearTab,
     select,
+    reselect,
     /* 槽位与反查 */
     applyUrl,
     clearSlot,
