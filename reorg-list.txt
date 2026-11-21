@@ -7,240 +7,2794 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：dict-ep-2 —— 图片字典三处收尾：
-#   ①页头 5 个按钮（从源匹配 / 新增 / 日志 / 载入 / 导出）从 flex-wrap 改成 grid-cols-6：
-#     前两个各占 3 格、后三个各占 2 格，手机上也永远是整齐两行；app.css 里把 EP 相邻按钮的
-#     12px 左边距归零（和 gap 叠加会一大一小），两个弹窗底部改成自己包一层 flex gap-2。
-#   ②「整条冻结」去掉（界面 + 调用）。
-#   ③序号 :max="9999" 去掉 —— 圣遗物 / 武器 / 怪物编号 5–8 位，原来全卡在 9999；
-#     输入框加宽 112px，星级另起一行。
+# 最近一批：guide-ep —— 角色卡一图流全量回归 EP（一批改完）：
+#   ①CharacterGuide.vue 整份重写：页签一行 el-segmented、工具栏 4 个 el-button circle、
+#     el-form/el-form-item/el-input、元素配色 el-radio-group（选项里是元素 SVG）、
+#     字体 el-select、立绘偏移 el-slider + el-input-number、面板 el-radio-button、ElMessageBox。
+#   ②出图只动一处：命座点亮底框 fill-opacity 0.25 → 0.5。
+#   ③补素材：三个入口都自动补；*Manual / *Deleted 才保留，其余按当前字典重算；
+#     6 路并发 + 一次性写回（不再一张张蹦）。
+#   ④命座圆 36px → 28px；删掉 Btn/Field/Dropdown/Modal/Slider/Icon/Seg 七个自造件。
 
 == MOVES ==
 
 == EDITS ==
-### src/views/ImageDict.vue
+### src/views/CharacterGuide.vue
 <<<<
-      <div class="flex flex-wrap gap-2">
-        <el-button type="primary" :loading="syncing" @click="onSync">
-          <template #icon><el-icon><Refresh /></el-icon></template>
-          从源匹配
-        </el-button>
+<script setup>
+import { computed, onMounted, reactive, ref, toRaw, watch } from 'vue'
+import { ICONS } from 'virtual:gg-icons'
+import Btn from '../components/Btn.vue'
+import DockCta from '../components/DockCta.vue'
+import Dropdown from '../components/Dropdown.vue'
+import Field from '../components/Field.vue'
+import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
+import PreviewFrame from '../components/PreviewFrame.vue'
+import Slider from '../components/Slider.vue'
+import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
+import { useToast } from '../composables/useToast.js'
+import { download, loadImageMeta, svgToPng, urlToDataURL } from '../lib/assets.js'
+import * as fonts from '../lib/fonts.js'
+import {
+  elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS, SVG_H, SVG_W,
+  TEAM_MAX, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
+} from '../lib/guideConsts.js'
+import * as guide from '../lib/guideChart.js'
+import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
 
-        <el-button :disabled="syncing" @click="openAdd">
-          <template #icon><el-icon><Plus /></el-icon></template>
-          新增
-        </el-button>
+/* 编辑区按旧版一图流的骨架；控件走通用件。
+   两个和观感有关的坑，都记在这儿免得以后再踩：
+   · danger 档的底色 #f8e9e7 贴在卡片底 #faf9f5 上对比只有 1.02:1，等于看不见 ——
+     删除按钮一律补一条 border-danger/30（旧版也是靠那 1px 红边框区分）
+   · 预览框右上角那颗「清空」用 Btn 的 float-danger 档（浮层外观 + 危险色），
+     别再拿 ! 去染档位颜色 */
 
-        <el-button @click="reportOpen = true">
-          <template #icon><el-icon><Document /></el-icon></template>
-          日志
-        </el-button>
+const s = reactive(guide.fresh())
+const toast = useToast()
 
-        <el-button :loading="fetching" @click="onLoad">
-          <template #icon><el-icon><Upload /></el-icon></template>
-          载入
-        </el-button>
+const uiIcons = ref({})
+/* 卡片里有几处坐标按文字宽度算（配队标题、副词条标签、散搭的标签）——
+   读一次 fonts.fontRev：字体异步装好之后，这些位置会自己重算 */
+const svg = computed(() => (fonts.fontRev.value, guide.buildGuideSVG(s, uiIcons.value)))
+const PLACEHOLDER = guide.placeholder()
 
-        <el-button :type="dirty ? 'danger' : 'default'" @click="exportDict">
-          <template #icon><el-icon><Download /></el-icon></template>
-          {{ dirty ? '未导出' : '导出' }}
-        </el-button>
-      </div>
-    </header>
->>>>
-<<<<
-      <div class="grid grid-cols-6 gap-2">
-        <el-button type="primary" class="col-span-3" :loading="syncing" @click="onSync">
-          <template #icon><el-icon><Refresh /></el-icon></template>
-          从源匹配
-        </el-button>
+const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
+const isTheme = (color) => s.theme.toLowerCase() === color.toLowerCase()
 
-        <el-button class="col-span-3" :disabled="syncing" @click="openAdd">
-          <template #icon><el-icon><Plus /></el-icon></template>
-          新增
-        </el-button>
+/* 元素图标是 1024 视框，Icon.vue 外框写死 24 视框会把它放大 43 倍画出画面外 */
+const elementIcon = (key) => `<svg viewBox="0 0 1024 1024" class="size-4 shrink-0 [&_path]:fill-current" aria-hidden="true">${ICONS[`element.${key}`] || ''}</svg>`
 
-        <el-button class="col-span-2" @click="reportOpen = true">
-          <template #icon><el-icon><Document /></el-icon></template>
-          日志
-        </el-button>
+const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+const PANEL = 'grid gap-2 rounded-panel border border-line bg-surface p-2'
+const CARD = 'grid gap-2 rounded-ctl border border-line-2 p-2'
+const HEAD = 'flex items-center justify-between gap-2'
+const DEL = 'border border-danger/30'
 
-        <el-button class="col-span-2" :loading="fetching" @click="onLoad">
-          <template #icon><el-icon><Upload /></el-icon></template>
-          载入
-        </el-button>
+/* =========================================================================
+ * 分区
+ * ========================================================================= */
+const SECTIONS = [
+  { key: 'style', label: '外观样式' },
+  { key: 'portrait', label: '立绘' },
+  { key: 'weapon', label: '武器' },
+  { key: 'artifact', label: '圣遗物' },
+  { key: 'talent', label: '天赋' },
+  { key: 'stat', label: '词条' },
+  { key: 'panel', label: '面板' },
+  { key: 'constellation', label: '命座' },
+  { key: 'team', label: '配队' },
+]
+const tab = ref('style')
+const contentEl = ref(null)
 
-        <el-button class="col-span-2" :type="dirty ? 'danger' : 'default'" @click="exportDict">
-          <template #icon><el-icon><Download /></el-icon></template>
-          {{ dirty ? '未导出' : '导出' }}
-        </el-button>
-      </div>
-    </header>
->>>>
-### src/views/ImageDict.vue
-<<<<
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
-              <el-input-number
-                :model-value="activeRow.order || 0"
-                :min="0"
-                :max="9999"
-                size="small"
-                controls-position="right"
-                style="width: 96px"
-                aria-label="序号"
-                @change="setOrder(activeRow, $event)"
+watch(tab, () => contentEl.value?.scrollTo({ top: 0 }))
+
+const collapsed = reactive({})
+const isCollapsed = (key) => !!collapsed[key]
+const toggleCollapse = (key) => { collapsed[key] = !collapsed[key] }
+
+/* =========================================================================
+ * 字体
+ * ========================================================================= */
+const fontList = ref([])
+const fontFile = ref('')
+const fontStatus = ref('') /* '' | 'loading' | 'error' */
+
+const fontOptions = computed(() => [
+  { value: '', label: '默认系统字体' },
+  ...fontList.value.map((f) => ({ value: f.file, label: f.name })),
+])
+
+const fontLabel = computed(() => {
+  if (fontStatus.value === 'loading') return '正在加载…'
+  if (fontStatus.value === 'error') return '字体加载失败，重新选一个即可'
+  return s.fontName ? `当前：${s.fontName}` : '默认系统字体'
+})
+
+async function onFontChange(file) {
+  if (!file) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = ''
+    return
+  }
+
+  const item = fontList.value.find((f) => f.file === file)
+  if (!item) return
+
+  fontStatus.value = 'loading'
+  try {
+    const data = await fonts.fetchFontData(file)
+    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    s.fontData = data
+    s.fontName = item.name
+    s.fontFileName = file
+    fontStatus.value = ''
+  } catch (err) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = 'error'
+    toast.error(`字体加载失败：${err.message}`)
+  }
+}
+
+async function applyFontFromState() {
+  fonts.dropFont()
+  if (s.fontName && s.fontData) {
+    if (await fonts.installFont({ name: s.fontName, data: s.fontData })) return
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    return
+  }
+  if (s.fontFileName && fontList.value.length) fontFile.value = s.fontFileName
+}
+
+/* =========================================================================
+ * 草稿
+ * ========================================================================= */
+const saveState = ref('')
+let saveTimer = 0
+
+function touchDraft() {
+  saveState.value = '保存中…'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    saveState.value = (await saveDraft({ ...toRaw(s), fontData: '' })) ? '已保存' : '保存失败'
+  }, 600)
+}
+
+onMounted(async () => {
+  try {
+    uiIcons.value = await loadUiIcons()
+  } catch {
+    /* 没图标也能用 */
+  }
+  try {
+    fontList.value = await fonts.fetchFontList()
+  } catch {
+    /* 清单读不到就没有可选字体，不影响其他 */
+  }
+
+  const draft = await loadDraft()
+  if (draft) {
+    Object.assign(s, normalizeGuide(draft))
+    saveState.value = '已恢复上次的草稿'
+  }
+
+  watch(s, touchDraft, { deep: true })
+  watch(fontFile, onFontChange)
+  await applyFontFromState()
+})
+
+/* =========================================================================
+ * 存档 / 配置 / 导出
+ * ========================================================================= */
+const confirmBox = ref(false)
+const confirmKind = ref('repo')
+const importInput = ref(null)
+const previewHost = ref(null)
+const exporting = ref(false)
+const matching = ref(false)
+
+/* 导出按 3 倍：1280×720 的卡片出 3840×2160，和封面工具出图同尺寸 */
+const PNG_SCALE = 3
+
+const confirmTitle = computed(() => (confirmKind.value === 'clear' ? '清空全部数据' : '载入在线存档'))
+const confirmText = computed(() => (confirmKind.value === 'clear' ? '清空' : '载入'))
+const confirmMessage = computed(() => (confirmKind.value === 'clear'
+  ? '确定清空所有配置与图片吗？此操作不可撤销。'
+  : `是否载入「${s.charName}」的存档？当前编辑内容会被覆盖。`))
+
+function askRepoSave() {
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+  confirmKind.value = 'repo'
+  confirmBox.value = true
+}
+
+function askClear() {
+  confirmKind.value = 'clear'
+  confirmBox.value = true
+}
+
+async function loadRepo() {
+  saveState.value = '正在读存档…'
+  const res = await fetchRepoSave(s.charName, s.theme)
+  if (res.error) {
+    saveState.value = ''
+    return toast.error(res.error)
+  }
+
+  Object.assign(s, normalizeGuide(res.data))
+  saveState.value = '正在补齐图标…'
+  await rematchMissing(s)
+  saveState.value = `已载入存档 ${res.file}`
+  await applyFontFromState()
+}
+
+/* 「从字典补素材」：按角色名把立绘 / 元素图 / 大背景（还有 1 号位头像）重算一遍。
+   和「载入在线存档」共用 rematchMissing，但这里走 force —— 改了角色名再按要能换过来；
+   自己传过的图（*Manual）两边都会挡住。 */
+async function matchStyle() {
+  if (matching.value) return
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+
+  matching.value = true
+  try {
+    await rematchMissing(s, true)
+    toast.success('已按图片字典重新匹配素材')
+  } finally {
+    matching.value = false
+  }
+}
+
+async function clearAll() {
+  const author = s.author
+  Object.assign(s, normalizeGuide({ author }))
+  await clearDraft()
+  fonts.dropFont()
+  fontFile.value = ''
+  saveState.value = '已清空'
+}
+
+const runConfirm = () => (confirmKind.value === 'clear' ? clearAll() : loadRepo())
+
+const dayStamp = () => {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/* 导出前把图片字段清空：配置 JSON 只存文字（名字 / 数值 / 描述），
+   图片是用 dataURL 塞在 state 里的，动辄几 MB；而载入后会按名字重新问字典，
+   所以图不必跟着文件走。结构（字段本身）保持不变，导入时照常归一化。
+   —— 与 public/saves/characters/*.json 在线存档的存法一致。 */
+function textOnly(data) {
+  const out = structuredClone(toRaw(data))
+  out.fontData = ''
+
+  for (const key of ['charImg', 'bgImg', 'nameBgImg']) {
+    out[key] = ''
+    out[`${key}Meta`] = null
+  }
+  out.teamCoreImg = ''
+
+  for (const list of Object.values(out.weaponData || {})) {
+    for (const w of list) w.img = ''
+  }
+  for (const a of out.artifactData || []) {
+    a.img = ''
+    a.img1 = ''
+    a.img2 = ''
+  }
+  for (const t of out.teamData || []) {
+    for (const c of t.chars || []) {
+      c.img = ''
+      for (const alt of c.alts || []) alt.img = ''
+    }
+  }
+  return out
+}
+
+async function exportConfig() {
+  const text = JSON.stringify(textOnly(s), null, 2)
+  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
+  toast.success('配置已导出（仅文字）')
+}
+
+async function importConfig(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  try {
+    Object.assign(s, normalizeGuide(JSON.parse(await file.text())))
+    await applyFontFromState()
+    toast.success('配置已导入')
+  } catch {
+    toast.error('这个文件不是本工具的配置')
+  }
+}
+
+/* 导出 PNG：和视频封面同一条链 —— 先把图烘成 data URL（外站图不烘会污染 canvas，
+   toBlob 直接抛错），字体内嵌，再把 SVG 当独立文档画进 canvas */
+async function exportPng() {
+  if (exporting.value) return
+  const host = previewHost.value?.querySelector('svg')
+  if (!host) return toast.error('预览还没准备好')
+
+  exporting.value = true
+  try {
+    await document.fonts?.ready
+
+    const clone = host.cloneNode(true)
+    clone.setAttribute('width', SVG_W * PNG_SCALE)
+    clone.setAttribute('height', SVG_H * PNG_SCALE)
+
+    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体要内嵌进去 */
+    if (s.fontName && s.fontData) {
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+      style.textContent = fonts.fontFaceCss(s.fontName, s.fontData)
+      clone.querySelector('defs')?.prepend(style)
+    }
+
+    for (const img of clone.querySelectorAll('image')) {
+      const href = img.getAttribute('href')
+      if (href && !/^data:/i.test(href)) img.setAttribute('href', await urlToDataURL(href))
+    }
+
+    const blob = await svgToPng(clone, SVG_W * PNG_SCALE, SVG_H * PNG_SCALE)
+    if (!blob) throw new Error('画布导出失败')
+
+    const name = (s.charName.trim() || '角色卡').replace(/[\\/:*?"<>|]/g, '_')
+    download(blob, `${name}_${dayStamp()}.png`)
+    toast.success('图片已导出')
+  } catch (err) {
+    toast.error(`导出失败：${err.message}`)
+  } finally {
+    exporting.value = false
+  }
+}
+
+/* =========================================================================
+ * 大图槽
+ * ========================================================================= */
+const IMG_SLOTS = [
+  { key: 'charImg', label: '立绘', hint: '点击图片上传' },
+  { key: 'nameBgImg', label: '元素图', hint: '点击图片上传' },
+  { key: 'bgImg', label: '大背景', hint: '留空为深色底' },
+]
+
+const fileInputs = {}
+const pickFile = (key) => fileInputs[key]?.click()
+
+const readAsDataURL = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(reader.error)
+  reader.readAsDataURL(file)
+})
+
+async function fileToDataURL(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  return file ? readAsDataURL(file) : ''
+}
+
+async function onSlotFile(key, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  s[key] = url
+  s[key + 'Meta'] = await loadImageMeta(url)
+  s[key + 'Deleted'] = false
+  s[key + 'Manual'] = true
+}
+
+function clearImg(key) {
+  s[key] = ''
+  s[key + 'Deleted'] = true
+}
+
+/* =========================================================================
+ * 武器
+ * ========================================================================= */
+const canMoveWeapon = (type, i, dir) => {
+  const list = s.weaponData[type]
+  const target = i + dir
+  if (target >= 0 && target < list.length) return true
+  const adj = WEAPON_ORDER[WEAPON_ORDER.indexOf(type) + dir]
+  return !!adj && s.weaponData[adj].length < WEAPON_MAX
+}
+
+function addWeapon(type) {
+  if (s.weaponData[type].length >= WEAPON_MAX) {
+    return toast.error(`「${WEAPON_LABELS[type]}」区最多 ${WEAPON_MAX} 个`)
+  }
+  s.weaponData[type].push({ name: '', img: '', imgManual: false })
+  collapsed[`weapon_${type}`] = false
+}
+
+const removeWeapon = (type, i) => s.weaponData[type].splice(i, 1)
+
+function moveWeapon(type, i, dir) {
+  const list = s.weaponData[type]
+  const target = i + dir
+  if (target >= 0 && target < list.length) {
+    ;[list[i], list[target]] = [list[target], list[i]]
+    return
+  }
+
+  const adj = WEAPON_ORDER[WEAPON_ORDER.indexOf(type) + dir]
+  if (!adj) return
+  if (s.weaponData[adj].length >= WEAPON_MAX) {
+    return toast.error(`「${WEAPON_LABELS[adj]}」区已满 ${WEAPON_MAX} 个`)
+  }
+  const [item] = list.splice(i, 1)
+  if (dir === 1) s.weaponData[adj].unshift(item)
+  else s.weaponData[adj].push(item)
+}
+
+async function matchWeapon(type, i) {
+  const cell = s.weaponData[type][i]
+  cell.img = await matchIcon('weapons', cell.name)
+  cell.imgManual = false
+}
+
+async function onWeaponFile(type, i, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.weaponData[type][i]
+  cell.img = url
+  cell.imgManual = true
+}
+
+/* =========================================================================
+ * 圣遗物
+ * ========================================================================= */
+const moveItem = (arr, i, dir) => {
+  const to = i + dir
+  if (to < 0 || to >= arr.length) return
+  ;[arr[i], arr[to]] = [arr[to], arr[i]]
+}
+
+function addArtifact(type) {
+  s.artifactData.push(type === 'double'
+    ? { type, name1: '', name2: '', displayText: '', img1: '', img1Manual: false, img2: '', img2Manual: false }
+    : { type, name: '', img: '', imgManual: false })
+  collapsed.artifact_section = false
+}
+
+const removeArtifact = (i) => s.artifactData.splice(i, 1)
+const moveArtifact = (i, dir) => moveItem(s.artifactData, i, dir)
+
+async function matchArtifact(i) {
+  const cell = s.artifactData[i]
+  cell.img = await matchIcon('artifacts', cell.name)
+  cell.imgManual = false
+}
+
+async function matchArtifactPart(i, n) {
+  const cell = s.artifactData[i]
+  cell[`img${n}`] = await matchIcon('artifacts', cell[`name${n}`])
+  cell[`img${n}Manual`] = false
+}
+
+async function onArtifactFile(i, imgKey, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.artifactData[i]
+  cell[imgKey] = url
+  cell[imgKey + 'Manual'] = true
+}
+
+/* =========================================================================
+ * 配队
+ * ========================================================================= */
+function addTeam() {
+  if (s.teamData.length >= TEAM_MAX) return toast.error(`最多 ${TEAM_MAX} 支队伍`)
+  s.teamData.push(guide.makeTeam())
+}
+
+const removeTeam = (ti) => s.teamData.splice(ti, 1)
+const moveTeam = (ti, dir) => moveItem(s.teamData, ti, dir)
+
+function moveTeamChar(ti, ci, dir) {
+  const to = ci + dir
+  if (to < 1 || to > 3) return
+  const chars = s.teamData[ti].chars
+  ;[chars[ci], chars[to]] = [chars[to], chars[ci]]
+}
+
+const moveAlt = (ti, ci, ai, dir) => moveItem(s.teamData[ti].chars[ci].alts, ai, dir)
+
+function addAlt(ti, ci) {
+  const alts = s.teamData[ti].chars[ci].alts
+  if (alts.length >= 4) return toast.error('备选最多 4 个')
+  alts.push({ name: '', img: '', imgManual: false })
+  collapsed[`team_${ti}_char_${ci}`] = false
+}
+
+const removeAlt = (ti, ci, ai) => s.teamData[ti].chars[ci].alts.splice(ai, 1)
+
+async function matchTeamChar(ti, ci) {
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function matchAlt(ti, ci, ai) {
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function onTeamCharFile(ti, ci, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onAltFile(ti, ci, ai, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onTeamCoreFile(e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  s.teamCoreImg = url
+  s.teamCoreImgManual = true
+}
+
+function clearTeamCore() {
+  s.teamCoreImg = ''
+  s.teamCoreImgManual = false
+}
+</script>
+
+<template>
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]">
+    <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
+      <PreviewFrame>
+        <!-- 导出时要从这层里取那份 SVG -->
+        <div ref="previewHost" class="grid size-full [&>svg]:size-full" v-html="svg" />
+
+        <template #toolbar>
+          <Btn variant="float" square aria-label="导出配置" @click="exportConfig">
+            <template #icon><Icon name="ui.export" size="sm" /></template>
+          </Btn>
+          <Btn variant="float" square aria-label="导入配置" @click="importInput?.click()">
+            <template #icon><Icon name="ui.import" size="sm" /></template>
+          </Btn>
+          <Btn
+            variant="float-danger"
+            square
+            aria-label="清空全部数据"
+            @click="askClear"
+          >
+            <template #icon><Icon name="ui.trash" size="sm" /></template>
+          </Btn>
+          <input
+            ref="importInput"
+            type="file"
+            accept=".json,application/json"
+            class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="importConfig"
+          />
+        </template>
+      </PreviewFrame>
+    </div>
+
+    <div
+      class="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+      aria-label="编辑区域切换"
+    >
+      <button
+        v-for="sec in SECTIONS"
+        :key="sec.key"
+        type="button"
+        class="h-10 shrink-0 rounded-ctl px-3 text-xs transition-shadow duration-150 sm:h-9"
+        :class="tab === sec.key ? 'bg-sunken font-medium text-ink' : 'text-muted hover:bg-hover'"
+        :aria-pressed="tab === sec.key"
+        @click="tab = sec.key"
+      >
+        {{ sec.label }}
+      </button>
+    </div>
+
+    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3 pb-24">
+      <!-- ① 外观样式 -->
+      <section v-show="tab === 'style'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">文字</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field v-model="s.charName" label="角色名称" placeholder="如：芙宁娜" />
+            <Field v-model="s.version" label="适用版本" placeholder="如：5.4" />
+            <Field v-model="s.date" label="制作日期" placeholder="如：2026-11-07" />
+            <Field v-model="s.author" label="攻略作者" />
+          </div>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">元素配色</h2>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="[name, color, iconKey] in elementColors"
+              :key="color"
+              type="button"
+              class="flex h-10 items-center justify-center gap-1.5 rounded-ctl border text-xs transition-shadow duration-150"
+              :class="isTheme(color) ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
+              :aria-pressed="isTheme(color)"
+              @click="s.theme = color"
+            >
+              <span :style="{ color }" v-html="elementIcon(iconKey)" />
+              {{ name }}
+            </button>
+          </div>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">字体</h2>
+          <div class="flex items-center gap-2">
+            <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ fontLabel }}</p>
+            <div class="w-32 shrink-0">
+              <Dropdown v-model="fontFile" :options="fontOptions" label="选择字体" placeholder="选择字体" />
+            </div>
+          </div>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">在线存档</h2>
+          <p class="text-xs text-faint">草稿自动存在本机浏览器里，下次打开会接着上次。</p>
+          <p class="text-xs text-accent-strong" aria-live="polite">{{ saveState }}</p>
+          <div class="flex flex-wrap gap-2">
+            <Btn @click="askRepoSave">载入在线存档</Btn>
+            <Btn :loading="matching" @click="matchStyle">从字典补素材</Btn>
+          </div>
+          <p class="text-xs text-faint">
+            按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
+          </p>
+        </div>
+      </section>
+
+      <!-- ② 立绘区 -->
+      <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">素材</h2>
+
+          <template v-for="slot in IMG_SLOTS" :key="slot.key">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :class="THUMB"
+                :aria-label="`上传${slot.label}`"
+                @click="pickFile(slot.key)"
+              >
+                <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-cover" />
+              </button>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-medium text-ink">{{ slot.label }}</div>
+                <div class="truncate text-xs text-muted">{{ s[slot.key] ? '已载入，点图更换' : slot.hint }}</div>
+              </div>
+              <Btn
+                v-if="s[slot.key]"
+                size="sm"
+                variant="danger"
+                square
+                :class="DEL"
+                :aria-label="`删除${slot.label}`"
+                @click="clearImg(slot.key)"
+              >
+                <template #icon><Icon name="ui.trash" size="sm" /></template>
+              </Btn>
+              <input
+                :ref="(el) => (fileInputs[slot.key] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onSlotFile(slot.key, $event)"
               />
-              <el-input
-                :model-value="activeRow.name"
-                class="min-w-0 flex-1"
-                size="small"
-                placeholder="中文名"
-                aria-label="中文名"
-                @input="activeRow.name = $event"
-                @blur="commitName(activeRow)"
-              />
-              <template v-if="tab !== 'monsters'">
-                <el-input-number
-                  :model-value="activeRow.star ?? 5"
-                  :min="1"
-                  :max="5"
-                  size="small"
-                  controls-position="right"
-                  style="width: 88px"
-                  aria-label="星级"
-                  @change="setStar(activeRow, $event)"
+            </div>
+
+            <Slider
+              v-if="slot.key === 'charImg' && s.charImg"
+              v-model="s.imgX"
+              label="立绘左右偏移"
+              :min="-400"
+              :max="400"
+              unit="px"
+            />
+          </template>
+        </div>
+      </section>
+
+      <!-- ③ 武器区 -->
+      <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-3">
+        <div v-for="type in WEAPON_ORDER" :key="type" :class="PANEL">
+          <div :class="HEAD">
+            <h2 class="text-xs font-medium text-muted">{{ WEAPON_LABELS[type] }}武器（{{ s.weaponData[type].length }}/{{ WEAPON_MAX }}）</h2>
+            <div class="flex shrink-0 gap-1">
+              <Btn size="sm" @click="addWeapon(type)">添加</Btn>
+              <Btn size="sm" :aria-expanded="!isCollapsed(`weapon_${type}`)" @click="toggleCollapse(`weapon_${type}`)">
+                {{ isCollapsed(`weapon_${type}`) ? '展开' : '收起' }}
+                <Icon :name="isCollapsed(`weapon_${type}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
+              </Btn>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed(`weapon_${type}`)" class="grid grid-cols-1 gap-2">
+            <p v-if="!s.weaponData[type].length" class="text-xs text-faint">暂无配置</p>
+
+            <div v-for="(w, i) in s.weaponData[type]" :key="i" :class="CARD">
+              <div :class="HEAD">
+                <span class="text-xs font-medium text-ink">#{{ i + 1 }}</span>
+                <div class="flex shrink-0 gap-1">
+                  <Btn size="sm" square aria-label="上移" :disabled="!canMoveWeapon(type, i, -1)" @click="moveWeapon(type, i, -1)">
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" square aria-label="下移" :disabled="!canMoveWeapon(type, i, 1)" @click="moveWeapon(type, i, 1)">
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除武器" @click="removeWeapon(type, i)">
+                    <template #icon><Icon name="ui.trash" size="sm" /></template>
+                  </Btn>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :class="THUMB"
+                  :aria-label="`上传第 ${i + 1} 个武器的图标`"
+                  @click="pickFile(`w:${type}:${i}`)"
+                >
+                  <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                </button>
+                <Field
+                  v-model="w.name"
+                  label=""
+                  :aria-label="`第 ${i + 1} 个武器名`"
+                  placeholder="武器名"
+                  class="min-w-0 flex-1"
+                  @blur="matchWeapon(type, i)"
                 />
-                <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
-              </template>
-            </div>
+              </div>
 
-            <el-checkbox :model-value="!!activeRow.lock" @change="setLock(activeRow, $event)">
-              整条冻结
-            </el-checkbox>
+              <input
+                :ref="(el) => (fileInputs[`w:${type}:${i}`] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onWeaponFile(type, i, $event)"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ④ 圣遗物区 -->
+      <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <div :class="HEAD">
+            <h2 class="text-xs font-medium text-muted">圣遗物推荐（{{ s.artifactData.length }}）</h2>
+            <div class="flex shrink-0 gap-1">
+              <Btn size="sm" @click="addArtifact('single')">整套</Btn>
+              <Btn size="sm" @click="addArtifact('double')">散搭</Btn>
+              <Btn size="sm" :aria-expanded="!isCollapsed('artifact_section')" @click="toggleCollapse('artifact_section')">
+                {{ isCollapsed('artifact_section') ? '展开' : '收起' }}
+                <Icon :name="isCollapsed('artifact_section') ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
+              </Btn>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed('artifact_section')" class="grid grid-cols-1 gap-2">
+            <p v-if="!s.artifactData.length" class="text-xs text-faint">暂无配置</p>
+
+            <div v-for="(a, i) in s.artifactData" :key="i" :class="CARD">
+              <div :class="HEAD">
+                <span class="text-xs font-medium" :class="a.type === 'double' ? 'text-accent-strong' : 'text-ink'">
+                  {{ a.type === 'double' ? '散搭' : '整套' }} #{{ i + 1 }}
+                </span>
+                <div class="flex shrink-0 gap-1">
+                  <Btn size="sm" square aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" square aria-label="下移" :disabled="i === s.artifactData.length - 1" @click="moveArtifact(i, 1)">
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除圣遗物" @click="removeArtifact(i)">
+                    <template #icon><Icon name="ui.trash" size="sm" /></template>
+                  </Btn>
+                </div>
+              </div>
+
+              <template v-if="a.type === 'double'">
+                <Field
+                  v-model="a.displayText"
+                  label=""
+                  aria-label="卡片显示文本"
+                  placeholder="卡片显示文本（留空则显示两个名字）"
+                />
+                <div class="flex flex-wrap gap-2">
+                  <div v-for="n in 2" :key="n" class="flex min-w-[140px] flex-1 items-center gap-2">
+                    <button
+                      type="button"
+                      :class="THUMB"
+                      :aria-label="`上传散搭第 ${n} 个圣遗物的图标`"
+                      @click="pickFile(`a:${i}:${n}`)"
+                    >
+                      <img :src="a[`img${n}`] || PLACEHOLDER" alt="" class="size-full object-cover" />
+                    </button>
+                    <Field
+                      v-model="a[`name${n}`]"
+                      label=""
+                      :aria-label="`散搭第 ${n} 个圣遗物名`"
+                      :placeholder="`圣遗物名 ${n}`"
+                      class="min-w-0 flex-1"
+                      @blur="matchArtifactPart(i, n)"
+                    />
+                    <input
+                      :ref="(el) => (fileInputs[`a:${i}:${n}`] = el)"
+                      type="file"
+                      accept="image/*"
+                      class="sr-only"
+                      tabindex="-1"
+                      aria-hidden="true"
+                      @change="onArtifactFile(i, `img${n}`, $event)"
+                    />
+                  </div>
+                </div>
+              </template>
+
+              <div v-else class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :class="THUMB"
+                  :aria-label="`上传第 ${i + 1} 个圣遗物的图标`"
+                  @click="pickFile(`a:${i}`)"
+                >
+                  <img :src="a.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                </button>
+                <Field
+                  v-model="a.name"
+                  label=""
+                  :aria-label="`第 ${i + 1} 个圣遗物名`"
+                  placeholder="圣遗物名"
+                  class="min-w-0 flex-1"
+                  @blur="matchArtifact(i)"
+                />
+                <input
+                  :ref="(el) => (fileInputs[`a:${i}`] = el)"
+                  type="file"
+                  accept="image/*"
+                  class="sr-only"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="onArtifactFile(i, 'img', $event)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑤ 天赋区 -->
+      <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">天赋加点优先级</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Field v-model="s.talentA" label="普通攻击" placeholder="如：10" />
+            <Field v-model="s.talentE" label="元素战技" placeholder="如：9" />
+            <Field v-model="s.talentQ" label="元素爆发" placeholder="如：10" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑥ 词条区 -->
+      <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">主副词条推荐</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Field v-model="s.sandMain" label="时之沙" placeholder="如：元素精通" />
+            <Field v-model="s.gobMain" label="空之杯" placeholder="如：火元素伤害加成" />
+            <Field v-model="s.cirMain" label="理之冠" placeholder="如：暴击率" />
+          </div>
+          <Field v-model="s.subStats" label="副词条优先顺序" placeholder="如：暴击率 > 暴击伤害 > 元素精通" />
+        </div>
+      </section>
+
+      <!-- ⑦ 面板区 -->
+      <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">主属性（三选一）</h2>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="opt in PRIMARY_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="h-10 flex-1 rounded-ctl border text-xs transition-shadow duration-150"
+              :class="s.panel.primaryKey === opt.value ? 'border-ink bg-surface text-ink' : 'border-line text-muted hover:bg-hover'"
+              :aria-pressed="s.panel.primaryKey === opt.value"
+              @click="s.panel.primaryKey = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <Field v-model="s.panel.primaryValue" label="数值" placeholder="留空显示「任意」" />
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">副属性面板</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field v-model="s.panel.cr" label="暴击率" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.cd" label="暴击伤害" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.em" label="元素精通" placeholder="留空显示「任意」" />
+            <Field v-model="s.panel.er" label="充能效率" placeholder="留空显示「任意」" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑧ 命座区 -->
+      <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">核心命座说明（点击圆圈点亮）</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div v-for="(c, i) in s.constellationData" :key="i" class="flex items-center gap-2">
+              <button
+                type="button"
+                class="grid size-9 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
+                :class="c.active ? 'border-transparent text-white' : 'border-line text-muted hover:bg-hover'"
+                :style="c.active ? { backgroundColor: s.theme } : {}"
+                :aria-pressed="c.active"
+                :aria-label="`第 ${i + 1} 命`"
+                @click="c.active = !c.active"
+              >
+                {{ i + 1 }}
+              </button>
+              <Field
+                v-model="c.desc"
+                label=""
+                :aria-label="`第 ${i + 1} 命核心效果描述`"
+                :placeholder="`${i + 1} 命核心效果描述`"
+                class="min-w-0 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑨ 配队区 -->
+      <section v-show="tab === 'team'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">1 号位主角色头像</h2>
+          <div class="flex items-center gap-2">
+            <button type="button" :class="THUMB" aria-label="上传 1 号位头像" @click="pickFile('teamCore')">
+              <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-cover" />
+            </button>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-medium text-ink">1 号位头像</div>
+              <div class="truncate text-xs text-muted">{{ s.teamCoreImg ? '已载入，点图更换' : '留空就用角色自己的头像' }}</div>
+            </div>
+            <Btn v-if="s.teamCoreImg" size="sm" variant="danger" square :class="DEL" aria-label="删除 1 号位头像" @click="clearTeamCore">
+              <template #icon><Icon name="ui.trash" size="sm" /></template>
+            </Btn>
+            <input
+              :ref="(el) => (fileInputs.teamCore = el)"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="onTeamCoreFile"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted">配队（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
+          <Btn size="sm" @click="addTeam">添加队伍</Btn>
+        </div>
+        <p v-if="!s.teamData.length" class="px-1 text-xs text-faint">暂未添加配队</p>
+
+        <div v-for="(team, ti) in s.teamData" :key="ti" :class="PANEL">
+          <div :class="HEAD">
+            <span class="text-xs font-medium text-muted">队伍 {{ ti + 1 }}</span>
+            <div class="flex shrink-0 gap-1">
+              <Btn size="sm" square aria-label="上移" :disabled="ti === 0" @click="moveTeam(ti, -1)">
+                <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
+              </Btn>
+              <Btn size="sm" square aria-label="下移" :disabled="ti === s.teamData.length - 1" @click="moveTeam(ti, 1)">
+                <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
+              </Btn>
+              <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}`)" @click="toggleCollapse(`team_${ti}`)">
+                {{ isCollapsed(`team_${ti}`) ? '展开' : '收起' }}
+                <Icon :name="isCollapsed(`team_${ti}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
+              </Btn>
+              <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除队伍" @click="removeTeam(ti)">
+                <template #icon><Icon name="ui.trash" size="sm" /></template>
+              </Btn>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed(`team_${ti}`)" class="grid grid-cols-1 gap-2">
+            <Field v-model="team.name" label="" aria-label="队伍名称" placeholder="队伍名称（如：蒸发队）" />
+
+            <div v-for="ci in 3" :key="ci" :class="CARD">
+              <div :class="HEAD">
+                <span class="text-xs font-medium text-accent-strong">{{ ci + 1 }} 号位主角色</span>
+                <div class="flex shrink-0 gap-1">
+                  <Btn size="sm" square aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
+                    <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" square aria-label="下移" :disabled="ci === 3" @click="moveTeamChar(ti, ci, 1)">
+                    <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
+                  </Btn>
+                  <Btn size="sm" :aria-expanded="!isCollapsed(`team_${ti}_char_${ci}`)" @click="toggleCollapse(`team_${ti}_char_${ci}`)">
+                    {{ isCollapsed(`team_${ti}_char_${ci}`) ? '展开' : '收起' }}
+                    <Icon :name="isCollapsed(`team_${ti}_char_${ci}`) ? 'ui.chevronDown' : 'ui.chevronUp'" size="sm" bold />
+                  </Btn>
+                </div>
+              </div>
+
+              <div v-show="!isCollapsed(`team_${ti}_char_${ci}`)" class="grid grid-cols-1 gap-2">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    :class="THUMB"
+                    :aria-label="`上传 ${ci + 1} 号位角色头像`"
+                    @click="pickFile(`t:${ti}:${ci}`)"
+                  >
+                    <img :src="team.chars[ci].img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                  </button>
+                  <Field
+                    v-model="team.chars[ci].name"
+                    label=""
+                    :aria-label="`${ci + 1} 号位角色名`"
+                    :placeholder="`${ci + 1} 号位角色名`"
+                    class="min-w-0 flex-1"
+                    @blur="matchTeamChar(ti, ci)"
+                  />
+                  <input
+                    :ref="(el) => (fileInputs[`t:${ti}:${ci}`] = el)"
+                    type="file"
+                    accept="image/*"
+                    class="sr-only"
+                    tabindex="-1"
+                    aria-hidden="true"
+                    @change="onTeamCharFile(ti, ci, $event)"
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 border-l border-line-2 pl-3">
+                  <div :class="HEAD">
+                    <span class="text-xs text-muted">备选角色（{{ team.chars[ci].alts.length }}/4）</span>
+                    <Btn size="sm" @click="addAlt(ti, ci)">添加</Btn>
+                  </div>
+
+                  <div v-for="(alt, ai) in team.chars[ci].alts" :key="ai" class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      :class="THUMB_SM"
+                      :aria-label="`上传 ${ci + 1} 号位第 ${ai + 1} 个备选的头像`"
+                      @click="pickFile(`ta:${ti}:${ci}:${ai}`)"
+                    >
+                      <img :src="alt.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                    </button>
+                    <Field
+                      v-model="alt.name"
+                      label=""
+                      :aria-label="`${ci + 1} 号位第 ${ai + 1} 个备选角色名`"
+                      placeholder="备选角色名"
+                      class="min-w-0 flex-1"
+                      @blur="matchAlt(ti, ci, ai)"
+                    />
+                    <div class="flex shrink-0 gap-1">
+                      <Btn size="sm" square aria-label="上移" :disabled="ai === 0" @click="moveAlt(ti, ci, ai, -1)">
+                        <template #icon><Icon name="ui.arrowUp" size="sm" /></template>
+                      </Btn>
+                      <Btn size="sm" square aria-label="下移" :disabled="ai === team.chars[ci].alts.length - 1" @click="moveAlt(ti, ci, ai, 1)">
+                        <template #icon><Icon name="ui.arrowDown" size="sm" /></template>
+                      </Btn>
+                      <Btn size="sm" variant="danger" square :class="DEL" aria-label="删除备选" @click="removeAlt(ti, ci, ai)">
+                        <template #icon><Icon name="ui.trash" size="sm" /></template>
+                      </Btn>
+                    </div>
+                    <input
+                      :ref="(el) => (fileInputs[`ta:${ti}:${ci}:${ai}`] = el)"
+                      type="file"
+                      accept="image/*"
+                      class="sr-only"
+                      tabindex="-1"
+                      aria-hidden="true"
+                      @change="onAltFile(ti, ci, ai, $event)"
+                    />
+                  </div>
+
+                  <Field
+                    v-if="!team.chars[ci].alts.length"
+                    v-model="team.chars[ci].emptyAltText"
+                    label=""
+                    :aria-label="`${ci + 1} 号位无备选时显示的文字`"
+                    placeholder="无备选时显示的文字（默认：暂无备选）"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
+
+    <Modal
+      v-model="confirmBox"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmText"
+      :danger="confirmKind === 'clear'"
+      @confirm="runConfirm"
+    />
+  </div>
+</template>
+
 >>>>
 <<<<
-            <div class="flex min-w-0 items-center gap-2">
-              <el-input-number
-                :model-value="activeRow.order || 0"
-                :min="0"
+<script setup>
+import { computed, onMounted, reactive, ref, toRaw, watch } from 'vue'
+import { ICONS } from 'virtual:gg-icons'
+import { ArrowDown, ArrowUp, Delete, Download, Refresh, Upload } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import DockCta from '../components/DockCta.vue'
+import PreviewFrame from '../components/PreviewFrame.vue'
+import { loadUiIcons, matchIcon } from '../composables/useIconLib.js'
+import { useToast } from '../composables/useToast.js'
+import { download, loadImageMeta, svgToPng, urlToDataURL } from '../lib/assets.js'
+import * as fonts from '../lib/fonts.js'
+import {
+  elementColors, PANEL_PRIMARY_KEYS, PANEL_PRIMARY_LABELS, SVG_H, SVG_W,
+  TEAM_MAX, WEAPON_LABELS, WEAPON_MAX, WEAPON_ORDER,
+} from '../lib/guideConsts.js'
+import * as guide from '../lib/guideChart.js'
+import { clearDraft, fetchRepoSave, loadDraft, normalizeGuide, rematchMissing, saveDraft } from '../lib/guideStore.js'
+
+/* 角色卡一图流 · 界面（控件全量走 Element Plus）
+ * -------------------------------------------------------------------------
+ * 域逻辑、出图都在 lib 里，这里只管编辑区长得怎么样：
+ *   · guideChart.js —— 1280×720 的 SVG（预览与导出同一份字符串）
+ *   · guideStore.js —— 草稿 / 在线存档 / 字典补素材
+ *
+ * 【EP 的无对应物，仍是自造】
+ *   · PreviewFrame（16:9 深底容器 + 工具栏点空白淡出）
+ *   · DockCta（底部悬浮主按钮，要居中 + 让开安全区）
+ *   · 缩略图 <button>（显示用户自己传的图，点了换图）
+ *   · 命座那颗圆（28px、数字用正文 12px；EP 没有「圆点开关」这种形态）
+ *
+ * 【补素材】
+ *   以前只有「从字典补素材」一颗按钮会补，且是串行；现在三个入口（首屏草稿 /
+ *   在线存档 / 导入配置）统一补，判定看 *Manual / *Deleted，补的过程并发 6 张。 */
+
+const s = reactive(guide.fresh())
+const toast = useToast()
+
+const uiIcons = ref({})
+/* 卡片里有几处坐标按文字宽度算（配队标题、副词条标签、散搭的标签）——
+   读一次 fonts.fontRev：字体异步装好之后，这些位置会自己重算 */
+const svg = computed(() => (fonts.fontRev.value, guide.buildGuideSVG(s, uiIcons.value)))
+const PLACEHOLDER = guide.placeholder()
+
+const PRIMARY_OPTIONS = PANEL_PRIMARY_KEYS.map((key) => ({ value: key, label: PANEL_PRIMARY_LABELS[key] }))
+
+/* 元素图标是 1024 视框，直接塞进 1em 的框里 */
+const elementIcon = (key) => `<svg viewBox="0 0 1024 1024" class="size-4 shrink-0 [&_path]:fill-current" aria-hidden="true">${ICONS[`element.${key}`] || ''}</svg>`
+
+const THUMB = 'grid size-10 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+const THUMB_SM = 'grid size-8 shrink-0 place-items-center overflow-hidden rounded-ctl border border-line bg-thumb focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+const PANEL = 'grid gap-2 rounded-panel border border-line bg-surface p-2'
+const CARD = 'grid gap-2 rounded-ctl border border-line-2 p-2'
+const HEAD = 'flex items-center justify-between gap-2'
+
+/* =========================================================================
+ * 分区
+ * ========================================================================= */
+const SECTIONS = [
+  { value: 'style', label: '外观' },
+  { value: 'portrait', label: '立绘' },
+  { value: 'weapon', label: '武器' },
+  { value: 'artifact', label: '圣遗物' },
+  { value: 'talent', label: '天赋' },
+  { value: 'stat', label: '词条' },
+  { value: 'panel', label: '面板' },
+  { value: 'constellation', label: '命座' },
+  { value: 'team', label: '配队' },
+]
+const tab = ref('style')
+const contentEl = ref(null)
+
+watch(tab, () => contentEl.value?.scrollTo({ top: 0 }))
+
+const collapsed = reactive({})
+const isCollapsed = (key) => !!collapsed[key]
+const toggleCollapse = (key) => { collapsed[key] = !collapsed[key] }
+
+/* =========================================================================
+ * 字体
+ * ========================================================================= */
+const fontList = ref([])
+const fontFile = ref('')
+const fontStatus = ref('') /* '' | 'loading' | 'error' */
+
+const fontOptions = computed(() => [
+  { value: '', label: '默认系统字体' },
+  ...fontList.value.map((f) => ({ value: f.file, label: f.name })),
+])
+
+const fontLabel = computed(() => {
+  if (fontStatus.value === 'loading') return '正在加载…'
+  if (fontStatus.value === 'error') return '字体加载失败，重新选一个即可'
+  return s.fontName ? `当前：${s.fontName}` : '默认系统字体'
+})
+
+async function onFontChange(file) {
+  if (!file) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = ''
+    return
+  }
+
+  const item = fontList.value.find((f) => f.file === file)
+  if (!item) return
+
+  fontStatus.value = 'loading'
+  try {
+    const data = await fonts.fetchFontData(file)
+    if (!(await fonts.installFont({ name: item.name, data }))) throw new Error('字体解析失败')
+    s.fontData = data
+    s.fontName = item.name
+    s.fontFileName = file
+    fontStatus.value = ''
+  } catch (err) {
+    fonts.dropFont()
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    fontStatus.value = 'error'
+    toast.error(`字体加载失败：${err.message}`)
+  }
+}
+
+async function applyFontFromState() {
+  fonts.dropFont()
+  if (s.fontName && s.fontData) {
+    if (await fonts.installFont({ name: s.fontName, data: s.fontData })) return
+    s.fontData = ''
+    s.fontName = ''
+    s.fontFileName = ''
+    return
+  }
+  if (s.fontFileName && fontList.value.length) fontFile.value = s.fontFileName
+}
+
+/* =========================================================================
+ * 草稿
+ * ========================================================================= */
+const saveState = ref('')
+let saveTimer = 0
+
+function touchDraft() {
+  saveState.value = '保存中…'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    saveState.value = (await saveDraft({ ...toRaw(s), fontData: '' })) ? '已保存' : '保存失败'
+  }, 600)
+}
+
+onMounted(async () => {
+  try {
+    uiIcons.value = await loadUiIcons()
+  } catch {
+    /* 没图标也能用 */
+  }
+  try {
+    fontList.value = await fonts.fetchFontList()
+  } catch {
+    /* 清单读不到就没有可选字体，不影响其他 */
+  }
+
+  const draft = await loadDraft()
+  if (draft) {
+    Object.assign(s, normalizeGuide(draft))
+    saveState.value = '正在补齐素材…'
+    /* 草稿里只有文字与 dataURL，图挂了 / 换过字典都要重算一次 */
+    await rematchMissing(s)
+    saveState.value = '已恢复上次的草稿'
+  }
+
+  watch(s, touchDraft, { deep: true })
+  watch(fontFile, onFontChange)
+  await applyFontFromState()
+})
+
+/* =========================================================================
+ * 存档 / 配置 / 导出
+ * ========================================================================= */
+const importInput = ref(null)
+const previewHost = ref(null)
+const exporting = ref(false)
+const matching = ref(false)
+
+/* 导出按 3 倍：1280×720 的卡片出 3840×2160，和封面工具出图同尺寸 */
+const PNG_SCALE = 3
+
+/* 载入在线存档：EP 确认框（原来是自造 Modal） */
+async function askRepoSave() {
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+  try {
+    await ElMessageBox.confirm(
+      `是否载入「${s.charName}」的存档？当前编辑内容会被覆盖。`,
+      '载入在线存档',
+      { confirmButtonText: '载入', cancelButtonText: '取消' },
+    )
+  } catch {
+    return /* 取消 */
+  }
+  await loadRepo()
+}
+
+async function askClear() {
+  try {
+    await ElMessageBox.confirm(
+      '确定清空所有配置与图片吗？此操作不可撤销。',
+      '清空全部数据',
+      { type: 'warning', confirmButtonText: '清空', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' },
+    )
+  } catch {
+    return /* 取消 */
+  }
+  await clearAll()
+}
+
+async function loadRepo() {
+  saveState.value = '正在读存档…'
+  const res = await fetchRepoSave(s.charName, s.theme)
+  if (res.error) {
+    saveState.value = ''
+    return toast.error(res.error)
+  }
+
+  Object.assign(s, normalizeGuide(res.data))
+  saveState.value = '正在补齐图标…'
+  await rematchMissing(s)
+  saveState.value = `已载入存档 ${res.file}`
+  await applyFontFromState()
+}
+
+/* 「从字典补素材」：按角色名把立绘 / 元素图 / 大背景（还有 1 号位头像）重算一遍。
+   和载入存档共用 rematchMissing，这里走 overwrite —— 改了角色名再按要能换过来；
+   自己传过的图（*Manual）两边都会挡住。 */
+async function matchStyle() {
+  if (matching.value) return
+  if (!s.charName.trim()) return toast.error('请先填角色名')
+
+  matching.value = true
+  try {
+    await rematchMissing(s)
+    toast.success('已按图片字典重新匹配素材')
+  } finally {
+    matching.value = false
+  }
+}
+
+async function clearAll() {
+  const author = s.author
+  Object.assign(s, normalizeGuide({ author }))
+  await clearDraft()
+  fonts.dropFont()
+  fontFile.value = ''
+  saveState.value = '已清空'
+}
+
+const dayStamp = () => {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/* 导出前把图片字段清空：配置 JSON 只存文字（名字 / 数值 / 描述），
+   图片是用 dataURL 塞在 state 里的，动辄几 MB；而载入后会按名字重新问字典，
+   所以图不必跟着文件走。结构（字段本身）保持不变，导入时照常归一化。
+   —— 与 public/saves/characters/*.json 在线存档的存法一致。 */
+function textOnly(data) {
+  const out = structuredClone(toRaw(data))
+  out.fontData = ''
+
+  for (const key of ['charImg', 'bgImg', 'nameBgImg']) {
+    out[key] = ''
+    out[`${key}Meta`] = null
+  }
+  out.teamCoreImg = ''
+
+  for (const list of Object.values(out.weaponData || {})) {
+    for (const w of list) w.img = ''
+  }
+  for (const a of out.artifactData || []) {
+    a.img = ''
+    a.img1 = ''
+    a.img2 = ''
+  }
+  for (const t of out.teamData || []) {
+    for (const c of t.chars || []) {
+      c.img = ''
+      for (const alt of c.alts || []) alt.img = ''
+    }
+  }
+  return out
+}
+
+async function exportConfig() {
+  const text = JSON.stringify(textOnly(s), null, 2)
+  download(new Blob([text], { type: 'application/json' }), `${s.charName.trim() || '角色'}_${dayStamp()}.json`)
+  toast.success('配置已导出（仅文字）')
+}
+
+async function importConfig(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  try {
+    Object.assign(s, normalizeGuide(JSON.parse(await file.text())))
+    await applyFontFromState()
+    /* 配置里没有图片（导出时被清空了），导完立刻按字典补一次 */
+    saveState.value = '正在补齐素材…'
+    await rematchMissing(s)
+    saveState.value = '已导入配置并补齐素材'
+    toast.success('配置已导入')
+  } catch {
+    toast.error('这个文件不是本工具的配置')
+  }
+}
+
+/* 导出 PNG：和视频封面同一条链 —— 先把图烘成 data URL（外站图不烘会污染 canvas，
+   toBlob 直接抛错），字体内嵌，再把 SVG 当独立文档画进 canvas */
+async function exportPng() {
+  if (exporting.value) return
+  const host = previewHost.value?.querySelector('svg')
+  if (!host) return toast.error('预览还没准备好')
+
+  exporting.value = true
+  try {
+    await document.fonts?.ready
+
+    const clone = host.cloneNode(true)
+    clone.setAttribute('width', SVG_W * PNG_SCALE)
+    clone.setAttribute('height', SVG_H * PNG_SCALE)
+
+    /* 导出的 SVG 是独立文档，摸不到页面的 document.fonts，字体要内嵌进去 */
+    if (s.fontName && s.fontData) {
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+      style.textContent = fonts.fontFaceCss(s.fontName, s.fontData)
+      clone.querySelector('defs')?.prepend(style)
+    }
+
+    for (const img of clone.querySelectorAll('image')) {
+      const href = img.getAttribute('href')
+      if (href && !/^data:/i.test(href)) img.setAttribute('href', await urlToDataURL(href))
+    }
+
+    const blob = await svgToPng(clone, SVG_W * PNG_SCALE, SVG_H * PNG_SCALE)
+    if (!blob) throw new Error('画布导出失败')
+
+    const name = (s.charName.trim() || '角色卡').replace(/[\\/:*?"<>|]/g, '_')
+    download(blob, `${name}_${dayStamp()}.png`)
+    toast.success('图片已导出')
+  } catch (err) {
+    toast.error(`导出失败：${err.message}`)
+  } finally {
+    exporting.value = false
+  }
+}
+
+/* =========================================================================
+ * 大图槽
+ * ========================================================================= */
+const IMG_SLOTS = [
+  { key: 'charImg', label: '立绘', hint: '点击图片上传' },
+  { key: 'nameBgImg', label: '元素图', hint: '点击图片上传' },
+  { key: 'bgImg', label: '大背景', hint: '留空为深色底' },
+]
+
+const fileInputs = {}
+const pickFile = (key) => fileInputs[key]?.click()
+
+const readAsDataURL = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(reader.error)
+  reader.readAsDataURL(file)
+})
+
+async function fileToDataURL(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  return file ? readAsDataURL(file) : ''
+}
+
+async function onSlotFile(key, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  s[key] = url
+  s[key + 'Meta'] = await loadImageMeta(url)
+  s[key + 'Deleted'] = false
+  s[key + 'Manual'] = true
+}
+
+function clearImg(key) {
+  s[key] = ''
+  s[key + 'Deleted'] = true
+}
+
+/* =========================================================================
+ * 武器
+ * ========================================================================= */
+const canMoveWeapon = (type, i, dir) => {
+  const list = s.weaponData[type]
+  const target = i + dir
+  if (target >= 0 && target < list.length) return true
+  const adj = WEAPON_ORDER[WEAPON_ORDER.indexOf(type) + dir]
+  return !!adj && s.weaponData[adj].length < WEAPON_MAX
+}
+
+function addWeapon(type) {
+  if (s.weaponData[type].length >= WEAPON_MAX) {
+    return toast.error(`「${WEAPON_LABELS[type]}」区最多 ${WEAPON_MAX} 个`)
+  }
+  s.weaponData[type].push({ name: '', img: '', imgManual: false })
+  collapsed[`weapon_${type}`] = false
+}
+
+const removeWeapon = (type, i) => s.weaponData[type].splice(i, 1)
+
+function moveWeapon(type, i, dir) {
+  const list = s.weaponData[type]
+  const target = i + dir
+  if (target >= 0 && target < list.length) {
+    ;[list[i], list[target]] = [list[target], list[i]]
+    return
+  }
+
+  const adj = WEAPON_ORDER[WEAPON_ORDER.indexOf(type) + dir]
+  if (!adj) return
+  if (s.weaponData[adj].length >= WEAPON_MAX) {
+    return toast.error(`「${WEAPON_LABELS[adj]}」区已满 ${WEAPON_MAX} 个`)
+  }
+  const [item] = list.splice(i, 1)
+  if (dir === 1) s.weaponData[adj].unshift(item)
+  else s.weaponData[adj].push(item)
+}
+
+async function matchWeapon(type, i) {
+  const cell = s.weaponData[type][i]
+  cell.img = await matchIcon('weapons', cell.name)
+  cell.imgManual = false
+}
+
+async function onWeaponFile(type, i, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.weaponData[type][i]
+  cell.img = url
+  cell.imgManual = true
+}
+
+/* =========================================================================
+ * 圣遗物
+ * ========================================================================= */
+const moveItem = (arr, i, dir) => {
+  const to = i + dir
+  if (to < 0 || to >= arr.length) return
+  ;[arr[i], arr[to]] = [arr[to], arr[i]]
+}
+
+function addArtifact(type) {
+  s.artifactData.push(type === 'double'
+    ? { type, name1: '', name2: '', displayText: '', img1: '', img1Manual: false, img2: '', img2Manual: false }
+    : { type, name: '', img: '', imgManual: false })
+  collapsed.artifact_section = false
+}
+
+const removeArtifact = (i) => s.artifactData.splice(i, 1)
+const moveArtifact = (i, dir) => moveItem(s.artifactData, i, dir)
+
+async function matchArtifact(i) {
+  const cell = s.artifactData[i]
+  cell.img = await matchIcon('artifacts', cell.name)
+  cell.imgManual = false
+}
+
+async function matchArtifactPart(i, n) {
+  const cell = s.artifactData[i]
+  cell[`img${n}`] = await matchIcon('artifacts', cell[`name${n}`])
+  cell[`img${n}Manual`] = false
+}
+
+async function onArtifactFile(i, imgKey, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.artifactData[i]
+  cell[imgKey] = url
+  cell[imgKey + 'Manual'] = true
+}
+
+/* =========================================================================
+ * 配队
+ * ========================================================================= */
+function addTeam() {
+  if (s.teamData.length >= TEAM_MAX) return toast.error(`最多 ${TEAM_MAX} 支队伍`)
+  s.teamData.push(guide.makeTeam())
+}
+
+const removeTeam = (ti) => s.teamData.splice(ti, 1)
+const moveTeam = (ti, dir) => moveItem(s.teamData, ti, dir)
+
+function moveTeamChar(ti, ci, dir) {
+  const to = ci + dir
+  if (to < 1 || to > 3) return
+  const chars = s.teamData[ti].chars
+  ;[chars[ci], chars[to]] = [chars[to], chars[ci]]
+}
+
+const moveAlt = (ti, ci, ai, dir) => moveItem(s.teamData[ti].chars[ci].alts, ai, dir)
+
+function addAlt(ti, ci) {
+  const alts = s.teamData[ti].chars[ci].alts
+  if (alts.length >= 4) return toast.error('备选最多 4 个')
+  alts.push({ name: '', img: '', imgManual: false })
+  collapsed[`team_${ti}_char_${ci}`] = false
+}
+
+const removeAlt = (ti, ci, ai) => s.teamData[ti].chars[ci].alts.splice(ai, 1)
+
+async function matchTeamChar(ti, ci) {
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function matchAlt(ti, ci, ai) {
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = await matchIcon('characters', cell.name)
+  cell.imgManual = false
+}
+
+async function onTeamCharFile(ti, ci, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onAltFile(ti, ci, ai, e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  const cell = s.teamData[ti].chars[ci].alts[ai]
+  cell.img = url
+  cell.imgManual = true
+}
+
+async function onTeamCoreFile(e) {
+  const url = await fileToDataURL(e)
+  if (!url) return
+  s.teamCoreImg = url
+  s.teamCoreImgManual = true
+}
+
+function clearTeamCore() {
+  s.teamCoreImg = ''
+  s.teamCoreImgManual = false
+}
+</script>
+
+<template>
+  <div class="relative grid h-full min-h-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]">
+    <div class="grid grid-cols-1 border-b border-line bg-canvas p-3">
+      <PreviewFrame>
+        <!-- 导出时要从这层里取那份 SVG -->
+        <div ref="previewHost" class="grid size-full [&>svg]:size-full" v-html="svg" />
+
+        <template #toolbar>
+          <el-button circle :loading="matching" aria-label="从字典补素材" title="从字典补素材" @click="matchStyle">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+          <el-button circle aria-label="导入配置" title="导入配置（只读文字）" @click="importInput?.click()">
+            <el-icon><Upload /></el-icon>
+          </el-button>
+          <el-button circle aria-label="导出配置" title="导出配置（只存文字）" @click="exportConfig">
+            <el-icon><Download /></el-icon>
+          </el-button>
+          <el-button circle type="danger" aria-label="清空全部数据" title="清空全部数据" @click="askClear">
+            <el-icon><Delete /></el-icon>
+          </el-button>
+          <input
+            ref="importInput"
+            type="file"
+            accept=".json,application/json"
+            class="sr-only"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="importConfig"
+          />
+        </template>
+      </PreviewFrame>
+    </div>
+
+    <!-- 分区切换：一行，窄屏横滑，不换行 -->
+    <div
+      class="overflow-x-auto border-b border-line bg-surface px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+      aria-label="编辑区域切换"
+    >
+      <el-segmented v-model="tab" :options="SECTIONS" />
+    </div>
+
+    <main ref="contentEl" class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3 pb-24">
+      <!-- ① 外观样式 -->
+      <section v-show="tab === 'style'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">文字</h2>
+          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <el-form-item label="角色名称">
+              <el-input v-model="s.charName" placeholder="如：芙宁娜" />
+            </el-form-item>
+            <el-form-item label="适用版本">
+              <el-input v-model="s.version" placeholder="如：5.4" />
+            </el-form-item>
+            <el-form-item label="制作日期">
+              <el-input v-model="s.date" placeholder="如：2026-11-07" />
+            </el-form-item>
+            <el-form-item label="攻略作者">
+              <el-input v-model="s.author" />
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">元素配色</h2>
+          <el-radio-group v-model="s.theme" class="grid grid-cols-4 gap-2">
+            <el-radio
+              v-for="[name, color, iconKey] in elementColors"
+              :key="color"
+              :value="color"
+              class="!mr-0"
+            >
+              <span class="flex items-center gap-1">
+                <span :style="{ color }" v-html="elementIcon(iconKey)" />
+                {{ name }}
+              </span>
+            </el-radio>
+          </el-radio-group>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">字体</h2>
+          <div class="flex items-center gap-2">
+            <el-text size="small" truncated class="min-w-0 flex-1 ah-text-muted">{{ fontLabel }}</el-text>
+            <el-select v-model="fontFile" size="small" placeholder="选择字体" style="width: 128px">
+              <el-option v-for="f in fontOptions" :key="f.value" :label="f.label" :value="f.value" />
+            </el-select>
+          </div>
+          <el-text size="small" class="ah-text-muted">
+            字体只在导出时内嵌，草稿里不存几兆的字体文件。
+          </el-text>
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">在线存档</h2>
+          <el-text size="small" class="ah-text-muted">草稿自动存在本机浏览器里，下次打开会接着上次。</el-text>
+          <el-text size="small" class="text-accent-strong" aria-live="polite">{{ saveState }}</el-text>
+          <div class="flex flex-wrap gap-2">
+            <el-button size="small" @click="askRepoSave">
+              <template #icon><el-icon><Upload /></el-icon></template>
+              载入在线存档
+            </el-button>
+            <el-button size="small" :loading="matching" @click="matchStyle">
+              <template #icon><el-icon><Refresh /></el-icon></template>
+              从字典补素材
+            </el-button>
+          </div>
+          <el-text size="small" class="ah-text-muted">
+            按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
+          </el-text>
+        </div>
+      </section>
+
+      <!-- ② 立绘区 -->
+      <section v-show="tab === 'portrait'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">素材</h2>
+
+          <template v-for="slot in IMG_SLOTS" :key="slot.key">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :class="THUMB"
+                :aria-label="`上传${slot.label}`"
+                @click="pickFile(slot.key)"
+              >
+                <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-cover" />
+              </button>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-medium text-ink">{{ slot.label }}</div>
+                <el-text size="small" truncated class="ah-text-muted">
+                  {{ s[slot.key] ? '已载入，点图更换' : slot.hint }}
+                </el-text>
+              </div>
+              <el-button
+                v-if="s[slot.key]"
+                type="danger"
+                plain
+                circle
                 size="small"
-                controls-position="right"
-                style="width: 112px"
-                aria-label="序号"
-                @change="setOrder(activeRow, $event)"
-              />
-              <el-input
-                :model-value="activeRow.name"
-                class="min-w-0 flex-1"
-                size="small"
-                placeholder="中文名"
-                aria-label="中文名"
-                @input="activeRow.name = $event"
-                @blur="commitName(activeRow)"
+                :aria-label="`删除${slot.label}`"
+                @click="clearImg(slot.key)"
+              >
+                <el-icon><Delete /></el-icon>
+              </el-button>
+              <input
+                :ref="(el) => (fileInputs[slot.key] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onSlotFile(slot.key, $event)"
               />
             </div>
 
-            <div v-if="tab !== 'monsters'" class="flex min-w-0 items-center gap-2">
-              <el-text size="small" class="ah-text-muted shrink-0">星级</el-text>
+            <div v-if="slot.key === 'charImg' && s.charImg" class="flex items-center gap-2">
+              <el-text size="small" class="ah-text-muted shrink-0">立绘左右偏移</el-text>
+              <el-slider v-model="s.imgX" class="min-w-0 flex-1" :min="-400" :max="400" />
               <el-input-number
-                :model-value="activeRow.star ?? 5"
-                :min="1"
-                :max="5"
+                v-model="s.imgX"
+                :min="-400"
+                :max="400"
                 size="small"
                 controls-position="right"
                 style="width: 88px"
-                aria-label="星级"
-                @change="setStar(activeRow, $event)"
               />
-              <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
+              <el-text size="small" class="ah-text-muted shrink-0">px</el-text>
             </div>
->>>>
-### src/views/ImageDict.vue
-<<<<
-  setLock,
-
->>>>
-<<<<
-
->>>>
-### src/views/ImageDict.vue
-<<<<
-      <template #footer>
-        <el-button @click="addOpen = false">取消</el-button>
-        <el-button type="primary" @click="onAdd">加入</el-button>
-      </template>
->>>>
-<<<<
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <el-button @click="addOpen = false">取消</el-button>
-          <el-button type="primary" @click="onAdd">加入</el-button>
+          </template>
         </div>
-      </template>
->>>>
-### src/views/ImageDict.vue
-<<<<
-      <template #footer>
-        <el-button @click="conflictOpen = false">取消</el-button>
-        <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
-      </template>
->>>>
-<<<<
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <el-button @click="conflictOpen = false">取消</el-button>
-          <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
+      </section>
+
+      <!-- ③ 武器区 -->
+      <section v-show="tab === 'weapon'" class="grid grid-cols-1 gap-3">
+        <div v-for="type in WEAPON_ORDER" :key="type" :class="PANEL">
+          <div :class="HEAD">
+            <h2 class="text-xs font-medium text-muted">
+              {{ WEAPON_LABELS[type] }}武器（{{ s.weaponData[type].length }}/{{ WEAPON_MAX }}）
+            </h2>
+            <div class="flex shrink-0 gap-1">
+              <el-button size="small" @click="addWeapon(type)">添加</el-button>
+              <el-button
+                size="small"
+                :aria-expanded="!isCollapsed(`weapon_${type}`)"
+                @click="toggleCollapse(`weapon_${type}`)"
+              >
+                {{ isCollapsed(`weapon_${type}`) ? '展开' : '收起' }}
+              </el-button>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed(`weapon_${type}`)" class="grid grid-cols-1 gap-2">
+            <el-text v-if="!s.weaponData[type].length" size="small" class="ah-text-muted">
+              暂无配置
+            </el-text>
+
+            <div v-for="(w, i) in s.weaponData[type]" :key="i" :class="CARD">
+              <div :class="HEAD">
+                <span class="text-xs font-medium text-ink">#{{ i + 1 }}</span>
+                <div class="flex shrink-0 gap-1">
+                  <el-button
+                    size="small"
+                    circle
+                    aria-label="上移"
+                    :disabled="!canMoveWeapon(type, i, -1)"
+                    @click="moveWeapon(type, i, -1)"
+                  >
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    circle
+                    aria-label="下移"
+                    :disabled="!canMoveWeapon(type, i, 1)"
+                    @click="moveWeapon(type, i, 1)"
+                  >
+                    <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    circle
+                    type="danger"
+                    plain
+                    aria-label="删除武器"
+                    @click="removeWeapon(type, i)"
+                  >
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :class="THUMB"
+                  :aria-label="`上传第 ${i + 1} 个武器的图标`"
+                  @click="pickFile(`w:${type}:${i}`)"
+                >
+                  <img :src="w.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                </button>
+                <el-input
+                  v-model="w.name"
+                  size="small"
+                  class="min-w-0 flex-1"
+                  :aria-label="`第 ${i + 1} 个武器名`"
+                  placeholder="武器名"
+                  @blur="matchWeapon(type, i)"
+                />
+              </div>
+
+              <input
+                :ref="(el) => (fileInputs[`w:${type}:${i}`] = el)"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                tabindex="-1"
+                aria-hidden="true"
+                @change="onWeaponFile(type, i, $event)"
+              />
+            </div>
+          </div>
         </div>
-      </template>
->>>>
-### src/styles/app.css
-<<<<
-.el-segmented {
-  --el-segmented-bg-color: var(--color-surface);
-  border: 1px solid var(--el-border-color-light);
+      </section>
+
+      <!-- ④ 圣遗物区 -->
+      <section v-show="tab === 'artifact'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <div :class="HEAD">
+            <h2 class="text-xs font-medium text-muted">圣遗物推荐（{{ s.artifactData.length }}）</h2>
+            <div class="flex shrink-0 gap-1">
+              <el-button size="small" @click="addArtifact('single')">整套</el-button>
+              <el-button size="small" @click="addArtifact('double')">散搭</el-button>
+              <el-button
+                size="small"
+                :aria-expanded="!isCollapsed('artifact_section')"
+                @click="toggleCollapse('artifact_section')"
+              >
+                {{ isCollapsed('artifact_section') ? '展开' : '收起' }}
+              </el-button>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed('artifact_section')" class="grid grid-cols-1 gap-2">
+            <el-text v-if="!s.artifactData.length" size="small" class="ah-text-muted">暂无配置</el-text>
+
+            <div v-for="(a, i) in s.artifactData" :key="i" :class="CARD">
+              <div :class="HEAD">
+                <span
+                  class="text-xs font-medium"
+                  :class="a.type === 'double' ? 'text-accent-strong' : 'text-ink'"
+                >
+                  {{ a.type === 'double' ? '散搭' : '整套' }} #{{ i + 1 }}
+                </span>
+                <div class="flex shrink-0 gap-1">
+                  <el-button size="small" circle aria-label="上移" :disabled="i === 0" @click="moveArtifact(i, -1)">
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    circle
+                    aria-label="下移"
+                    :disabled="i === s.artifactData.length - 1"
+                    @click="moveArtifact(i, 1)"
+                  >
+                    <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <el-button size="small" circle type="danger" plain aria-label="删除圣遗物" @click="removeArtifact(i)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+              </div>
+
+              <template v-if="a.type === 'double'">
+                <el-input
+                  v-model="a.displayText"
+                  size="small"
+                  aria-label="卡片显示文本"
+                  placeholder="卡片显示文本（留空则显示两个名字）"
+                />
+                <div class="flex flex-wrap gap-2">
+                  <div v-for="n in 2" :key="n" class="flex min-w-[140px] flex-1 items-center gap-2">
+                    <button
+                      type="button"
+                      :class="THUMB"
+                      :aria-label="`上传散搭第 ${n} 个圣遗物的图标`"
+                      @click="pickFile(`a:${i}:${n}`)"
+                    >
+                      <img :src="a[`img${n}`] || PLACEHOLDER" alt="" class="size-full object-cover" />
+                    </button>
+                    <el-input
+                      v-model="a[`name${n}`]"
+                      size="small"
+                      class="min-w-0 flex-1"
+                      :aria-label="`散搭第 ${n} 个圣遗物名`"
+                      :placeholder="`圣遗物名 ${n}`"
+                      @blur="matchArtifactPart(i, n)"
+                    />
+                    <input
+                      :ref="(el) => (fileInputs[`a:${i}:${n}`] = el)"
+                      type="file"
+                      accept="image/*"
+                      class="sr-only"
+                      tabindex="-1"
+                      aria-hidden="true"
+                      @change="onArtifactFile(i, `img${n}`, $event)"
+                    />
+                  </div>
+                </div>
+              </template>
+
+              <div v-else class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :class="THUMB"
+                  :aria-label="`上传第 ${i + 1} 个圣遗物的图标`"
+                  @click="pickFile(`a:${i}`)"
+                >
+                  <img :src="a.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                </button>
+                <el-input
+                  v-model="a.name"
+                  size="small"
+                  class="min-w-0 flex-1"
+                  :aria-label="`第 ${i + 1} 个圣遗物名`"
+                  placeholder="圣遗物名"
+                  @blur="matchArtifact(i)"
+                />
+                <input
+                  :ref="(el) => (fileInputs[`a:${i}`] = el)"
+                  type="file"
+                  accept="image/*"
+                  class="sr-only"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="onArtifactFile(i, 'img', $event)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑤ 天赋区 -->
+      <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">天赋加点优先级</h2>
+          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <el-form-item label="普通攻击">
+              <el-input v-model="s.talentA" placeholder="如：10" />
+            </el-form-item>
+            <el-form-item label="元素战技">
+              <el-input v-model="s.talentE" placeholder="如：9" />
+            </el-form-item>
+            <el-form-item label="元素爆发">
+              <el-input v-model="s.talentQ" placeholder="如：10" />
+            </el-form-item>
+          </el-form>
+        </div>
+      </section>
+
+      <!-- ⑥ 词条区 -->
+      <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">主副词条推荐</h2>
+          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <el-form-item label="时之沙">
+              <el-input v-model="s.sandMain" placeholder="如：元素精通" />
+            </el-form-item>
+            <el-form-item label="空之杯">
+              <el-input v-model="s.gobMain" placeholder="如：火元素伤害加成" />
+            </el-form-item>
+            <el-form-item label="理之冠">
+              <el-input v-model="s.cirMain" placeholder="如：暴击率" />
+            </el-form-item>
+          </el-form>
+          <el-form label-position="top" size="small">
+            <el-form-item label="副词条优先顺序">
+              <el-input v-model="s.subStats" placeholder="如：暴击率 > 暴击伤害 > 元素精通" />
+            </el-form-item>
+          </el-form>
+        </div>
+      </section>
+
+      <!-- ⑦ 面板区 -->
+      <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">主属性（三选一）</h2>
+          <el-radio-group v-model="s.panel.primaryKey" size="small">
+            <el-radio-button v-for="opt in PRIMARY_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </el-radio-button>
+          </el-radio-group>
+          <el-input v-model="s.panel.primaryValue" size="small" placeholder="数值（留空显示「任意」）" />
+        </div>
+
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">副属性面板</h2>
+          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <el-form-item label="暴击率">
+              <el-input v-model="s.panel.cr" placeholder="留空显示「任意」" />
+            </el-form-item>
+            <el-form-item label="暴击伤害">
+              <el-input v-model="s.panel.cd" placeholder="留空显示「任意」" />
+            </el-form-item>
+            <el-form-item label="元素精通">
+              <el-input v-model="s.panel.em" placeholder="留空显示「任意」" />
+            </el-form-item>
+            <el-form-item label="充能效率">
+              <el-input v-model="s.panel.er" placeholder="留空显示「任意」" />
+            </el-form-item>
+          </el-form>
+        </div>
+      </section>
+
+      <!-- ⑧ 命座区 -->
+      <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">核心命座说明（点击圆圈点亮）</h2>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div v-for="(c, i) in s.constellationData" :key="i" class="flex items-center gap-2">
+              <button
+                type="button"
+                class="grid size-7 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
+                :class="c.active ? 'border-transparent text-white' : 'border-line text-muted hover:bg-hover'"
+                :style="c.active ? { backgroundColor: s.theme } : {}"
+                :aria-pressed="c.active"
+                :aria-label="`第 ${i + 1} 命`"
+                @click="c.active = !c.active"
+              >
+                {{ i + 1 }}
+              </button>
+              <el-input
+                v-model="c.desc"
+                size="small"
+                class="min-w-0 flex-1"
+                :aria-label="`第 ${i + 1} 命核心效果描述`"
+                :placeholder="`${i + 1} 命核心效果描述`"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑨ 配队区 -->
+      <section v-show="tab === 'team'" class="grid grid-cols-1 gap-3">
+        <div :class="PANEL">
+          <h2 class="text-xs font-medium text-muted">1 号位主角色头像</h2>
+          <div class="flex items-center gap-2">
+            <button type="button" :class="THUMB" aria-label="上传 1 号位头像" @click="pickFile('teamCore')">
+              <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-cover" />
+            </button>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-medium text-ink">1 号位头像</div>
+              <el-text size="small" truncated class="ah-text-muted">
+                {{ s.teamCoreImg ? '已载入，点图更换' : '留空就用角色自己的头像' }}
+              </el-text>
+            </div>
+            <el-button
+              v-if="s.teamCoreImg"
+              size="small"
+              circle
+              type="danger"
+              plain
+              aria-label="删除 1 号位头像"
+              @click="clearTeamCore"
+            >
+              <el-icon><Delete /></el-icon>
+            </el-button>
+            <input
+              :ref="(el) => (fileInputs.teamCore = el)"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+              tabindex="-1"
+              aria-hidden="true"
+              @change="onTeamCoreFile"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted">配队（{{ s.teamData.length }}/{{ TEAM_MAX }}）</h2>
+          <el-button size="small" @click="addTeam">添加队伍</el-button>
+        </div>
+        <el-text v-if="!s.teamData.length" size="small" class="ah-text-muted px-1">暂未添加配队</el-text>
+
+        <div v-for="(team, ti) in s.teamData" :key="ti" :class="PANEL">
+          <div :class="HEAD">
+            <span class="text-xs font-medium text-muted">队伍 {{ ti + 1 }}</span>
+            <div class="flex shrink-0 gap-1">
+              <el-button size="small" circle aria-label="上移" :disabled="ti === 0" @click="moveTeam(ti, -1)">
+                <el-icon><ArrowUp /></el-icon>
+              </el-button>
+              <el-button
+                size="small"
+                circle
+                aria-label="下移"
+                :disabled="ti === s.teamData.length - 1"
+                @click="moveTeam(ti, 1)"
+              >
+                <el-icon><ArrowDown /></el-icon>
+              </el-button>
+              <el-button
+                size="small"
+                :aria-expanded="!isCollapsed(`team_${ti}`)"
+                @click="toggleCollapse(`team_${ti}`)"
+              >
+                {{ isCollapsed(`team_${ti}`) ? '展开' : '收起' }}
+              </el-button>
+              <el-button size="small" circle type="danger" plain aria-label="删除队伍" @click="removeTeam(ti)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+
+          <div v-show="!isCollapsed(`team_${ti}`)" class="grid grid-cols-1 gap-2">
+            <el-input
+              v-model="team.name"
+              size="small"
+              aria-label="队伍名称"
+              placeholder="队伍名称（如：蒸发队）"
+            />
+
+            <div v-for="ci in 3" :key="ci" :class="CARD">
+              <div :class="HEAD">
+                <span class="text-xs font-medium text-accent-strong">{{ ci + 1 }} 号位主角色</span>
+                <div class="flex shrink-0 gap-1">
+                  <el-button size="small" circle aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button size="small" circle aria-label="下移" :disabled="ci === 3" @click="moveTeamChar(ti, ci, 1)">
+                    <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :aria-expanded="!isCollapsed(`team_${ti}_char_${ci}`)"
+                    @click="toggleCollapse(`team_${ti}_char_${ci}`)"
+                  >
+                    {{ isCollapsed(`team_${ti}_char_${ci}`) ? '展开' : '收起' }}
+                  </el-button>
+                </div>
+              </div>
+
+              <div v-show="!isCollapsed(`team_${ti}_char_${ci}`)" class="grid grid-cols-1 gap-2">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    :class="THUMB"
+                    :aria-label="`上传 ${ci + 1} 号位角色头像`"
+                    @click="pickFile(`t:${ti}:${ci}`)"
+                  >
+                    <img :src="team.chars[ci].img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                  </button>
+                  <el-input
+                    v-model="team.chars[ci].name"
+                    size="small"
+                    class="min-w-0 flex-1"
+                    :aria-label="`${ci + 1} 号位角色名`"
+                    :placeholder="`${ci + 1} 号位角色名`"
+                    @blur="matchTeamChar(ti, ci)"
+                  />
+                  <input
+                    :ref="(el) => (fileInputs[`t:${ti}:${ci}`] = el)"
+                    type="file"
+                    accept="image/*"
+                    class="sr-only"
+                    tabindex="-1"
+                    aria-hidden="true"
+                    @change="onTeamCharFile(ti, ci, $event)"
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 border-l border-line-2 pl-3">
+                  <div :class="HEAD">
+                    <span class="text-xs text-muted">备选角色（{{ team.chars[ci].alts.length }}/4）</span>
+                    <el-button size="small" @click="addAlt(ti, ci)">添加</el-button>
+                  </div>
+
+                  <div v-for="(alt, ai) in team.chars[ci].alts" :key="ai" class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      :class="THUMB_SM"
+                      :aria-label="`上传 ${ci + 1} 号位第 ${ai + 1} 个备选的头像`"
+                      @click="pickFile(`ta:${ti}:${ci}:${ai}`)"
+                    >
+                      <img :src="alt.img || PLACEHOLDER" alt="" class="size-full object-cover" />
+                    </button>
+                    <el-input
+                      v-model="alt.name"
+                      size="small"
+                      class="min-w-0 flex-1"
+                      :aria-label="`${ci + 1} 号位第 ${ai + 1} 个备选角色名`"
+                      placeholder="备选角色名"
+                      @blur="matchAlt(ti, ci, ai)"
+                    />
+                    <div class="flex shrink-0 gap-1">
+                      <el-button size="small" circle aria-label="上移" :disabled="ai === 0" @click="moveAlt(ti, ci, ai, -1)">
+                        <el-icon><ArrowUp /></el-icon>
+                      </el-button>
+                      <el-button
+                        size="small"
+                        circle
+                        aria-label="下移"
+                        :disabled="ai === team.chars[ci].alts.length - 1"
+                        @click="moveAlt(ti, ci, ai, 1)"
+                      >
+                        <el-icon><ArrowDown /></el-icon>
+                      </el-button>
+                      <el-button
+                        size="small"
+                        circle
+                        type="danger"
+                        plain
+                        aria-label="删除备选"
+                        @click="removeAlt(ti, ci, ai)"
+                      >
+                        <el-icon><Delete /></el-icon>
+                      </el-button>
+                    </div>
+                    <input
+                      :ref="(el) => (fileInputs[`ta:${ti}:${ci}:${ai}`] = el)"
+                      type="file"
+                      accept="image/*"
+                      class="sr-only"
+                      tabindex="-1"
+                      aria-hidden="true"
+                      @change="onAltFile(ti, ci, ai, $event)"
+                    />
+                  </div>
+
+                  <el-input
+                    v-if="!team.chars[ci].alts.length"
+                    v-model="team.chars[ci].emptyAltText"
+                    size="small"
+                    :aria-label="`${ci + 1} 号位无备选时显示的文字`"
+                    placeholder="无备选时显示的文字（默认：暂无备选）"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <DockCta :loading="exporting" @click="exportPng">导出图片</DockCta>
+  </div>
+</template>
+
+<style scoped>
+/* el-form-item 自己带 22px 下边距，和容器的 gap 一叠加就一大一小 */
+:deep(.el-form-item) {
+  margin-bottom: 0;
 }
+</style>
+
+>>>>
+### src/lib/guideChart.js
+<<<<
+fill="${theme}" fill-opacity="0.25"
 >>>>
 <<<<
-.el-segmented {
-  --el-segmented-bg-color: var(--color-surface);
-  border: 1px solid var(--el-border-color-light);
+fill="${theme}" fill-opacity="0.5"
+>>>>
+### src/lib/guideStore.js
+<<<<
+/* =========================================================================
+ * 补齐素材
+ * -------------------------------------------------------------------------
+ * 存档里只有名字，图要按名字问字典。顺序请求、一张接一张：一次载入最多二十几张
+ * 图，不值得为它写并发池。
+ *
+ * force=false（载入存档）：只补缺的 —— 手删过的（*Deleted）和自己传过的都不动。
+ * force=true（「从字典补素材」按钮）：立绘 / 元素图 / 大背景 / 1 号位头像按当前
+ * 角色名与主题色重算一遍。旧版那颗按钮就是这个语义（`matchStyleImages()` 不带
+ * onlyEmpty 参数时一律覆盖），照抄成「只补缺」就会出现「改了角色名再按没反应」。
+ * ========================================================================= */
+export async function rematchMissing(d, force = false) {
+  /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
+  const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
+
+  if (force) {
+    /* 先清空 + 清掉手删标记，下面几段就会按新名字重算；字典里查不到就留空（回到占位图） */
+    d.charImg = ''
+    d.charImgDeleted = false
+    d.bgImg = ''
+    d.bgImgDeleted = false
+    d.nameBgImg = ''
+    d.nameBgImgDeleted = false
+  }
+
+  if (entry) {
+    /* 用户手动删过的图不补（*Deleted 就是干这个的） */
+    if (!d.charImg && !d.charImgDeleted && entry.art?.url) {
+      const meta = await loadImageMeta(entry.art.url)
+      if (meta) {
+        d.charImg = entry.art.url
+        d.charImgMeta = meta
+        d.charImgManual = false
+      }
+    }
+
+    /* 大背景用的是名片图。注意规则在 config.characters.card 里 ——
+       config.characters 那一层的 prefix/ext 是头像规则，拿它去拼 card.key 会拼出头像 */
+    const cardCfg = (await dictConfig('characters'))?.card
+    const cardSrc = entry.card?.alt && cardCfg?.alt ? cardCfg.alt : cardCfg
+    if (!d.bgImg && !d.bgImgDeleted && cardSrc?.prefix && entry.card?.key) {
+      d.bgImg = cardSrc.prefix + entry.card.key + (cardSrc.ext || '')
+      d.bgImgManual = false
+    }
+
+    /* 1 号位头像就是主角色：按按钮时（force）跟着换角色，前提是没自己传过 */
+    if (force ? !d.teamCoreImgManual : !d.teamCoreImg) {
+      const avatar = await matchIcon('characters', d.charName)
+      if (avatar) {
+        d.teamCoreImg = avatar
+        d.teamCoreImgManual = false
+      } else if (force) {
+        d.teamCoreImg = ''
+      }
+    }
+  }
+
+  const element = themeToElementName(d.theme)
+  if (!d.nameBgImg && !d.nameBgImgDeleted && element) {
+    d.nameBgImg = `${ELEMENT_DIR}${element}.png`
+    d.nameBgImgMeta = await loadImageMeta(d.nameBgImg)
+    d.nameBgImgManual = false
+  }
+
+  for (const type of WEAPON_ORDER) {
+    for (const w of d.weaponData[type] || []) {
+      if (w.name && !w.img) w.img = await matchIcon('weapons', w.name)
+    }
+  }
+
+  for (const a of d.artifactData || []) {
+    if (a.type === 'double') {
+      if (a.name1 && !a.img1) a.img1 = await matchIcon('artifacts', a.name1)
+      if (a.name2 && !a.img2) a.img2 = await matchIcon('artifacts', a.name2)
+    } else if (a.name && !a.img) {
+      a.img = await matchIcon('artifacts', a.name)
+    }
+  }
+
+  for (const team of d.teamData || []) {
+    for (const c of (team.chars || []).slice(1, 4)) {
+      if (c.name && !c.img) c.img = await matchIcon('characters', c.name)
+      for (const alt of c.alts || []) {
+        if (alt.name && !alt.img) alt.img = await matchIcon('characters', alt.name)
+      }
+    }
+  }
 }
 
-/* EP 会给相邻的 .el-button 自动加 12px 左边距，和 Tailwind 的 gap 一叠加，
-   间距就变成一大一小（页头那种一排按钮看着最乱）。全站统一：间距只由 gap 决定。
-   弹窗底部这种没有 gap 的地方，自己包一层 flex + gap-2。 */
-.el-button + .el-button {
-  margin-left: 0;
+>>>>
+<<<<
+/* =========================================================================
+ * 补齐素材
+ * -------------------------------------------------------------------------
+ * 存档里只有名字，图要按名字问字典。
+ *
+ * 【什么时候补】三个入口都补：首屏恢复草稿、载入在线存档、导入配置。
+ *   以前只有「从字典补素材」那颗按钮会补，而且是「图是空的才补」——
+ *   存档里存着一条早就 404 的旧链接（不等于空）就被跳过，所以必须手点一下。
+ *
+ * 【谁说了算】手传的（*Manual）和手删的（*Deleted）一律不动；剩下的
+ *   **每次都按当前字典重算**，不再看「现在有没有值」。
+ *
+ * 【怎么补】先把「要补哪几张」列成任务清单，最多 6 个并发跑完，
+ *   最后一次性写回 —— 以前是串行 await，界面上一张一张蹦。
+ * ========================================================================= */
+
+/* 并发池：同时最多 limit 个任务；返回与任务同序的结果 */
+async function runPool(tasks, limit = 6) {
+  const out = new Array(tasks.length)
+  let next = 0
+  const worker = async () => {
+    while (next < tasks.length) {
+      const k = next++
+      out[k] = await tasks[k]()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+  return out
 }
+
+export async function rematchMissing(d) {
+  /* 旅行者 + 冰 → 查「旅行者·冰」：立绘 / 名片 / 头像都取分元素那一项 */
+  const entry = await dictEntry('characters', await dictNameWithElement(d.charName, d.theme))
+
+  /* 大背景用的是名片图。注意规则在 config.characters.card 里 ——
+     config.characters 那一层的 prefix/ext 是头像规则，拿它去拼 card.key 会拼出头像 */
+  const cardCfg = (await dictConfig('characters'))?.card
+  const cardSrc = entry?.card?.alt && cardCfg?.alt ? cardCfg.alt : cardCfg
+  const element = themeToElementName(d.theme)
+
+  /* 每张图一个任务：只发请求，返回「拿到之后怎么落」；
+     全部回来再一次性赋值，界面只刷新一次 */
+  const tasks = []
+
+  /* 立绘 */
+  if (!d.charImgManual && !d.charImgDeleted && entry?.art?.url) {
+    const url = entry.art.url
+    tasks.push(async () => {
+      const meta = await loadImageMeta(url)
+      return () => {
+        d.charImg = url
+        d.charImgMeta = meta
+        d.charImgManual = false
+      }
+    })
+  }
+
+  /* 大背景 = 名片图 */
+  if (!d.bgImgManual && !d.bgImgDeleted && cardSrc?.prefix && entry?.card?.key) {
+    const url = cardSrc.prefix + entry.card.key + (cardSrc.ext || '')
+    tasks.push(async () => () => {
+      d.bgImg = url
+      d.bgImgManual = false
+    })
+  }
+
+  /* 1 号位头像就是主角色（自己传过的不动） */
+  if (!d.teamCoreImgManual) {
+    const name = d.charName
+    tasks.push(async () => {
+      const url = await matchIcon('characters', name)
+      return () => {
+        d.teamCoreImg = url || ''
+        d.teamCoreImgManual = false
+      }
+    })
+  }
+
+  /* 元素图 */
+  if (!d.nameBgImgManual && !d.nameBgImgDeleted && element) {
+    const url = `${ELEMENT_DIR}${element}.png`
+    tasks.push(async () => {
+      const meta = await loadImageMeta(url)
+      return () => {
+        d.nameBgImg = url
+        d.nameBgImgMeta = meta
+        d.nameBgImgManual = false
+      }
+    })
+  }
+
+  /* 武器图标 */
+  for (const type of WEAPON_ORDER) {
+    for (const w of d.weaponData[type] || []) {
+      if (!w.name || w.imgManual) continue
+      const name = w.name
+      tasks.push(async () => {
+        const url = await matchIcon('weapons', name)
+        return () => {
+          w.img = url || ''
+          w.imgManual = false
+        }
+      })
+    }
+  }
+
+  /* 圣遗物图标（散搭是两个） */
+  for (const art of d.artifactData || []) {
+    if (art.type === 'double') {
+      for (const n of [1, 2]) {
+        const name = art[`name${n}`]
+        if (!name || art[`img${n}Manual`]) continue
+        tasks.push(async () => {
+          const url = await matchIcon('artifacts', name)
+          return () => {
+            art[`img${n}`] = url || ''
+            art[`img${n}Manual`] = false
+          }
+        })
+      }
+    } else if (art.name && !art.imgManual) {
+      const name = art.name
+      tasks.push(async () => {
+        const url = await matchIcon('artifacts', name)
+        return () => {
+          art.img = url || ''
+          art.imgManual = false
+        }
+      })
+    }
+  }
+
+  /* 配队成员（0 号位是主角，不在这里）与备选 */
+  for (const team of d.teamData || []) {
+    for (const c of (team.chars || []).slice(1, 4)) {
+      if (c.name && !c.imgManual) {
+        const name = c.name
+        tasks.push(async () => {
+          const url = await matchIcon('characters', name)
+          return () => {
+            c.img = url || ''
+            c.imgManual = false
+          }
+        })
+      }
+      for (const alt of c.alts || []) {
+        if (!alt.name || alt.imgManual) continue
+        const name = alt.name
+        tasks.push(async () => {
+          const url = await matchIcon('characters', name)
+          return () => {
+            alt.img = url || ''
+            alt.imgManual = false
+          }
+        })
+      }
+    }
+  }
+
+  const applies = await runPool(tasks)
+  for (const apply of applies) if (apply) apply()
+}
+
+>>>>
+### src/components/DockCta.vue
+<<<<
+<script setup>
+import Btn from './Btn.vue'
+
+/* 工具页的底部主操作：悬浮在滚动区上方、水平居中。
+   每个工具都长这样，所以留在共享层，各页面只给文案和点击。
+
+   用 absolute 而不是旧版的 fixed：它挂在工具视图的根节点上（那层是 relative），
+   视觉效果与 fixed 相同，但不会被祖先的 transform / filter 改掉包含块。
+
+   约定：用了它的页面，滚动区要留 pb-24 给它让位。 */
+defineProps({
+  loading: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false },
+})
+defineEmits(['click'])
+</script>
+
+<template>
+  <!-- pointer-events-none：这条横向条子必须让点击穿过去，只有按钮本身收事件 -->
+  <div
+    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+  >
+    <Btn
+      variant="primary"
+      size="lg"
+      class="pointer-events-auto shadow-float"
+      :loading="loading"
+      :disabled="disabled"
+      @click="$emit('click')"
+    >
+      <slot />
+    </Btn>
+  </div>
+</template>
+
+>>>>
+<<<<
+<script setup>
+/* 工具页的底部主操作：悬浮在滚动区上方、水平居中。
+   每个工具都长这样，所以留在共享层，各页面只给文案和点击。
+   按钮本体走 EP 的 el-button（primary + large），外面这层定位是自造的 ——
+   EP 没有「底部悬浮 + 让开安全区」这种东西。
+
+   用 absolute 而不是旧版的 fixed：它挂在工具视图的根节点上（那层是 relative），
+   视觉效果与 fixed 相同，但不会被祖先的 transform / filter 改掉包含块。
+
+   约定：用了它的页面，滚动区要留 pb-24 给它让位。 */
+defineProps({
+  loading: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false },
+})
+defineEmits(['click'])
+</script>
+
+<template>
+  <!-- pointer-events-none：这条横向条子必须让点击穿过去，只有按钮本身收事件 -->
+  <div
+    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 grid place-items-center pb-[calc(1rem+env(safe-area-inset-bottom))]"
+  >
+    <el-button
+      type="primary"
+      size="large"
+      class="pointer-events-auto px-6 shadow-float"
+      :loading="loading"
+      :disabled="disabled"
+      @click="$emit('click')"
+    >
+      <slot />
+    </el-button>
+  </div>
+</template>
+
 >>>>
 ### AGENTS.md
 <<<<
-- **最后合并**：`dict-ep`
+- **最后合并**：
 >>>>
 <<<<
-- **最后合并**：`dict-ep-2` —— 图片字典三处收尾：①页头 5 个按钮改成 `grid-cols-6`（「从源匹配 / 新增」各占 3 格，「日志 / 载入 / 导出」各占 2 格），手机上一律两行对齐；②去掉「整条冻结」（界面与调用都删，`lock` 字段只在读到旧数据时保留）；③序号（编号）的 `:max="9999"` 去掉 —— 圣遗物 / 武器 / 怪物的编号是 5–8 位，卡在 9999 就没法用；输入框加宽到 112px，星级挪到第二行，名字那栏才有空间。顺带在 `app.css` 里把 EP 相邻按钮的 12px 左边距归零（和 `gap` 叠加会一大一小）。
-- **上一批**：`dict-ep`
+- **最后合并**：`guide-ep` —— 角色卡一图流（`CharacterGuide.vue`）全量回归 EP：页签改一行 `el-segmented`（窄屏横滑）、预览框工具栏 4 个 `el-button circle`（补素材 / 导入配置 / 导出配置 / 清空）、表单区 `el-form` + `el-form-item` + `el-input`、元素配色 `el-radio-group`（选项里仍是元素 SVG）、字体 `el-select`、立绘偏移 `el-slider` + `el-input-number`、面板主属性 `el-radio-button`、两个确认框 `ElMessageBox`；命座圆 36px → 28px（数字仍是正文 12px）。出图只动一处：命座点亮底框 `fill-opacity` 0.25 → 0.5（预览与导出同一份 SVG）。补素材整段重写：三个入口（首屏草稿 / 在线存档 / 导入配置）都补，判定改成「`*Manual` / `*Deleted` 才保留，其余按当前字典重算」，过程改 **6 路并发 + 一次性写回**（原来是串行，一张一张蹦）。删掉 `Btn` / `Field` / `Dropdown` / `Modal` / `Slider` / `Icon` / `Seg` 七个自造件。
+- **上一批**：
 >>>>
 ### CHANGELOG.md
 <<<<
 ### 2026-11-19 · 
 >>>>
 <<<<
-- **补充（同批 · 图片字典三处收尾）**：①页头「从源匹配 / 新增 / 日志 / 载入 / 导出」五个按钮在手机上是 `flex-wrap` 自动折行，长短不一排得乱 —— 改成 6 格栅格：前两个各占 3 格、后三个各占 2 格，两行永远对齐；顺带在 `app.css` 里把 EP 给相邻按钮自动加的 12px 左边距归零（和 `gap` 叠加会一大一小，弹窗底部改成自己包一层 `flex gap-2`）。②「整条冻结」这个勾去掉，界面和调用一起删。③序号的 `:max="9999"` 去掉：圣遗物 / 武器 / 怪物的编号是 5–8 位，原来全被卡在 9999；输入框加宽到 112px，星级另起一行，名字那栏不再被挤。
+- **补充（同批 · 角色卡一图流全量回归 EP）**：这是最后一个还带自造控件的页面（`Btn` 30 处、`Field` 25 处、`Icon` 23 处，外加 `Dropdown` / `Slider` / `Modal`）。改法：9 个分区的横向滚动页签换成**一行** `el-segmented`（窄屏横滑不换行）、预览框工具栏换成 4 个 `el-button circle`（**补素材挪到了这里常驻**，以前藏在「外观 → 在线存档」卡片里）、表单区统一 `el-form` + `el-form-item` + `el-input`、元素配色换 `el-radio-group`（选项里还是元素 SVG，不是圆点）、字体换 `el-select`、立绘偏移换 `el-slider` + `el-input-number` + `px`、面板主属性换 `el-radio-button`、两个确认框换 `ElMessageBox`；命座圆从 36px 收到 28px（数字仍是正文 12px），比原来省一半高度。**出图只动一处**：命座点亮底框 `fill-opacity` 0.25 → 0.5（预览与导出是同一份 SVG，改一处两边都对）；1/3 网格、元素图与名字同中心、各区尺寸和字号一律没动。**补素材整段重写**：三个入口（首屏恢复草稿 / 载入在线存档 / 导入配置）都会自动补；判定从「图是空的才补」改成「手传的（`*Manual`）、手删的（`*Deleted`）才保留，其余按当前字典重算」——原来存档里存着一条 404 的旧链接就不算空，所以必须手点一次；补的过程从串行改 **6 路并发 + 算完全部一次性写回**，不再一张一张蹦。顺带删掉 `Btn` / `Field` / `Dropdown` / `Modal` / `Slider` / `Icon` / `Seg` 七个自造件（全站已无人引用）。
 
 ### 2026-11-19 · 
 >>>>
 
 == DELETES ==
+src/components/Btn.vue
+src/components/Field.vue
+src/components/Dropdown.vue
+src/components/Modal.vue
+src/components/Slider.vue
+src/components/Icon.vue
+src/components/Seg.vue
 
 == CHECKS ==
-grep -q "grid-cols-6" src/views/ImageDict.vue
-[ "$(grep -c 'col-span-2' src/views/ImageDict.vue)" -eq 3 ]
-[ "$(grep -c 'col-span-3' src/views/ImageDict.vue)" -eq 2 ]
-! grep -q "flex flex-wrap gap-2" src/views/ImageDict.vue
-! grep -q "整条冻结" src/views/ImageDict.vue
-! grep -q "setLock" src/views/ImageDict.vue
-! grep -q ':max="9999"' src/views/ImageDict.vue
-grep -q "el-button + .el-button" src/styles/app.css
-[ "$(grep -c 'justify-end gap-2' src/views/ImageDict.vue)" -eq 2 ]
+[ "$(grep -c '<el-form-item' src/views/CharacterGuide.vue)" -ge 10 ]
+[ "$(grep -c '<el-input ' src/views/CharacterGuide.vue)" -ge 10 ]
+grep -q "<el-segmented" src/views/CharacterGuide.vue
+grep -q "<el-radio-group" src/views/CharacterGuide.vue
+grep -q "<el-radio-button" src/views/CharacterGuide.vue
+grep -q "<el-slider" src/views/CharacterGuide.vue
+grep -q "ElMessageBox" src/views/CharacterGuide.vue
+! grep -q "confirmBox\|components/Btn.vue\|components/Field.vue\|components/Dropdown.vue\|components/Modal.vue\|components/Slider.vue\|components/Icon.vue" src/views/CharacterGuide.vue
+[ "$(grep -c 'rematchMissing(s)' src/views/CharacterGuide.vue)" -ge 4 ]
+grep -q "size-7 shrink-0 place-items-center rounded-full" src/views/CharacterGuide.vue
+grep -q 'fill-opacity="0.5"' src/lib/guideChart.js
+! grep -q 'fill-opacity="0.25"' src/lib/guideChart.js
+grep -q "runPool" src/lib/guideStore.js
+grep -q "export async function rematchMissing(d)" src/lib/guideStore.js
+[ ! -f src/components/Btn.vue ] && [ ! -f src/components/Field.vue ] && [ ! -f src/components/Dropdown.vue ]
+[ ! -f src/components/Modal.vue ] && [ ! -f src/components/Slider.vue ] && [ ! -f src/components/Icon.vue ] && [ ! -f src/components/Seg.vue ]
+! grep -rqE "from '\./(Btn|Field|Dropdown|Modal|Slider|Icon|Seg)\.vue'|components/(Btn|Field|Dropdown|Modal|Slider|Icon|Seg)\.vue" src
 [ "$(grep -c '^### 2026-11-21' CHANGELOG.md)" -eq 1 ]
