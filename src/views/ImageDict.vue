@@ -61,7 +61,6 @@ const {
   starStyle,
   setOrder,
   setName,
-  setLock,
   setStar,
   addCandidates,
   pickAddCandidate,
@@ -290,28 +289,28 @@ onMounted(init)
 
       <el-segmented v-if="isCharTab" v-model="filter" :options="filterOptions" block />
 
-      <div class="flex flex-wrap gap-2">
-        <el-button type="primary" :loading="syncing" @click="onSync">
+      <div class="grid grid-cols-6 gap-2">
+        <el-button type="primary" class="col-span-3" :loading="syncing" @click="onSync">
           <template #icon><el-icon><Refresh /></el-icon></template>
           从源匹配
         </el-button>
 
-        <el-button :disabled="syncing" @click="openAdd">
+        <el-button class="col-span-3" :disabled="syncing" @click="openAdd">
           <template #icon><el-icon><Plus /></el-icon></template>
           新增
         </el-button>
 
-        <el-button @click="reportOpen = true">
+        <el-button class="col-span-2" @click="reportOpen = true">
           <template #icon><el-icon><Document /></el-icon></template>
           日志
         </el-button>
 
-        <el-button :loading="fetching" @click="onLoad">
+        <el-button class="col-span-2" :loading="fetching" @click="onLoad">
           <template #icon><el-icon><Upload /></el-icon></template>
           载入
         </el-button>
 
-        <el-button :type="dirty ? 'danger' : 'default'" @click="exportDict">
+        <el-button class="col-span-2" :type="dirty ? 'danger' : 'default'" @click="exportDict">
           <template #icon><el-icon><Download /></el-icon></template>
           {{ dirty ? '未导出' : '导出' }}
         </el-button>
@@ -399,14 +398,13 @@ onMounted(init)
           </div>
 
           <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <div class="flex min-w-0 items-center gap-2">
               <el-input-number
                 :model-value="activeRow.order || 0"
                 :min="0"
-                :max="9999"
                 size="small"
                 controls-position="right"
-                style="width: 96px"
+                style="width: 112px"
                 aria-label="序号"
                 @change="setOrder(activeRow, $event)"
               />
@@ -419,24 +417,22 @@ onMounted(init)
                 @input="activeRow.name = $event"
                 @blur="commitName(activeRow)"
               />
-              <template v-if="tab !== 'monsters'">
-                <el-input-number
-                  :model-value="activeRow.star ?? 5"
-                  :min="1"
-                  :max="5"
-                  size="small"
-                  controls-position="right"
-                  style="width: 88px"
-                  aria-label="星级"
-                  @change="setStar(activeRow, $event)"
-                />
-                <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
-              </template>
             </div>
 
-            <el-checkbox :model-value="!!activeRow.lock" @change="setLock(activeRow, $event)">
-              整条冻结
-            </el-checkbox>
+            <div v-if="tab !== 'monsters'" class="flex min-w-0 items-center gap-2">
+              <el-text size="small" class="ah-text-muted shrink-0">星级</el-text>
+              <el-input-number
+                :model-value="activeRow.star ?? 5"
+                :min="1"
+                :max="5"
+                size="small"
+                controls-position="right"
+                style="width: 88px"
+                aria-label="星级"
+                @change="setStar(activeRow, $event)"
+              />
+              <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
+            </div>
           </div>
 
           <!-- 三个槽位 -->
@@ -574,8 +570,10 @@ onMounted(init)
       </div>
 
       <template #footer>
-        <el-button @click="addOpen = false">取消</el-button>
-        <el-button type="primary" @click="onAdd">加入</el-button>
+        <div class="flex justify-end gap-2">
+          <el-button @click="addOpen = false">取消</el-button>
+          <el-button type="primary" @click="onAdd">加入</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -600,8 +598,10 @@ onMounted(init)
       </div>
 
       <template #footer>
-        <el-button @click="conflictOpen = false">取消</el-button>
-        <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
+        <div class="flex justify-end gap-2">
+          <el-button @click="conflictOpen = false">取消</el-button>
+          <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
+        </div>
       </template>
     </el-dialog>
 
