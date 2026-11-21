@@ -404,7 +404,7 @@ const buildConstellations = (d) => {
       : ''
 
     const box = active
-      ? `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${theme}" fill-opacity="0.25" stroke="${theme}" stroke-opacity="0.5" stroke-width="1"/>`
+      ? `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${rx}" fill="${theme}" fill-opacity="0.5" stroke="${theme}" stroke-opacity="0.5" stroke-width="1"/>`
       : rect(x, y, boxW, boxH, LAYOUT.innerBoxFill, '', 0, rx)
 
     const badge = `<circle cx="${badgeCx}" cy="${badgeCy}" r="10" fill="${active ? theme : 'rgba(0,0,0,.4)'}"/>` +
