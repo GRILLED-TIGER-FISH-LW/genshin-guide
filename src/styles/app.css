@@ -161,3 +161,10 @@ html.dark {
   --el-segmented-bg-color: var(--color-surface);
   border: 1px solid var(--el-border-color-light);
 }
+
+/* EP 会给相邻的 .el-button 自动加 12px 左边距，和 Tailwind 的 gap 一叠加，
+   间距就变成一大一小（页头那种一排按钮看着最乱）。全站统一：间距只由 gap 决定。
+   弹窗底部这种没有 gap 的地方，自己包一层 flex + gap-2。 */
+.el-button + .el-button {
+  margin-left: 0;
+}
