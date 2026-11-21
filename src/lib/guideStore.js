@@ -84,6 +84,9 @@ export function normalizeGuide(raw) {
   for (const key of TEXT_KEYS) {
     if (d[key] != null) out[key] = str(d[key])
   }
+  /* 制作日期只到月（编辑区用 el-date-picker type="month"）：
+     老草稿里的「2026-11-07」截成「2026-11」，否则日期控件认不出来、显示空白 */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(out.date)) out.date = out.date.slice(0, 7)
   out.imgX = Number(d.imgX) || 0
 
   for (const key of IMG_KEYS) {
