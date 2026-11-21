@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import ElementPlus from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
@@ -50,7 +51,9 @@ host.textContent = ''
 
 const app = createApp(App)
 
-app.use(ElementPlus)
+/* EP 默认是英文：日期面板的月份 / 星期、各组件自带空态与加载文案都会是英文。
+   装中文语言包，全站一次到位（我们自己写的文案本来就是中文，不受影响）。 */
+app.use(ElementPlus, { locale: zhCn })
 
 app.config.errorHandler = (err) => {
   showFatal(err?.stack || err?.message || String(err))
