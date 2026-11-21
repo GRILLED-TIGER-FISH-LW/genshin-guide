@@ -591,7 +591,7 @@ function clearTeamCore() {
 
     <!-- 分区切换：一行，窄屏横滑，不换行 -->
     <div
-      class="overflow-x-auto border-b border-line bg-surface px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      class="mx-3 my-2 overflow-x-auto rounded-panel border border-line bg-surface p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
       aria-label="编辑区域切换"
     >
@@ -603,7 +603,7 @@ function clearTeamCore() {
       <section v-show="tab === 'style'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">文字</h2>
-          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <el-form label-position="top" size="small" class="grid grid-cols-2 gap-2">
             <el-form-item label="角色名称">
               <el-input v-model="s.charName" placeholder="如：芙宁娜" />
             </el-form-item>
@@ -611,7 +611,14 @@ function clearTeamCore() {
               <el-input v-model="s.version" placeholder="如：5.4" />
             </el-form-item>
             <el-form-item label="制作日期">
-              <el-input v-model="s.date" placeholder="如：2026-11-07" />
+              <el-date-picker
+                v-model="s.date"
+                type="month"
+                value-format="YYYY-MM"
+                format="YYYY-MM"
+                placeholder="选到月"
+                style="width: 100%"
+              />
             </el-form-item>
             <el-form-item label="攻略作者">
               <el-input v-model="s.author" />
@@ -644,14 +651,10 @@ function clearTeamCore() {
               <el-option v-for="f in fontOptions" :key="f.value" :label="f.label" :value="f.value" />
             </el-select>
           </div>
-          <el-text size="small" class="ah-text-muted">
-            字体只在导出时内嵌，草稿里不存几兆的字体文件。
-          </el-text>
         </div>
 
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">在线存档</h2>
-          <el-text size="small" class="ah-text-muted">草稿自动存在本机浏览器里，下次打开会接着上次。</el-text>
           <el-text size="small" class="text-accent-strong" aria-live="polite">{{ saveState }}</el-text>
           <div class="flex flex-wrap gap-2">
             <el-button size="small" @click="askRepoSave">
@@ -663,9 +666,6 @@ function clearTeamCore() {
               从字典补素材
             </el-button>
           </div>
-          <el-text size="small" class="ah-text-muted">
-            按角色名去找（编号取自图片字典），当前仓库里只有芙宁娜、爱可菲、丝柯克、瓦列里、米提亚五份。
-          </el-text>
         </div>
       </section>
 
@@ -684,12 +684,7 @@ function clearTeamCore() {
               >
                 <img v-if="s[slot.key]" :src="s[slot.key]" alt="" class="size-full object-cover" />
               </button>
-              <div class="min-w-0 flex-1">
-                <div class="text-xs font-medium text-ink">{{ slot.label }}</div>
-                <el-text size="small" truncated class="ah-text-muted">
-                  {{ s[slot.key] ? '已载入，点图更换' : slot.hint }}
-                </el-text>
-              </div>
+              <div class="min-w-0 flex-1 text-xs font-medium text-ink">{{ slot.label }}</div>
               <el-button
                 v-if="s[slot.key]"
                 type="danger"
@@ -844,10 +839,7 @@ function clearTeamCore() {
 
             <div v-for="(a, i) in s.artifactData" :key="i" :class="CARD">
               <div :class="HEAD">
-                <span
-                  class="text-xs font-medium"
-                  :class="a.type === 'double' ? 'text-accent-strong' : 'text-ink'"
-                >
+                <span class="text-xs font-medium text-ink">
                   {{ a.type === 'double' ? '散搭' : '整套' }} #{{ i + 1 }}
                 </span>
                 <div class="flex shrink-0 gap-1">
@@ -943,7 +935,7 @@ function clearTeamCore() {
       <section v-show="tab === 'talent'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">天赋加点优先级</h2>
-          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <el-form label-position="top" size="small" class="grid grid-cols-3 gap-2">
             <el-form-item label="普通攻击">
               <el-input v-model="s.talentA" placeholder="如：10" />
             </el-form-item>
@@ -961,7 +953,7 @@ function clearTeamCore() {
       <section v-show="tab === 'stat'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">主副词条推荐</h2>
-          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <el-form label-position="top" size="small" class="grid grid-cols-3 gap-2">
             <el-form-item label="时之沙">
               <el-input v-model="s.sandMain" placeholder="如：元素精通" />
             </el-form-item>
@@ -984,17 +976,24 @@ function clearTeamCore() {
       <section v-show="tab === 'panel'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">主属性（三选一）</h2>
-          <el-radio-group v-model="s.panel.primaryKey" size="small">
-            <el-radio-button v-for="opt in PRIMARY_OPTIONS" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </el-radio-button>
-          </el-radio-group>
-          <el-input v-model="s.panel.primaryValue" size="small" placeholder="数值（留空显示「任意」）" />
+          <div class="flex min-w-0 items-center gap-2">
+            <el-radio-group v-model="s.panel.primaryKey" size="small" class="shrink-0">
+              <el-radio-button v-for="opt in PRIMARY_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </el-radio-button>
+            </el-radio-group>
+            <el-input
+              v-model="s.panel.primaryValue"
+              size="small"
+              class="min-w-0 flex-1"
+              placeholder="数值"
+            />
+          </div>
         </div>
 
         <div :class="PANEL">
           <h2 class="text-xs font-medium text-muted">副属性面板</h2>
-          <el-form label-position="top" size="small" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <el-form label-position="top" size="small" class="grid grid-cols-2 gap-2">
             <el-form-item label="暴击率">
               <el-input v-model="s.panel.cr" placeholder="留空显示「任意」" />
             </el-form-item>
@@ -1019,7 +1018,7 @@ function clearTeamCore() {
             <div v-for="(c, i) in s.constellationData" :key="i" class="flex items-center gap-2">
               <button
                 type="button"
-                class="grid size-7 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
+                class="grid size-6 shrink-0 place-items-center rounded-full border text-xs font-medium transition-shadow duration-150"
                 :class="c.active ? 'border-transparent text-white' : 'border-line text-muted hover:bg-hover'"
                 :style="c.active ? { backgroundColor: s.theme } : {}"
                 :aria-pressed="c.active"
@@ -1048,12 +1047,7 @@ function clearTeamCore() {
             <button type="button" :class="THUMB" aria-label="上传 1 号位头像" @click="pickFile('teamCore')">
               <img v-if="s.teamCoreImg" :src="s.teamCoreImg" alt="" class="size-full object-cover" />
             </button>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-medium text-ink">1 号位头像</div>
-              <el-text size="small" truncated class="ah-text-muted">
-                {{ s.teamCoreImg ? '已载入，点图更换' : '留空就用角色自己的头像' }}
-              </el-text>
-            </div>
+            <div class="min-w-0 flex-1 text-xs font-medium text-ink">1 号位头像</div>
             <el-button
               v-if="s.teamCoreImg"
               size="small"
@@ -1122,7 +1116,7 @@ function clearTeamCore() {
 
             <div v-for="ci in 3" :key="ci" :class="CARD">
               <div :class="HEAD">
-                <span class="text-xs font-medium text-accent-strong">{{ ci + 1 }} 号位主角色</span>
+                <span class="text-xs font-medium text-ink">{{ ci + 1 }} 号位主角色</span>
                 <div class="flex shrink-0 gap-1">
                   <el-button size="small" circle aria-label="上移" :disabled="ci === 1" @click="moveTeamChar(ti, ci, -1)">
                     <el-icon><ArrowUp /></el-icon>
