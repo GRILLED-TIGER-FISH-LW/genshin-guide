@@ -8,8 +8,8 @@ window.IMAGE_DICT = {
 
   /* ============ 角色 ============ */
   characters: {
-    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者.webp" } },
-    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者·冰.webp" } },
+    "旅行者": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/images/game/旅行者.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者.webp" } },
+    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/images/game/旅行者.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者·冰.webp" } },
     "Ambor": { name: "安柏", star: 4, order: 2, card: { key: "Ambor" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/6f0ef40157e95b0d59455c12f4d3f270_6966278935690800707.png" } },
     "Kaeya": { name: "凯亚", star: 4, order: 3, card: { key: "Kaeya" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/cbce61ef1ee5586c4e77b2070348685f_2003673786618101140.png" } },
     "Lisa": { name: "丽莎", star: 4, order: 4, card: { key: "Lisa" }, art: { url: "https://act-webstatic.hoyoverse.com/upload/contentweb/2022/07/22/43922f5162840c215638affedad0459a_3369229991804918602.png" } },

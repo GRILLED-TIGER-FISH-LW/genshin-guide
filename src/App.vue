@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import AppNav from './components/AppNav.vue'
 import AppDrawer from './components/AppDrawer.vue'
 import FrameLayer from './components/FrameLayer.vue'
-import ToastHost from './components/ToastHost.vue'
 
 const drawerOpen = ref(false)
 </script>
@@ -25,7 +24,5 @@ const drawerOpen = ref(false)
 
       <FrameLayer />
     </main>
-
-    <ToastHost />
   </div>
 </template>

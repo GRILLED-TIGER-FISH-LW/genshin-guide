@@ -1,15 +1,20 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import Btn from '../components/Btn.vue'
-import Dropdown from '../components/Dropdown.vue'
-import Field from '../components/Field.vue'
-import Icon from '../components/Icon.vue'
-import Modal from '../components/Modal.vue'
-import Seg from '../components/Seg.vue'
+import {
+  ArrowLeft,
+  Delete,
+  Document,
+  Download,
+  Plus,
+  Refresh,
+  Search,
+  Upload,
+} from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 import SyncReport from '../components/SyncReport.vue'
 import { useImageDict } from '../composables/useImageDict.js'
 
-/* 图片字典编辑器 · 界面
+/* 图片字典编辑器 · 界面（全量走 Element Plus）
  * -------------------------------------------------------------------------
  * 域逻辑全在 useImageDict.js，这里只管长得怎么样。
  *
@@ -21,21 +26,20 @@ import { useImageDict } from '../composables/useImageDict.js'
  *   选中一行会自动补它缺的（名片最常见）；地址框停手 700ms 自动落；
  *   名字框失焦时补；同步末尾会把源里没有的角色也再试一次。
  *
+ * 【地址框显示的就是这一格现在的值】
+ *   框里的内容 = 手填的地址优先，否则按代号拼出的源地址（刷新后照样在），
+ *   缩略图永远跟着「已保存的值」走，不跟正在输入的草稿走 ——
+ *   所以打字过程中图不会闪、也不会因为你还没改完就变。
+ *   提交后如果代号变了（头像换代号 = 换身份），选中会跟着挪，不会弹回列表。
+ *
  * 【槽位的「用备用源」勾】
- *   主源（lunaris）图不对时（夏洛蒂那种）勾上，或用备用源那一组的链接
- *   粘一遍（会自动勾上）。这一格从此走 config 里的备用源规则，
- *   字典里不写死链接。立绘没有源规则，所以没有这个勾。
+ *   主源（lunaris）图不对时勾上，或把备用源那一组的链接粘一遍（会自动勾上）。
+ *   立绘没有源规则，所以没有这个勾。
  *
  * 【角色页签：宽屏双栏 / 窄屏全屏子页】纯 CSS 断点，不用 JS 读宽度。
- * 【grid 必须声明列】没写 grid-cols-* 的 grid，隐式轨道是 auto，
- *   会被一整条不换行的 URL 撑到左右拖。
- * 【图标名必须在 shared/ui-icons.js 里真实存在】取不到就渲染成空白（不报错）。
- *   ui 组现有：plus trash arrowUp arrowDown back check chevronUp chevronDown
- *             close export file guides import inbox reload reorder search textFont
- * ------------------------------------------------------------------------- */
-
-/* 删除按钮的红描边：danger 的浅底贴在卡片上只有 1.02:1，靠这 1px 红线区分（见 AGENTS.md 第四节） */
-const DEL = 'border border-danger/30'
+ * 【EP 的无对应物】列表行本身仍是原生 <button>（EP 没有「可选中行」），
+ *   星级底纹、槽位缩略图是自造样式；其余（输入框 / 按钮 / 分段菜单 / 标签 /
+ *   空态 / 弹窗 / 消息）全部 EP 默认。 */
 
 const {
   loading,
@@ -57,16 +61,14 @@ const {
   starStyle,
   setOrder,
   setName,
-  setNameLock,
   setLock,
   setStar,
-  resolveAdd,
-  addItem,
   addCandidates,
   pickAddCandidate,
   removeRow,
   clearTab,
   select,
+  reselect,
   applyUrl,
   clearSlot,
   hydrate,
@@ -90,11 +92,9 @@ const TABS = [
   { value: 'weapons', label: '武器' },
   { value: 'monsters', label: '怪物' },
 ]
-const STAR_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}★` }))
 const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
 
 const reportOpen = ref(false)
-const confirmOpen = ref(false)
 const addOpen = ref(false)
 const addText = ref('')
 const syncing = ref(false)
@@ -105,19 +105,19 @@ const conflictOpen = ref(false)
 const conflicts = ref([])
 const useSource = ref([])
 
-const FIELD =
-  'h-9 min-w-0 rounded-ctl border border-line-2 bg-surface text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
-
 const isCharTab = computed(() => tab.value === 'characters')
+
+/* 地址框的草稿：只对「当前选中的那条 + 那个槽位」有效，切行 / 切换页签自动作废 */
+const draft = ref({ key: '', value: '' })
 
 watch(tab, () => {
   search.value = ''
   filter.value = 'all'
   activeKey.value = ''
+  draft.value = { key: '', value: '' }
 })
 
 const hasData = computed(() => sorted.value.length > 0)
-const emptyIcon = computed(() => (hasData.value ? 'ui.search' : 'ui.inbox'))
 const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
 const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上面「新增」开始'))
 
@@ -125,8 +125,7 @@ const filterOptions = computed(() =>
   FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
 )
 
-/* 详情栏的槽位列：角色三个（头像 / 名片 / 立绘），圣遗物 / 武器 / 怪物只有头像。
-   详情栏四个页签共用，所以这一列跟着页签走。 */
+/* 详情栏的槽位列：角色三个（头像 / 名片 / 立绘），其余只有头像 */
 const AVATAR_META = {
   slot: '',
   title: '头像',
@@ -150,57 +149,57 @@ const SLOT_META = computed(() =>
     : [AVATAR_META],
 )
 
-/* 槽位的地址草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
-const urlDraft = ref({ key: '', value: '' })
-const draftOf = (slot) =>
-  urlDraft.value.key === `${activeKey.value}|${slot}` ? urlDraft.value.value : ''
-const setDraft = (slot, value) => {
-  urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
+/* 地址框：有草稿（正在打字）就显示草稿，否则显示这一格已保存的地址 ——
+   slotSrc 是「按已保存的值算出来的真实地址」，所以刷新后框里照样有东西。 */
+function textOf(slot) {
+  const k = `${activeKey.value}|${slot}`
+  if (draft.value.key === k) return draft.value.value
+  return slotSrc(tab.value, activeRow.value, slot).src || ''
 }
 
-/* 地址框：粘完 / 停手就自己落，不用再点别处去触发失焦 */
 let urlTimer = 0
 function onUrlInput(slot, value) {
-  setDraft(slot, value)
+  draft.value = { key: `${activeKey.value}|${slot}`, value }
   clearTimeout(urlTimer)
-  urlTimer = setTimeout(() => {
-    if (draftOf(slot)) commitUrl(activeRow.value, slot)
-  }, 700)
+  urlTimer = setTimeout(() => commitUrl(activeRow.value, slot), 700)
 }
 
-/* 粘完地址：先落代号 / 标记，再拿代号去源里反查，把缺的字段补齐 */
+/* 落一个地址：草稿 → 数据，然后（角色）顺手补齐缺的字段。
+   提交完把草稿清掉，框里回落到「已保存的值」，所以不会变成一个空框。 */
 async function commitUrl(row, slot) {
   clearTimeout(urlTimer)
-  const value = draftOf(slot)
-  setDraft(slot, '')
-  if (!value || !row) return
+  const k = `${activeKey.value}|${slot}`
+  const typing = draft.value.key === k
+  const value = typing ? draft.value.value : ''
+  draft.value = { key: '', value: '' }
+  if (!row || !typing) return
+  /* 清空输入框不算删数据（要删请用右边那个「清空」或框里的 ×），
+     否则手一滑整格就没了 */
+  if (!value.trim()) return
 
   const code = applyUrl(row, slot, value)
+  reselect(row)
   if (!code) return
   /* 只给角色反查补齐：怪物同一个代号常被好几条共用，反查会带回别的条目的名字 */
-  if (tab.value === 'characters' && needFill(row)) await hydrate(row, slot)
+  if (tab.value === 'characters' && needFill(row)) {
+    await hydrate(row, slot)
+    reselect(row)
+  }
 }
 
 function onSelect(row) {
-  urlDraft.value = { key: '', value: '' }
+  draft.value = { key: '', value: '' }
   select(row)
 }
 
 /* 改完名字：这条还缺什么就顺手从源补上 */
 async function commitName(row) {
   setName(row, row.name)
-  if (tab.value === 'characters' && needFill(row)) await hydrate(row, 'name')
-}
-
-function onThumbError(e) {
-  const img = e.target
-  const alt = img.dataset.alt
-  if (!alt) {
-    img.removeAttribute('src')
-    return
+  reselect(row)
+  if (tab.value === 'characters' && needFill(row)) {
+    await hydrate(row, 'name')
+    reselect(row)
   }
-  delete img.dataset.alt
-  img.src = alt
 }
 
 async function onSync() {
@@ -255,6 +254,25 @@ async function onLoad() {
   }
 }
 
+/* 清空当前分类：EP 的确认框（原来是自造 Modal + confirmOpen） */
+async function askClear() {
+  try {
+    await ElMessageBox.confirm(
+      `确定清空「${LABELS[tab.value]}」的源条目吗？手填的会保留，这一步无法撤销。`,
+      '清空当前分类',
+      {
+        type: 'warning',
+        confirmButtonText: '清空',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+    clearTab()
+  } catch {
+    /* 点了取消：什么都不做 */
+  }
+}
+
 onMounted(init)
 </script>
 
@@ -262,64 +280,41 @@ onMounted(init)
   <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
     <!-- ---------------- 头部 ---------------- -->
     <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
-      <div class="relative flex min-w-0 items-center">
-        <span
-          class="pointer-events-none absolute left-3 top-1/2 grid size-4 -translate-y-1/2 place-items-center text-muted"
-          aria-hidden="true"
-        >
-          <Icon name="ui.search" size="sm" />
-        </span>
+      <el-input v-model="search" placeholder="搜索名字或代号" aria-label="搜索名字或代号" clearable>
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
 
-        <input
-          v-model="search"
-          type="search"
-          :class="[FIELD, 'w-full pl-9 pr-9']"
-          placeholder="搜索名字或代号…"
-          aria-label="搜索名字或代号"
-          autocomplete="off"
-          spellcheck="false"
-        />
+      <el-segmented v-model="tab" :options="TABS" block />
 
-        <button
-          v-if="search"
-          type="button"
-          class="absolute right-1 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-          aria-label="清除搜索"
-          @click="search = ''"
-        >
-          <Icon name="ui.close" size="sm" />
-        </button>
-      </div>
-
-      <Seg v-model="tab" :options="TABS" full />
-
-      <Seg v-if="isCharTab" v-model="filter" :options="filterOptions" full />
+      <el-segmented v-if="isCharTab" v-model="filter" :options="filterOptions" block />
 
       <div class="flex flex-wrap gap-2">
-        <Btn size="sm" variant="primary" :loading="syncing" @click="onSync">
-          <template #icon><Icon name="ui.reload" size="sm" /></template>
+        <el-button type="primary" :loading="syncing" @click="onSync">
+          <template #icon><el-icon><Refresh /></el-icon></template>
           从源匹配
-        </Btn>
+        </el-button>
 
-        <Btn size="sm" :disabled="syncing" @click="openAdd">
-          <template #icon><Icon name="ui.plus" size="sm" /></template>
+        <el-button :disabled="syncing" @click="openAdd">
+          <template #icon><el-icon><Plus /></el-icon></template>
           新增
-        </Btn>
+        </el-button>
 
-        <Btn size="sm" @click="reportOpen = true">
-          <template #icon><Icon name="ui.file" size="sm" /></template>
+        <el-button @click="reportOpen = true">
+          <template #icon><el-icon><Document /></el-icon></template>
           日志
-        </Btn>
+        </el-button>
 
-        <Btn size="sm" :loading="fetching" @click="onLoad">
-          <template #icon><Icon name="ui.import" size="sm" /></template>
+        <el-button :loading="fetching" @click="onLoad">
+          <template #icon><el-icon><Upload /></el-icon></template>
           载入
-        </Btn>
+        </el-button>
 
-        <Btn size="sm" :variant="dirty ? 'danger' : 'secondary'" @click="exportDict">
-          <template #icon><Icon name="ui.export" size="sm" /></template>
+        <el-button :type="dirty ? 'danger' : 'default'" @click="exportDict">
+          <template #icon><el-icon><Download /></el-icon></template>
           {{ dirty ? '未导出' : '导出' }}
-        </Btn>
+        </el-button>
       </div>
     </header>
 
@@ -328,66 +323,63 @@ onMounted(init)
     <main class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain md:grid-cols-[15rem_minmax(0,1fr)]">
       <!-- 列表栏 -->
       <div
+        v-loading="loading"
         class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto p-3"
         :class="activeRow ? 'hidden md:grid' : ''"
       >
-        <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
+        <el-empty v-if="!loading && !filtered.length">
+          <template #description>
+            <div class="grid grid-cols-1 gap-1">
+              <el-text size="small" class="text-body">{{ emptyTitle }}</el-text>
+              <el-text size="small" class="ah-text-muted">{{ emptyHint }}</el-text>
+            </div>
+          </template>
+        </el-empty>
 
-        <div
-          v-else-if="!filtered.length"
-          class="grid grid-cols-1 place-items-center gap-3 py-12 text-center"
+        <button
+          v-for="row in filtered"
+          :key="identOf(tab, row)"
+          type="button"
+          class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left"
+          :class="
+            identOf(tab, row) === activeKey
+              ? 'border-line-2 bg-surface-2'
+              : 'border-line bg-surface hover:bg-hover'
+          "
+          @click="onSelect(row)"
         >
-          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
-            <Icon :name="emptyIcon" size="lg" />
-          </span>
-          <div class="grid grid-cols-1 gap-1">
-            <p class="text-sm text-body">{{ emptyTitle }}</p>
-            <p class="text-xs text-muted">{{ emptyHint }}</p>
-          </div>
-        </div>
-
-        <template v-else>
-          <button
-            v-for="row in filtered"
-            :key="identOf(tab, row)"
-            type="button"
-            class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-            :class="
-              identOf(tab, row) === activeKey
-                ? 'border-line-2 bg-surface-2'
-                : 'border-line bg-surface hover:bg-hover'
-            "
-            @click="onSelect(row)"
-          >
-            <span
-              class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
-              :style="starStyle(row)"
+          <span class="thumb grid size-9 shrink-0 place-items-center rounded-ctl" :style="starStyle(row)">
+            <el-image
+              v-if="slotSrc(tab, row, '').src"
+              :src="slotSrc(tab, row, '').src"
+              fit="contain"
+              class="size-full"
+              :preview-src-list="[slotSrc(tab, row, '').src]"
+              :preview-teleported="true"
+              hide-on-click-modal
+              @click.stop
             >
-              <img
-                v-if="slotSrc(tab, row, '').src"
-                :src="slotSrc(tab, row, '').src"
-                :data-alt="slotSrc(tab, row, '').alt || undefined"
-                alt=""
-                loading="lazy"
-                class="size-full object-contain"
-                @error="onThumbError"
-              />
-            </span>
+              <template #error>
+                <span class="grid size-full place-items-center text-[10px] text-faint">无图</span>
+              </template>
+            </el-image>
+          </span>
 
-            <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
-              <span class="truncate text-xs text-ink">{{ row.name || row.key }}</span>
-              <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
-                <span>No.{{ row.order || 0 }}</span>
-                <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
-                <span v-if="slotAlt(row, '')" class="text-accent">备用源</span>
-                <span v-if="isCharTab && missingCard(row)" class="text-faint">缺名片</span>
-                <span v-if="isCharTab && missingArt(row)" class="text-faint">缺立绘</span>
-              </span>
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
+            <el-text size="small" truncated class="text-ink">{{ row.name || row.key }}</el-text>
+            <span class="flex flex-wrap items-center gap-1">
+              <el-text size="small" class="ah-text-muted">No.{{ row.order || 0 }}</el-text>
+              <el-text v-if="row.star" size="small" class="text-gold">{{ row.star }}★</el-text>
+              <el-tag v-if="slotAlt(row, '')" size="small" type="warning" effect="plain">备用源</el-tag>
+              <el-tag v-if="isCharTab && missingCard(row)" size="small" type="info" effect="plain">
+                缺名片
+              </el-tag>
+              <el-tag v-if="isCharTab && missingArt(row)" size="small" type="info" effect="plain">
+                缺立绘
+              </el-tag>
             </span>
-          </button>
-        </template>
-
-        <!-- 行内只放缩略图和摘要，编辑全在右边的详情栏（四个页签一样） -->
+          </span>
+        </button>
       </div>
 
       <!-- 详情栏：四个页签共用 -->
@@ -397,53 +389,54 @@ onMounted(init)
       >
         <template v-if="activeRow">
           <div class="flex min-w-0 items-center gap-2">
-            <Btn size="sm" class="md:hidden" @click="activeKey = ''">
-              <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
+            <el-button class="md:hidden" size="small" @click="activeKey = ''">
+              <template #icon><el-icon><ArrowLeft /></el-icon></template>
               返回
-            </Btn>
-            <p class="min-w-0 flex-1 truncate text-[10px] text-muted">代号：{{ activeRow.key }}</p>
+            </el-button>
+            <el-text size="small" truncated class="min-w-0 flex-1 ah-text-muted">
+              代号：{{ activeRow.key || '（空）' }}
+            </el-text>
           </div>
 
           <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
-            <div class="flex min-w-0 items-center gap-2">
-              <input
-                type="number"
-                :class="[FIELD, 'shrink-0 px-1 text-center font-semibold']"
-                :style="{ width: (String(activeRow.order || 0).length + 1) + 'ch' }"
-                :value="activeRow.order || ''"
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <el-input-number
+                :model-value="activeRow.order || 0"
+                :min="0"
+                :max="9999"
+                size="small"
+                controls-position="right"
+                style="width: 96px"
                 aria-label="序号"
-                @change="setOrder(activeRow, $event.target.value)"
+                @change="setOrder(activeRow, $event)"
               />
-              <input
-                :value="activeRow.name"
-                type="text"
-                :class="[FIELD, 'min-w-0 flex-1 px-2']"
+              <el-input
+                :model-value="activeRow.name"
+                class="min-w-0 flex-1"
+                size="small"
                 placeholder="中文名"
                 aria-label="中文名"
-                @input="activeRow.name = $event.target.value"
+                @input="activeRow.name = $event"
                 @blur="commitName(activeRow)"
               />
-              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
-                <Dropdown
-                  :options="STAR_OPTIONS"
-                  :model-value="String(activeRow.star ?? 5)"
-                  :label="`星级：${activeRow.star ?? 5} 星`"
-                  @update:model-value="setStar(activeRow, $event)"
+              <template v-if="tab !== 'monsters'">
+                <el-input-number
+                  :model-value="activeRow.star ?? 5"
+                  :min="1"
+                  :max="5"
+                  size="small"
+                  controls-position="right"
+                  style="width: 88px"
+                  aria-label="星级"
+                  @change="setStar(activeRow, $event)"
                 />
-              </span>
+                <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
+              </template>
             </div>
 
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
-                  :checked="!!activeRow.lock"
-                  @change="setLock(activeRow, $event.target.checked)"
-                />
-                整条冻结
-              </label>
-            </div>
+            <el-checkbox :model-value="!!activeRow.lock" @change="setLock(activeRow, $event)">
+              整条冻结
+            </el-checkbox>
           </div>
 
           <!-- 三个槽位 -->
@@ -453,20 +446,16 @@ onMounted(init)
             class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
           >
             <div class="flex min-w-0 items-center gap-2">
-              <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
+              <el-text class="min-w-0 flex-1 font-medium text-ink">{{ meta.title }}</el-text>
 
-              <label
+              <el-checkbox
                 v-if="hasAlt(tab, meta.slot)"
-                class="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-muted"
+                :model-value="slotAlt(activeRow, meta.slot)"
+                size="small"
+                @change="setSlotAlt(activeRow, meta.slot, $event)"
               >
-                <input
-                  type="checkbox"
-                  class="size-3.5 shrink-0 accent-accent"
-                  :checked="slotAlt(activeRow, meta.slot)"
-                  @change="setSlotAlt(activeRow, meta.slot, $event.target.checked)"
-                />
                 用备用源
-              </label>
+              </el-checkbox>
             </div>
 
             <div class="flex min-w-0 items-start gap-2">
@@ -475,140 +464,146 @@ onMounted(init)
                 :class="meta.slot ? 'h-16 w-28' : 'size-12'"
                 :style="meta.slot ? {} : starStyle(activeRow)"
               >
-                <img
+                <el-image
                   v-if="slotSrc(tab, activeRow, meta.slot).src"
                   :src="slotSrc(tab, activeRow, meta.slot).src"
-                  :data-alt="slotSrc(tab, activeRow, meta.slot).alt || undefined"
-                  alt=""
-                  loading="lazy"
-                  :class="meta.slot ? 'size-full object-cover' : 'size-full object-contain'"
-                  @error="onThumbError"
-                />
+                  :fit="meta.slot ? 'cover' : 'contain'"
+                  class="size-full"
+                  :preview-src-list="[slotSrc(tab, activeRow, meta.slot).src]"
+                  :preview-teleported="true"
+                  hide-on-click-modal
+                >
+                  <template #error>
+                    <span class="grid size-full place-items-center text-[10px] text-faint">无图</span>
+                  </template>
+                </el-image>
               </span>
 
               <div class="grid min-w-0 flex-1 grid-cols-1 gap-1">
-                <input
-                  :value="draftOf(meta.slot)"
+                <el-input
+                  :model-value="textOf(meta.slot)"
                   type="url"
-                  :class="[FIELD, 'w-full px-2']"
-                  :placeholder="
-                    meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'
-                  "
+                  size="small"
+                  clearable
+                  :placeholder="meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'"
                   :aria-label="`${meta.title} 地址`"
-                  @input="onUrlInput(meta.slot, $event.target.value)"
+                  @input="onUrlInput(meta.slot, $event)"
                   @change="commitUrl(activeRow, meta.slot)"
+                  @clear="clearSlot(activeRow, meta.slot)"
                 />
 
-                <div class="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-muted">
-                  <span class="min-w-0" :class="meta.slot === 'art' ? 'break-all' : 'truncate'">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <el-text
+                    size="small"
+                    class="min-w-0 ah-text-muted"
+                    :class="meta.slot === 'art' ? 'break-all' : 'truncated'"
+                  >
                     {{
                       meta.slot
                         ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
-                        : activeRow.key
+                        : activeRow.key || '未设置'
                     }}
-                  </span>
-                  <button
+                  </el-text>
+                  <el-button
                     v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.alt"
-                    type="button"
-                    class="shrink-0 rounded-ctl px-1 text-danger hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    link
+                    type="danger"
+                    size="small"
                     @click="clearSlot(activeRow, meta.slot)"
                   >
                     清空
-                  </button>
+                  </el-button>
                 </div>
               </div>
             </div>
 
-            <p class="text-[10px] leading-relaxed text-faint">{{ meta.hint }}</p>
+            <el-text size="small" class="ah-text-muted leading-relaxed">{{ meta.hint }}</el-text>
           </div>
 
           <div class="flex justify-end">
-            <Btn size="sm" variant="danger" :class="DEL" @click="removeRow(activeRow)">
-              <template #icon><Icon name="ui.trash" size="sm" /></template>
+            <el-button type="danger" plain size="small" @click="removeRow(activeRow)">
+              <template #icon><el-icon><Delete /></el-icon></template>
               删除这条
-            </Btn>
+            </el-button>
           </div>
         </template>
 
-        <div v-else class="grid grid-cols-1 place-items-center gap-2 py-16 text-center">
-          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
-            <Icon name="ui.inbox" size="lg" />
-          </span>
-          <p class="text-xs text-muted">左边选一条</p>
-        </div>
+        <el-empty v-else description="左边选一条" />
       </div>
     </main>
 
     <!-- ---------------- 底部 ---------------- -->
     <footer class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-3 py-2">
-      <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ infoText }}</p>
-      <Btn size="sm" variant="danger" :class="DEL" :disabled="!sorted.length" @click="confirmOpen = true">
-        <template #icon><Icon name="ui.trash" size="sm" /></template>
+      <el-text size="small" truncated class="min-w-0 flex-1 ah-text-muted">{{ infoText }}</el-text>
+      <el-button type="danger" plain size="small" :disabled="!sorted.length" @click="askClear">
+        <template #icon><el-icon><Delete /></el-icon></template>
         清空
-      </Btn>
+      </el-button>
     </footer>
 
     <!-- ---------------- 弹窗与浮层 ---------------- -->
-    <Modal
-      v-model="confirmOpen"
-      title="清空当前分类"
-      :message="`确定清空「${LABELS[tab]}」的源条目吗？手填的会保留，这一步无法撤销。`"
-      confirm-text="清空"
-      danger
-      @confirm="clearTab"
-    />
+    <el-dialog v-model="addOpen" title="新增条目" width="92%" align-center>
+      <div class="grid grid-cols-1 gap-2">
+        <el-text size="small" class="ah-text-muted leading-relaxed">
+          填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，自动认代号并补齐另一个。
+        </el-text>
 
-    <Modal v-model="addOpen" title="新增条目" confirm-text="加入" @confirm="onAdd">
-      <p class="text-xs leading-relaxed text-muted">
-        填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，
-        自动认代号并补齐另一个。
-      </p>
-      <Field
-        v-model="addText"
-        type="textarea"
-        :rows="5"
-        data-autofocus
-        label="名字 或 图标链接"
-        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
-      />
+        <el-input
+          v-model="addText"
+          type="textarea"
+          :rows="5"
+          placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
+        />
 
-      <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
-      <div v-if="addCandidates.length" class="mt-2 border-t border-line pt-2">
-        <p class="mb-1 text-[11px] text-muted">这个代号在源里有 {{ addCandidates.length }} 条，选一条：</p>
-        <div class="flex flex-wrap gap-1">
-          <Btn v-for="(c, i) in addCandidates" :key="i" size="sm" @click="onPickCandidate(c)">{{ c.name }}</Btn>
+        <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
+        <div v-if="addCandidates.length" class="grid grid-cols-1 gap-2 border-t border-line pt-2">
+          <el-text size="small" class="ah-text-muted">
+            这个代号在源里有 {{ addCandidates.length }} 条，选一条：
+          </el-text>
+          <div class="flex flex-wrap gap-1">
+            <el-button
+              v-for="(c, i) in addCandidates"
+              :key="i"
+              size="small"
+              @click="onPickCandidate(c)"
+            >
+              {{ c.name }}
+            </el-button>
+          </div>
         </div>
       </div>
-    </Modal>
 
-    <Modal
-      v-model="conflictOpen"
-      title="有代号和源对不上"
-      :message="`共 ${conflicts.length} 项。勾选 = 用源里的代号，不勾 = 保留你手填的。`"
-      confirm-text="应用选择"
-      @confirm="confirmConflicts"
-    >
+      <template #footer>
+        <el-button @click="addOpen = false">取消</el-button>
+        <el-button type="primary" @click="onAdd">加入</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="conflictOpen" title="有代号和源对不上" width="92%" align-center>
       <div class="grid grid-cols-1 gap-2">
-        <label
+        <el-text size="small" class="ah-text-muted">
+          共 {{ conflicts.length }} 项。勾选 = 用源里的代号，不勾 = 保留你手填的。
+        </el-text>
+
+        <div
           v-for="(c, i) in conflicts"
           :key="`${c.rowKey}-${c.slot}`"
-          class="flex min-w-0 cursor-pointer items-start gap-2 rounded-ctl border border-line-2 p-2"
+          class="flex min-w-0 items-start gap-2 rounded-ctl border border-line-2 p-2"
         >
-          <input v-model="useSource[i]" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-accent" />
-          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5 text-[10px]">
-            <span class="text-xs text-ink">
-              {{ c.name || c.rowKey }} · {{ SLOT_LABEL[c.slot] }}
-            </span>
-            <span class="min-w-0 text-muted">
-              我的：<b class="break-all font-normal text-body">{{ c.mine }}</b>
-            </span>
-            <span class="min-w-0 text-muted">
-              源的：<b class="break-all font-normal text-body">{{ c.theirs }}</b>
-            </span>
+          <el-checkbox v-model="useSource[i]" />
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
+            <el-text size="small" class="text-ink">{{ c.name || c.rowKey }} · {{ SLOT_LABEL[c.slot] }}</el-text>
+            <el-text size="small" truncated class="ah-text-muted">我的：{{ c.mine }}</el-text>
+            <el-text size="small" truncated class="ah-text-muted">源的：{{ c.theirs }}</el-text>
           </span>
-        </label>
+        </div>
       </div>
-    </Modal>
+
+      <template #footer>
+        <el-button @click="conflictOpen = false">取消</el-button>
+        <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
+      </template>
+    </el-dialog>
 
     <SyncReport v-model="reportOpen" :log="log" />
   </div>
