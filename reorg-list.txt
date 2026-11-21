@@ -7,161 +7,1869 @@
 #   CHECKS   一行一条命令，非 0 即中止
 # 跑法：改这个文件 → 提交 → Actions → Reorg → Run workflow（清单名 = 分支名）
 #
-# 最近一批：bg-fix —— 规则一句话：**控件跟它所在的面同色**。
-#   ①分段菜单（视频封面「切换三个功能」那种）的垫色改成卡片色 --color-surface，
-#     和下面 el-card 大框一致（白天亮米白 / 夜里浅黑灰），再补一条和卡片同样的 1px 描边；
-#     选中项回到 EP 默认（primary 实心 + 白字），与「小字号 / 大字号」那组单选框一致。
-#   ②滑块轨道改用 --el-border-color（与文本框 / 单选框的描边同一条），不再用凹槽色。
-#   ③清掉 app.css 里全部 color-mix（老浏览器无效值 → 暗色下输入框没边框）与过期的 primary-rgb。
+# 最近一批：dict-ep —— 图片字典编辑器全量回归 EP（一批改完）：
+#   ①ImageDict.vue 整份重写：el-input / el-segmented ×2 / el-button ×5 / el-image（带预览）/
+#     el-tag / el-empty / v-loading / el-input-number ×2 / el-checkbox / el-dialog ×2 / ElMessageBox；
+#     列表行仍是原生 <button>（EP 没有「可选中行」）。自造 Btn/Field/Dropdown/Seg/Modal 全部退出本页。
+#   ②SyncReport.vue 内部改 el-dialog + el-collapse；useToast.js 换成 ElMessage，删掉 ToastHost。
+#   ③两处体验修复：地址框显示「已保存的值」（只有代号时按源拼完整链接），刷新后不空、缩略图跟数据走；
+#     新增 reselect(row)，代号/序号一变把选中带过去，不再「一更新就弹回列表」。
+#   ④旅行者头像改名 旅行者.webp；字典键 Traveler → 旅行者（FORCED_LOCAL 同步、旅行者·冰 的 url 同步）。
 
 == MOVES ==
+public/images/game/UI_AvatarIcon_Traveler.webp -> public/images/game/旅行者.webp
 
 == EDITS ==
-### src/styles/app.css
+### src/views/ImageDict.vue
 <<<<
-  --el-color-primary-rgb: 204, 120, 92;
-  --el-color-primary-dark-2: var(--color-accent-strong);
-  --el-color-primary-light-3: color-mix(in srgb, var(--color-accent) 70%, var(--color-canvas));
-  --el-color-primary-light-5: color-mix(in srgb, var(--color-accent) 50%, var(--color-canvas));
-  --el-color-primary-light-7: color-mix(in srgb, var(--color-accent) 30%, var(--color-canvas));
-  --el-color-primary-light-8: color-mix(in srgb, var(--color-accent) 20%, var(--color-canvas));
-  --el-color-primary-light-9: color-mix(in srgb, var(--color-accent) 10%, var(--color-canvas));
->>>>
-<<<<
-  --el-color-primary-rgb: 217, 119, 87;   /* = Orange #d97757，换了强调色这里必须跟着换 */
-  --el-color-primary-dark-2: var(--color-accent-strong);
-  /* 浅色档写死混好的值：color-mix 在 iOS Safari < 16.2 是无效值，
-     变量会变成 invalid，EP 拿到空的 background 就整块消失。
-     下面五档 = Orange 与 canvas 分别按 70/50/30/20/10% 混出来的。 */
-  --el-color-primary-light-3: #e09b83;
-  --el-color-primary-light-5: #e5b4a0;
-  --el-color-primary-light-7: #eaccbc;
-  --el-color-primary-light-8: #ecd8cb;
-  --el-color-primary-light-9: #efe4da;
->>>>
-### src/styles/app.css
-<<<<
-  --el-mask-color-extra-light: color-mix(in srgb, var(--color-mask) 50%, transparent);
->>>>
-<<<<
-  --el-mask-color-extra-light: rgba(20, 20, 19, 0.16);
->>>>
-### src/styles/app.css
-<<<<
-  --el-box-shadow: 0 2px 8px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
-  --el-box-shadow-light: 0 2px 12px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
-  --el-box-shadow-dark: 0 4px 16px 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
->>>>
-<<<<
-  --el-box-shadow: 0 2px 8px 0 rgba(20, 20, 19, 0.08);
-  --el-box-shadow-light: 0 2px 12px 0 rgba(20, 20, 19, 0.06);
-  --el-box-shadow-dark: 0 4px 16px 0 rgba(20, 20, 19, 0.12);
->>>>
-### src/styles/app.css
-<<<<
-/* 暗色下 --color-accent-strong 跟 --color-accent 同色，按下态需要更暗一档 */
-html.dark {
-  --el-color-primary-dark-2: color-mix(in srgb, var(--color-accent) 85%, #000000);
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import Btn from '../components/Btn.vue'
+import Dropdown from '../components/Dropdown.vue'
+import Field from '../components/Field.vue'
+import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
+import Seg from '../components/Seg.vue'
+import SyncReport from '../components/SyncReport.vue'
+import { useImageDict } from '../composables/useImageDict.js'
 
-  /* 暗色下 line-2 对卡片只有 1.14:1，人眼分辨不出；
-     掺 faint 抬到约 1.9:1 才和白天观感相当 */
-  --el-border-color: color-mix(in srgb, var(--color-faint) 40%, var(--color-line-2));
-}
->>>>
-<<<<
-/* 暗色下按下态要比 --color-accent 更暗一档（accent-strong 在暗色是提亮的，不能直接用） */
-html.dark {
-  --el-color-primary-dark-2: #b8654a;
+/* 图片字典编辑器 · 界面
+ * -------------------------------------------------------------------------
+ * 域逻辑全在 useImageDict.js，这里只管长得怎么样。
+ *
+ * 【顶部只留一个「新增」入口】
+ *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
+ *   一行一个批量解析。四个分类都吃这一套。
+ *
+ * 【补齐不用人工踢】
+ *   选中一行会自动补它缺的（名片最常见）；地址框停手 700ms 自动落；
+ *   名字框失焦时补；同步末尾会把源里没有的角色也再试一次。
+ *
+ * 【槽位的「用备用源」勾】
+ *   主源（lunaris）图不对时（夏洛蒂那种）勾上，或用备用源那一组的链接
+ *   粘一遍（会自动勾上）。这一格从此走 config 里的备用源规则，
+ *   字典里不写死链接。立绘没有源规则，所以没有这个勾。
+ *
+ * 【角色页签：宽屏双栏 / 窄屏全屏子页】纯 CSS 断点，不用 JS 读宽度。
+ * 【grid 必须声明列】没写 grid-cols-* 的 grid，隐式轨道是 auto，
+ *   会被一整条不换行的 URL 撑到左右拖。
+ * 【图标名必须在 shared/ui-icons.js 里真实存在】取不到就渲染成空白（不报错）。
+ *   ui 组现有：plus trash arrowUp arrowDown back check chevronUp chevronDown
+ *             close export file guides import inbox reload reorder search textFont
+ * ------------------------------------------------------------------------- */
 
-  /* 暗色下 --color-line 对卡片只有 1.14:1，人眼分辨不出；这里是「faint 40% + line-2 60%」
-     混好的固定值，抬到约 1.9:1，和白天观感相当。
-     ⚠ 原来写的是 color-mix，老浏览器算无效值 → 整套输入框在暗色下**没有边框**（看着像没描边的块），
-     滑块轨道也跟着一起塌掉。 */
-  --el-border-color: #5a564f;
-}
->>>>
-### src/styles/app.css
-<<<<
-/* 下面两条都盖在组件上：EP 在 .el-slider / .el-segmented 自己的选择器里定义过这些变量，
-   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。
-   一律复用 --color-sunken（暗色值比 surface 亮一档，见 tokens.css）。 */
+/* 删除按钮的红描边：danger 的浅底贴在卡片上只有 1.02:1，靠这 1px 红线区分（见 AGENTS.md 第四节） */
+const DEL = 'border border-danger/30'
 
-/* 滑块轨道与刻度点 */
-.el-slider {
-  --el-slider-runway-bg-color: var(--color-sunken);
-  --el-slider-stop-bg-color: var(--color-sunken);
-}
->>>>
-<<<<
-/* 下面两条都盖在组件上：EP 在 .el-slider / .el-segmented 自己的选择器里定义过这些变量，
-   写在 :root 会被它们遮住；暗色 css-vars.css 还会再盖一次，靠 --el-fill-color-dark 间接继承指不上。 */
+const {
+  loading,
+  tab,
+  search,
+  dirty,
+  filter,
+  log,
+  filtered,
+  sorted,
+  infoText,
+  counts,
+  activeRow,
+  activeKey,
+  missingCard,
+  missingArt,
+  needFill,
+  slotSrc,
+  starStyle,
+  setOrder,
+  setName,
+  setNameLock,
+  setLock,
+  setStar,
+  resolveAdd,
+  addItem,
+  addCandidates,
+  pickAddCandidate,
+  removeRow,
+  clearTab,
+  select,
+  applyUrl,
+  clearSlot,
+  hydrate,
+  hasAlt,
+  slotAlt,
+  setSlotAlt,
+  addFromInput,
+  init,
+  loadDict,
+  syncFromAmber,
+  applyConflicts,
+  exportDict,
+  identOf,
+  LABELS,
+  FILTERS,
+} = useImageDict()
 
-/* 滑块轨道：和文本框 / 单选框的描边用同一条 --el-border-color（EP 默认用的是 border-color-light，
-   我们两个都映射到 --color-line，所以看起来是与输入框边框同色）。
-   不要拿凹槽色 sunken 当轨道 —— 那是「凹进去的面」的色，不是描边色。 */
-.el-slider {
-  --el-slider-runway-bg-color: var(--el-border-color);
+const TABS = [
+  { value: 'characters', label: '角色' },
+  { value: 'artifacts', label: '圣遗物' },
+  { value: 'weapons', label: '武器' },
+  { value: 'monsters', label: '怪物' },
+]
+const STAR_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}★` }))
+const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
+
+const reportOpen = ref(false)
+const confirmOpen = ref(false)
+const addOpen = ref(false)
+const addText = ref('')
+const syncing = ref(false)
+const fetching = ref(false)
+
+/* 冲突弹窗：勾选 = 用源里的代号，不勾 = 保留我手填的 */
+const conflictOpen = ref(false)
+const conflicts = ref([])
+const useSource = ref([])
+
+const FIELD =
+  'h-9 min-w-0 rounded-ctl border border-line-2 bg-surface text-xs text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+
+const isCharTab = computed(() => tab.value === 'characters')
+
+watch(tab, () => {
+  search.value = ''
+  filter.value = 'all'
+  activeKey.value = ''
+})
+
+const hasData = computed(() => sorted.value.length > 0)
+const emptyIcon = computed(() => (hasData.value ? 'ui.search' : 'ui.inbox'))
+const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
+const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上面「新增」开始'))
+
+const filterOptions = computed(() =>
+  FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
+)
+
+/* 详情栏的槽位列：角色三个（头像 / 名片 / 立绘），圣遗物 / 武器 / 怪物只有头像。
+   详情栏四个页签共用，所以这一列跟着页签走。 */
+const AVATAR_META = {
+  slot: '',
+  title: '头像',
+  hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
 }
+const SLOT_META = computed(() =>
+  isCharTab.value
+    ? [
+        AVATAR_META,
+        {
+          slot: 'card',
+          title: '名片',
+          hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
+        },
+        {
+          slot: 'art',
+          title: '立绘',
+          hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
+        },
+      ]
+    : [AVATAR_META],
+)
+
+/* 槽位的地址草稿：只对「当前选中的那条 + 那个槽位」有效，切行自动作废 */
+const urlDraft = ref({ key: '', value: '' })
+const draftOf = (slot) =>
+  urlDraft.value.key === `${activeKey.value}|${slot}` ? urlDraft.value.value : ''
+const setDraft = (slot, value) => {
+  urlDraft.value = { key: `${activeKey.value}|${slot}`, value }
+}
+
+/* 地址框：粘完 / 停手就自己落，不用再点别处去触发失焦 */
+let urlTimer = 0
+function onUrlInput(slot, value) {
+  setDraft(slot, value)
+  clearTimeout(urlTimer)
+  urlTimer = setTimeout(() => {
+    if (draftOf(slot)) commitUrl(activeRow.value, slot)
+  }, 700)
+}
+
+/* 粘完地址：先落代号 / 标记，再拿代号去源里反查，把缺的字段补齐 */
+async function commitUrl(row, slot) {
+  clearTimeout(urlTimer)
+  const value = draftOf(slot)
+  setDraft(slot, '')
+  if (!value || !row) return
+
+  const code = applyUrl(row, slot, value)
+  if (!code) return
+  /* 只给角色反查补齐：怪物同一个代号常被好几条共用，反查会带回别的条目的名字 */
+  if (tab.value === 'characters' && needFill(row)) await hydrate(row, slot)
+}
+
+function onSelect(row) {
+  urlDraft.value = { key: '', value: '' }
+  select(row)
+}
+
+/* 改完名字：这条还缺什么就顺手从源补上 */
+async function commitName(row) {
+  setName(row, row.name)
+  if (tab.value === 'characters' && needFill(row)) await hydrate(row, 'name')
+}
+
+function onThumbError(e) {
+  const img = e.target
+  const alt = img.dataset.alt
+  if (!alt) {
+    img.removeAttribute('src')
+    return
+  }
+  delete img.dataset.alt
+  img.src = alt
+}
+
+async function onSync() {
+  syncing.value = true
+  try {
+    const res = await syncFromAmber()
+    if (!res) return
+    if (res.conflicts.length) {
+      conflicts.value = res.conflicts
+      useSource.value = res.conflicts.map(() => false)
+      conflictOpen.value = true
+    } else {
+      reportOpen.value = true
+    }
+  } finally {
+    syncing.value = false
+  }
+}
+
+function confirmConflicts() {
+  const picked = conflicts.value.filter((_, i) => useSource.value[i])
+  conflictOpen.value = false
+  applyConflicts(picked)
+  conflicts.value = []
+}
+
+function openAdd() {
+  addText.value = ''
+  addCandidates.value = []
+  addOpen.value = true
+}
+
+async function onAdd() {
+  const text = addText.value
+  addText.value = ''
+  const ok = await addFromInput(text)
+  if (ok) addOpen.value = false
+}
+
+/* 候选里挑一条：建行 + 关弹窗 */
+function onPickCandidate(item) {
+  pickAddCandidate(item)
+  addOpen.value = false
+}
+
+async function onLoad() {
+  fetching.value = true
+  try {
+    await loadDict()
+  } finally {
+    fetching.value = false
+  }
+}
+
+onMounted(init)
+</script>
+
+<template>
+  <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
+    <!-- ---------------- 头部 ---------------- -->
+    <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
+      <div class="relative flex min-w-0 items-center">
+        <span
+          class="pointer-events-none absolute left-3 top-1/2 grid size-4 -translate-y-1/2 place-items-center text-muted"
+          aria-hidden="true"
+        >
+          <Icon name="ui.search" size="sm" />
+        </span>
+
+        <input
+          v-model="search"
+          type="search"
+          :class="[FIELD, 'w-full pl-9 pr-9']"
+          placeholder="搜索名字或代号…"
+          aria-label="搜索名字或代号"
+          autocomplete="off"
+          spellcheck="false"
+        />
+
+        <button
+          v-if="search"
+          type="button"
+          class="absolute right-1 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+          aria-label="清除搜索"
+          @click="search = ''"
+        >
+          <Icon name="ui.close" size="sm" />
+        </button>
+      </div>
+
+      <Seg v-model="tab" :options="TABS" full />
+
+      <Seg v-if="isCharTab" v-model="filter" :options="filterOptions" full />
+
+      <div class="flex flex-wrap gap-2">
+        <Btn size="sm" variant="primary" :loading="syncing" @click="onSync">
+          <template #icon><Icon name="ui.reload" size="sm" /></template>
+          从源匹配
+        </Btn>
+
+        <Btn size="sm" :disabled="syncing" @click="openAdd">
+          <template #icon><Icon name="ui.plus" size="sm" /></template>
+          新增
+        </Btn>
+
+        <Btn size="sm" @click="reportOpen = true">
+          <template #icon><Icon name="ui.file" size="sm" /></template>
+          日志
+        </Btn>
+
+        <Btn size="sm" :loading="fetching" @click="onLoad">
+          <template #icon><Icon name="ui.import" size="sm" /></template>
+          载入
+        </Btn>
+
+        <Btn size="sm" :variant="dirty ? 'danger' : 'secondary'" @click="exportDict">
+          <template #icon><Icon name="ui.export" size="sm" /></template>
+          {{ dirty ? '未导出' : '导出' }}
+        </Btn>
+      </div>
+    </header>
+
+    <!-- ---------------- 主体 ---------------- -->
+    <!-- 四个页签共用一套「左边列表 + 右边详情」：点左边一行，在右边编辑 -->
+    <main class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain md:grid-cols-[15rem_minmax(0,1fr)]">
+      <!-- 列表栏 -->
+      <div
+        class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto p-3"
+        :class="activeRow ? 'hidden md:grid' : ''"
+      >
+        <p v-if="loading" class="py-12 text-center text-xs text-muted">正在载入…</p>
+
+        <div
+          v-else-if="!filtered.length"
+          class="grid grid-cols-1 place-items-center gap-3 py-12 text-center"
+        >
+          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
+            <Icon :name="emptyIcon" size="lg" />
+          </span>
+          <div class="grid grid-cols-1 gap-1">
+            <p class="text-sm text-body">{{ emptyTitle }}</p>
+            <p class="text-xs text-muted">{{ emptyHint }}</p>
+          </div>
+        </div>
+
+        <template v-else>
+          <button
+            v-for="row in filtered"
+            :key="identOf(tab, row)"
+            type="button"
+            class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            :class="
+              identOf(tab, row) === activeKey
+                ? 'border-line-2 bg-surface-2'
+                : 'border-line bg-surface hover:bg-hover'
+            "
+            @click="onSelect(row)"
+          >
+            <span
+              class="thumb grid size-9 shrink-0 place-items-center rounded-ctl"
+              :style="starStyle(row)"
+            >
+              <img
+                v-if="slotSrc(tab, row, '').src"
+                :src="slotSrc(tab, row, '').src"
+                :data-alt="slotSrc(tab, row, '').alt || undefined"
+                alt=""
+                loading="lazy"
+                class="size-full object-contain"
+                @error="onThumbError"
+              />
+            </span>
+
+            <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
+              <span class="truncate text-xs text-ink">{{ row.name || row.key }}</span>
+              <span class="flex flex-wrap items-center gap-1 text-[10px] text-muted">
+                <span>No.{{ row.order || 0 }}</span>
+                <span v-if="row.star" class="text-gold">{{ row.star }}★</span>
+                <span v-if="slotAlt(row, '')" class="text-accent">备用源</span>
+                <span v-if="isCharTab && missingCard(row)" class="text-faint">缺名片</span>
+                <span v-if="isCharTab && missingArt(row)" class="text-faint">缺立绘</span>
+              </span>
+            </span>
+          </button>
+        </template>
+
+        <!-- 行内只放缩略图和摘要，编辑全在右边的详情栏（四个页签一样） -->
+      </div>
+
+      <!-- 详情栏：四个页签共用 -->
+      <div
+        class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3"
+        :class="activeRow ? '' : 'hidden md:grid'"
+      >
+        <template v-if="activeRow">
+          <div class="flex min-w-0 items-center gap-2">
+            <Btn size="sm" class="md:hidden" @click="activeKey = ''">
+              <template #icon><Icon name="ui.arrowUp" size="sm" class="-rotate-90" /></template>
+              返回
+            </Btn>
+            <p class="min-w-0 flex-1 truncate text-[10px] text-muted">代号：{{ activeRow.key }}</p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
+            <div class="flex min-w-0 items-center gap-2">
+              <input
+                type="number"
+                :class="[FIELD, 'shrink-0 px-1 text-center font-semibold']"
+                :style="{ width: (String(activeRow.order || 0).length + 1) + 'ch' }"
+                :value="activeRow.order || ''"
+                aria-label="序号"
+                @change="setOrder(activeRow, $event.target.value)"
+              />
+              <input
+                :value="activeRow.name"
+                type="text"
+                :class="[FIELD, 'min-w-0 flex-1 px-2']"
+                placeholder="中文名"
+                aria-label="中文名"
+                @input="activeRow.name = $event.target.value"
+                @blur="commitName(activeRow)"
+              />
+              <span v-if="tab !== 'monsters'" class="w-[72px] shrink-0">
+                <Dropdown
+                  :options="STAR_OPTIONS"
+                  :model-value="String(activeRow.star ?? 5)"
+                  :label="`星级：${activeRow.star ?? 5} 星`"
+                  @update:model-value="setStar(activeRow, $event)"
+                />
+              </span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="!!activeRow.lock"
+                  @change="setLock(activeRow, $event.target.checked)"
+                />
+                整条冻结
+              </label>
+            </div>
+          </div>
+
+          <!-- 三个槽位 -->
+          <div
+            v-for="meta in SLOT_META"
+            :key="meta.slot || 'avatar'"
+            class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
+          >
+            <div class="flex min-w-0 items-center gap-2">
+              <p class="min-w-0 flex-1 text-xs font-medium text-ink">{{ meta.title }}</p>
+
+              <label
+                v-if="hasAlt(tab, meta.slot)"
+                class="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-muted"
+              >
+                <input
+                  type="checkbox"
+                  class="size-3.5 shrink-0 accent-accent"
+                  :checked="slotAlt(activeRow, meta.slot)"
+                  @change="setSlotAlt(activeRow, meta.slot, $event.target.checked)"
+                />
+                用备用源
+              </label>
+            </div>
+
+            <div class="flex min-w-0 items-start gap-2">
+              <span
+                class="thumb grid shrink-0 place-items-center rounded-ctl border border-line-2"
+                :class="meta.slot ? 'h-16 w-28' : 'size-12'"
+                :style="meta.slot ? {} : starStyle(activeRow)"
+              >
+                <img
+                  v-if="slotSrc(tab, activeRow, meta.slot).src"
+                  :src="slotSrc(tab, activeRow, meta.slot).src"
+                  :data-alt="slotSrc(tab, activeRow, meta.slot).alt || undefined"
+                  alt=""
+                  loading="lazy"
+                  :class="meta.slot ? 'size-full object-cover' : 'size-full object-contain'"
+                  @error="onThumbError"
+                />
+              </span>
+
+              <div class="grid min-w-0 flex-1 grid-cols-1 gap-1">
+                <input
+                  :value="draftOf(meta.slot)"
+                  type="url"
+                  :class="[FIELD, 'w-full px-2']"
+                  :placeholder="
+                    meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'
+                  "
+                  :aria-label="`${meta.title} 地址`"
+                  @input="onUrlInput(meta.slot, $event.target.value)"
+                  @change="commitUrl(activeRow, meta.slot)"
+                />
+
+                <div class="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-muted">
+                  <span class="min-w-0" :class="meta.slot === 'art' ? 'break-all' : 'truncate'">
+                    {{
+                      meta.slot
+                        ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
+                        : activeRow.key
+                    }}
+                  </span>
+                  <button
+                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.alt"
+                    type="button"
+                    class="shrink-0 rounded-ctl px-1 text-danger hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    @click="clearSlot(activeRow, meta.slot)"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[10px] leading-relaxed text-faint">{{ meta.hint }}</p>
+          </div>
+
+          <div class="flex justify-end">
+            <Btn size="sm" variant="danger" :class="DEL" @click="removeRow(activeRow)">
+              <template #icon><Icon name="ui.trash" size="sm" /></template>
+              删除这条
+            </Btn>
+          </div>
+        </template>
+
+        <div v-else class="grid grid-cols-1 place-items-center gap-2 py-16 text-center">
+          <span class="grid size-8 place-items-center text-faint" aria-hidden="true">
+            <Icon name="ui.inbox" size="lg" />
+          </span>
+          <p class="text-xs text-muted">左边选一条</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ---------------- 底部 ---------------- -->
+    <footer class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-3 py-2">
+      <p class="min-w-0 flex-1 truncate text-xs text-muted">{{ infoText }}</p>
+      <Btn size="sm" variant="danger" :class="DEL" :disabled="!sorted.length" @click="confirmOpen = true">
+        <template #icon><Icon name="ui.trash" size="sm" /></template>
+        清空
+      </Btn>
+    </footer>
+
+    <!-- ---------------- 弹窗与浮层 ---------------- -->
+    <Modal
+      v-model="confirmOpen"
+      title="清空当前分类"
+      :message="`确定清空「${LABELS[tab]}」的源条目吗？手填的会保留，这一步无法撤销。`"
+      confirm-text="清空"
+      danger
+      @confirm="clearTab"
+    />
+
+    <Modal v-model="addOpen" title="新增条目" confirm-text="加入" @confirm="onAdd">
+      <p class="text-xs leading-relaxed text-muted">
+        填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，
+        自动认代号并补齐另一个。
+      </p>
+      <Field
+        v-model="addText"
+        type="textarea"
+        :rows="5"
+        data-autofocus
+        label="名字 或 图标链接"
+        placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
+      />
+
+      <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
+      <div v-if="addCandidates.length" class="mt-2 border-t border-line pt-2">
+        <p class="mb-1 text-[11px] text-muted">这个代号在源里有 {{ addCandidates.length }} 条，选一条：</p>
+        <div class="flex flex-wrap gap-1">
+          <Btn v-for="(c, i) in addCandidates" :key="i" size="sm" @click="onPickCandidate(c)">{{ c.name }}</Btn>
+        </div>
+      </div>
+    </Modal>
+
+    <Modal
+      v-model="conflictOpen"
+      title="有代号和源对不上"
+      :message="`共 ${conflicts.length} 项。勾选 = 用源里的代号，不勾 = 保留你手填的。`"
+      confirm-text="应用选择"
+      @confirm="confirmConflicts"
+    >
+      <div class="grid grid-cols-1 gap-2">
+        <label
+          v-for="(c, i) in conflicts"
+          :key="`${c.rowKey}-${c.slot}`"
+          class="flex min-w-0 cursor-pointer items-start gap-2 rounded-ctl border border-line-2 p-2"
+        >
+          <input v-model="useSource[i]" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-accent" />
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5 text-[10px]">
+            <span class="text-xs text-ink">
+              {{ c.name || c.rowKey }} · {{ SLOT_LABEL[c.slot] }}
+            </span>
+            <span class="min-w-0 text-muted">
+              我的：<b class="break-all font-normal text-body">{{ c.mine }}</b>
+            </span>
+            <span class="min-w-0 text-muted">
+              源的：<b class="break-all font-normal text-body">{{ c.theirs }}</b>
+            </span>
+          </span>
+        </label>
+      </div>
+    </Modal>
+
+    <SyncReport v-model="reportOpen" :log="log" />
+  </div>
+</template>
+
+<style scoped>
+/* 星级径向渐变底。
+   starStyle() 只负责把 --star-color / --star-edge 塞进 style，
+   真正画出渐变的是这条规则。
+   几何与 image-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+   的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
+   正方形下正好也是 √2/2 × 边长。
+   圆角不在这里写，在模板的 rounded-ctl 上。 */
+.thumb {
+  background: radial-gradient(
+    circle,
+    var(--star-color, transparent),
+    var(--star-edge, transparent)
+  );
+  overflow: hidden;
+}
+</style>
+
 >>>>
-### src/styles/app.css
 <<<<
-/* 分段菜单：轨道用凹槽色，选中项用 accent-soft + accent 文字 —— 与抽屉菜单同一套「选中」语言。
-   别拿 sunken 当选中色，那看起来就是一块灰底、像没选中。
-   这些是 EP 的组件级变量，写在 :root 会被遮住，必须盖在组件上。 */
-.el-segmented {
-  --el-segmented-bg-color: var(--color-sunken);
-  --el-segmented-item-selected-bg-color: var(--color-accent-soft);
-  --el-segmented-item-selected-color: var(--color-accent-strong);
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import {
+  ArrowLeft,
+  Delete,
+  Document,
+  Download,
+  Plus,
+  Refresh,
+  Search,
+  Upload,
+} from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import SyncReport from '../components/SyncReport.vue'
+import { useImageDict } from '../composables/useImageDict.js'
+
+/* 图片字典编辑器 · 界面（全量走 Element Plus）
+ * -------------------------------------------------------------------------
+ * 域逻辑全在 useImageDict.js，这里只管长得怎么样。
+ *
+ * 【顶部只留一个「新增」入口】
+ *   弹窗里一个输入框干两件事：填中文名 → 去源里查；粘链接 / 代号 →
+ *   一行一个批量解析。四个分类都吃这一套。
+ *
+ * 【补齐不用人工踢】
+ *   选中一行会自动补它缺的（名片最常见）；地址框停手 700ms 自动落；
+ *   名字框失焦时补；同步末尾会把源里没有的角色也再试一次。
+ *
+ * 【地址框显示的就是这一格现在的值】
+ *   框里的内容 = 手填的地址优先，否则按代号拼出的源地址（刷新后照样在），
+ *   缩略图永远跟着「已保存的值」走，不跟正在输入的草稿走 ——
+ *   所以打字过程中图不会闪、也不会因为你还没改完就变。
+ *   提交后如果代号变了（头像换代号 = 换身份），选中会跟着挪，不会弹回列表。
+ *
+ * 【槽位的「用备用源」勾】
+ *   主源（lunaris）图不对时勾上，或把备用源那一组的链接粘一遍（会自动勾上）。
+ *   立绘没有源规则，所以没有这个勾。
+ *
+ * 【角色页签：宽屏双栏 / 窄屏全屏子页】纯 CSS 断点，不用 JS 读宽度。
+ * 【EP 的无对应物】列表行本身仍是原生 <button>（EP 没有「可选中行」），
+ *   星级底纹、槽位缩略图是自造样式；其余（输入框 / 按钮 / 分段菜单 / 标签 /
+ *   空态 / 弹窗 / 消息）全部 EP 默认。 */
+
+const {
+  loading,
+  tab,
+  search,
+  dirty,
+  filter,
+  log,
+  filtered,
+  sorted,
+  infoText,
+  counts,
+  activeRow,
+  activeKey,
+  missingCard,
+  missingArt,
+  needFill,
+  slotSrc,
+  starStyle,
+  setOrder,
+  setName,
+  setLock,
+  setStar,
+  addCandidates,
+  pickAddCandidate,
+  removeRow,
+  clearTab,
+  select,
+  reselect,
+  applyUrl,
+  clearSlot,
+  hydrate,
+  hasAlt,
+  slotAlt,
+  setSlotAlt,
+  addFromInput,
+  init,
+  loadDict,
+  syncFromAmber,
+  applyConflicts,
+  exportDict,
+  identOf,
+  LABELS,
+  FILTERS,
+} = useImageDict()
+
+const TABS = [
+  { value: 'characters', label: '角色' },
+  { value: 'artifacts', label: '圣遗物' },
+  { value: 'weapons', label: '武器' },
+  { value: 'monsters', label: '怪物' },
+]
+const SLOT_LABEL = { '': '头像', card: '名片', art: '立绘' }
+
+const reportOpen = ref(false)
+const addOpen = ref(false)
+const addText = ref('')
+const syncing = ref(false)
+const fetching = ref(false)
+
+/* 冲突弹窗：勾选 = 用源里的代号，不勾 = 保留我手填的 */
+const conflictOpen = ref(false)
+const conflicts = ref([])
+const useSource = ref([])
+
+const isCharTab = computed(() => tab.value === 'characters')
+
+/* 地址框的草稿：只对「当前选中的那条 + 那个槽位」有效，切行 / 切换页签自动作废 */
+const draft = ref({ key: '', value: '' })
+
+watch(tab, () => {
+  search.value = ''
+  filter.value = 'all'
+  activeKey.value = ''
+  draft.value = { key: '', value: '' }
+})
+
+const hasData = computed(() => sorted.value.length > 0)
+const emptyTitle = computed(() => (hasData.value ? '没有找到匹配的条目' : '当前分类还没有条目'))
+const emptyHint = computed(() => (hasData.value ? '试试其他关键词或换个筛选' : '点上面「新增」开始'))
+
+const filterOptions = computed(() =>
+  FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${counts.value[f.value] ?? 0}` })),
+)
+
+/* 详情栏的槽位列：角色三个（头像 / 名片 / 立绘），其余只有头像 */
+const AVATAR_META = {
+  slot: '',
+  title: '头像',
+  hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
 }
+const SLOT_META = computed(() =>
+  isCharTab.value
+    ? [
+        AVATAR_META,
+        {
+          slot: 'card',
+          title: '名片',
+          hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
+        },
+        {
+          slot: 'art',
+          title: '立绘',
+          hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
+        },
+      ]
+    : [AVATAR_META],
+)
+
+/* 地址框：有草稿（正在打字）就显示草稿，否则显示这一格已保存的地址 ——
+   slotSrc 是「按已保存的值算出来的真实地址」，所以刷新后框里照样有东西。 */
+function textOf(slot) {
+  const k = `${activeKey.value}|${slot}`
+  if (draft.value.key === k) return draft.value.value
+  return slotSrc(tab.value, activeRow.value, slot).src || ''
+}
+
+let urlTimer = 0
+function onUrlInput(slot, value) {
+  draft.value = { key: `${activeKey.value}|${slot}`, value }
+  clearTimeout(urlTimer)
+  urlTimer = setTimeout(() => commitUrl(activeRow.value, slot), 700)
+}
+
+/* 落一个地址：草稿 → 数据，然后（角色）顺手补齐缺的字段。
+   提交完把草稿清掉，框里回落到「已保存的值」，所以不会变成一个空框。 */
+async function commitUrl(row, slot) {
+  clearTimeout(urlTimer)
+  const k = `${activeKey.value}|${slot}`
+  const typing = draft.value.key === k
+  const value = typing ? draft.value.value : ''
+  draft.value = { key: '', value: '' }
+  if (!row || !typing) return
+  /* 清空输入框不算删数据（要删请用右边那个「清空」或框里的 ×），
+     否则手一滑整格就没了 */
+  if (!value.trim()) return
+
+  const code = applyUrl(row, slot, value)
+  reselect(row)
+  if (!code) return
+  /* 只给角色反查补齐：怪物同一个代号常被好几条共用，反查会带回别的条目的名字 */
+  if (tab.value === 'characters' && needFill(row)) {
+    await hydrate(row, slot)
+    reselect(row)
+  }
+}
+
+function onSelect(row) {
+  draft.value = { key: '', value: '' }
+  select(row)
+}
+
+/* 改完名字：这条还缺什么就顺手从源补上 */
+async function commitName(row) {
+  setName(row, row.name)
+  reselect(row)
+  if (tab.value === 'characters' && needFill(row)) {
+    await hydrate(row, 'name')
+    reselect(row)
+  }
+}
+
+async function onSync() {
+  syncing.value = true
+  try {
+    const res = await syncFromAmber()
+    if (!res) return
+    if (res.conflicts.length) {
+      conflicts.value = res.conflicts
+      useSource.value = res.conflicts.map(() => false)
+      conflictOpen.value = true
+    } else {
+      reportOpen.value = true
+    }
+  } finally {
+    syncing.value = false
+  }
+}
+
+function confirmConflicts() {
+  const picked = conflicts.value.filter((_, i) => useSource.value[i])
+  conflictOpen.value = false
+  applyConflicts(picked)
+  conflicts.value = []
+}
+
+function openAdd() {
+  addText.value = ''
+  addCandidates.value = []
+  addOpen.value = true
+}
+
+async function onAdd() {
+  const text = addText.value
+  addText.value = ''
+  const ok = await addFromInput(text)
+  if (ok) addOpen.value = false
+}
+
+/* 候选里挑一条：建行 + 关弹窗 */
+function onPickCandidate(item) {
+  pickAddCandidate(item)
+  addOpen.value = false
+}
+
+async function onLoad() {
+  fetching.value = true
+  try {
+    await loadDict()
+  } finally {
+    fetching.value = false
+  }
+}
+
+/* 清空当前分类：EP 的确认框（原来是自造 Modal + confirmOpen） */
+async function askClear() {
+  try {
+    await ElMessageBox.confirm(
+      `确定清空「${LABELS[tab.value]}」的源条目吗？手填的会保留，这一步无法撤销。`,
+      '清空当前分类',
+      {
+        type: 'warning',
+        confirmButtonText: '清空',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+    clearTab()
+  } catch {
+    /* 点了取消：什么都不做 */
+  }
+}
+
+onMounted(init)
+</script>
+
+<template>
+  <div class="grid h-full grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]">
+    <!-- ---------------- 头部 ---------------- -->
+    <header class="grid shrink-0 grid-cols-1 gap-2 border-b border-line bg-canvas p-3">
+      <el-input v-model="search" placeholder="搜索名字或代号" aria-label="搜索名字或代号" clearable>
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+
+      <el-segmented v-model="tab" :options="TABS" block />
+
+      <el-segmented v-if="isCharTab" v-model="filter" :options="filterOptions" block />
+
+      <div class="flex flex-wrap gap-2">
+        <el-button type="primary" :loading="syncing" @click="onSync">
+          <template #icon><el-icon><Refresh /></el-icon></template>
+          从源匹配
+        </el-button>
+
+        <el-button :disabled="syncing" @click="openAdd">
+          <template #icon><el-icon><Plus /></el-icon></template>
+          新增
+        </el-button>
+
+        <el-button @click="reportOpen = true">
+          <template #icon><el-icon><Document /></el-icon></template>
+          日志
+        </el-button>
+
+        <el-button :loading="fetching" @click="onLoad">
+          <template #icon><el-icon><Upload /></el-icon></template>
+          载入
+        </el-button>
+
+        <el-button :type="dirty ? 'danger' : 'default'" @click="exportDict">
+          <template #icon><el-icon><Download /></el-icon></template>
+          {{ dirty ? '未导出' : '导出' }}
+        </el-button>
+      </div>
+    </header>
+
+    <!-- ---------------- 主体 ---------------- -->
+    <!-- 四个页签共用一套「左边列表 + 右边详情」：点左边一行，在右边编辑 -->
+    <main class="grid min-h-0 grid-cols-1 overflow-hidden overscroll-contain md:grid-cols-[15rem_minmax(0,1fr)]">
+      <!-- 列表栏 -->
+      <div
+        v-loading="loading"
+        class="grid min-h-0 grid-cols-1 content-start gap-2 overflow-y-auto p-3"
+        :class="activeRow ? 'hidden md:grid' : ''"
+      >
+        <el-empty v-if="!loading && !filtered.length">
+          <template #description>
+            <div class="grid grid-cols-1 gap-1">
+              <el-text size="small" class="text-body">{{ emptyTitle }}</el-text>
+              <el-text size="small" class="ah-text-muted">{{ emptyHint }}</el-text>
+            </div>
+          </template>
+        </el-empty>
+
+        <button
+          v-for="row in filtered"
+          :key="identOf(tab, row)"
+          type="button"
+          class="flex w-full min-w-0 items-center gap-2 rounded-panel border p-2 text-left"
+          :class="
+            identOf(tab, row) === activeKey
+              ? 'border-line-2 bg-surface-2'
+              : 'border-line bg-surface hover:bg-hover'
+          "
+          @click="onSelect(row)"
+        >
+          <span class="thumb grid size-9 shrink-0 place-items-center rounded-ctl" :style="starStyle(row)">
+            <el-image
+              v-if="slotSrc(tab, row, '').src"
+              :src="slotSrc(tab, row, '').src"
+              fit="contain"
+              class="size-full"
+              :preview-src-list="[slotSrc(tab, row, '').src]"
+              :preview-teleported="true"
+              hide-on-click-modal
+              @click.stop
+            >
+              <template #error>
+                <span class="grid size-full place-items-center text-[10px] text-faint">无图</span>
+              </template>
+            </el-image>
+          </span>
+
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
+            <el-text size="small" truncated class="text-ink">{{ row.name || row.key }}</el-text>
+            <span class="flex flex-wrap items-center gap-1">
+              <el-text size="small" class="ah-text-muted">No.{{ row.order || 0 }}</el-text>
+              <el-text v-if="row.star" size="small" class="text-gold">{{ row.star }}★</el-text>
+              <el-tag v-if="slotAlt(row, '')" size="small" type="warning" effect="plain">备用源</el-tag>
+              <el-tag v-if="isCharTab && missingCard(row)" size="small" type="info" effect="plain">
+                缺名片
+              </el-tag>
+              <el-tag v-if="isCharTab && missingArt(row)" size="small" type="info" effect="plain">
+                缺立绘
+              </el-tag>
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <!-- 详情栏：四个页签共用 -->
+      <div
+        class="grid min-h-0 grid-cols-1 content-start gap-3 overflow-y-auto p-3"
+        :class="activeRow ? '' : 'hidden md:grid'"
+      >
+        <template v-if="activeRow">
+          <div class="flex min-w-0 items-center gap-2">
+            <el-button class="md:hidden" size="small" @click="activeKey = ''">
+              <template #icon><el-icon><ArrowLeft /></el-icon></template>
+              返回
+            </el-button>
+            <el-text size="small" truncated class="min-w-0 flex-1 ah-text-muted">
+              代号：{{ activeRow.key || '（空）' }}
+            </el-text>
+          </div>
+
+          <div class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <el-input-number
+                :model-value="activeRow.order || 0"
+                :min="0"
+                :max="9999"
+                size="small"
+                controls-position="right"
+                style="width: 96px"
+                aria-label="序号"
+                @change="setOrder(activeRow, $event)"
+              />
+              <el-input
+                :model-value="activeRow.name"
+                class="min-w-0 flex-1"
+                size="small"
+                placeholder="中文名"
+                aria-label="中文名"
+                @input="activeRow.name = $event"
+                @blur="commitName(activeRow)"
+              />
+              <template v-if="tab !== 'monsters'">
+                <el-input-number
+                  :model-value="activeRow.star ?? 5"
+                  :min="1"
+                  :max="5"
+                  size="small"
+                  controls-position="right"
+                  style="width: 88px"
+                  aria-label="星级"
+                  @change="setStar(activeRow, $event)"
+                />
+                <el-text size="small" class="ah-text-muted shrink-0">★</el-text>
+              </template>
+            </div>
+
+            <el-checkbox :model-value="!!activeRow.lock" @change="setLock(activeRow, $event)">
+              整条冻结
+            </el-checkbox>
+          </div>
+
+          <!-- 三个槽位 -->
+          <div
+            v-for="meta in SLOT_META"
+            :key="meta.slot || 'avatar'"
+            class="grid grid-cols-1 gap-2 rounded-panel border border-line bg-surface p-3"
+          >
+            <div class="flex min-w-0 items-center gap-2">
+              <el-text class="min-w-0 flex-1 font-medium text-ink">{{ meta.title }}</el-text>
+
+              <el-checkbox
+                v-if="hasAlt(tab, meta.slot)"
+                :model-value="slotAlt(activeRow, meta.slot)"
+                size="small"
+                @change="setSlotAlt(activeRow, meta.slot, $event)"
+              >
+                用备用源
+              </el-checkbox>
+            </div>
+
+            <div class="flex min-w-0 items-start gap-2">
+              <span
+                class="thumb grid shrink-0 place-items-center rounded-ctl border border-line-2"
+                :class="meta.slot ? 'h-16 w-28' : 'size-12'"
+                :style="meta.slot ? {} : starStyle(activeRow)"
+              >
+                <el-image
+                  v-if="slotSrc(tab, activeRow, meta.slot).src"
+                  :src="slotSrc(tab, activeRow, meta.slot).src"
+                  :fit="meta.slot ? 'cover' : 'contain'"
+                  class="size-full"
+                  :preview-src-list="[slotSrc(tab, activeRow, meta.slot).src]"
+                  :preview-teleported="true"
+                  hide-on-click-modal
+                >
+                  <template #error>
+                    <span class="grid size-full place-items-center text-[10px] text-faint">无图</span>
+                  </template>
+                </el-image>
+              </span>
+
+              <div class="grid min-w-0 flex-1 grid-cols-1 gap-1">
+                <el-input
+                  :model-value="textOf(meta.slot)"
+                  type="url"
+                  size="small"
+                  clearable
+                  :placeholder="meta.slot === 'art' ? '粘立绘链接，或仓库里的路径' : '粘链接，或直接填代号'"
+                  :aria-label="`${meta.title} 地址`"
+                  @input="onUrlInput(meta.slot, $event)"
+                  @change="commitUrl(activeRow, meta.slot)"
+                  @clear="clearSlot(activeRow, meta.slot)"
+                />
+
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <el-text
+                    size="small"
+                    class="min-w-0 ah-text-muted"
+                    :class="meta.slot === 'art' ? 'break-all' : 'truncated'"
+                  >
+                    {{
+                      meta.slot
+                        ? activeRow[meta.slot]?.key || activeRow[meta.slot]?.url || '未设置'
+                        : activeRow.key || '未设置'
+                    }}
+                  </el-text>
+                  <el-button
+                    v-if="meta.slot ? activeRow[meta.slot] : activeRow.url || activeRow.alt"
+                    link
+                    type="danger"
+                    size="small"
+                    @click="clearSlot(activeRow, meta.slot)"
+                  >
+                    清空
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
+            <el-text size="small" class="ah-text-muted leading-relaxed">{{ meta.hint }}</el-text>
+          </div>
+
+          <div class="flex justify-end">
+            <el-button type="danger" plain size="small" @click="removeRow(activeRow)">
+              <template #icon><el-icon><Delete /></el-icon></template>
+              删除这条
+            </el-button>
+          </div>
+        </template>
+
+        <el-empty v-else description="左边选一条" />
+      </div>
+    </main>
+
+    <!-- ---------------- 底部 ---------------- -->
+    <footer class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-3 py-2">
+      <el-text size="small" truncated class="min-w-0 flex-1 ah-text-muted">{{ infoText }}</el-text>
+      <el-button type="danger" plain size="small" :disabled="!sorted.length" @click="askClear">
+        <template #icon><el-icon><Delete /></el-icon></template>
+        清空
+      </el-button>
+    </footer>
+
+    <!-- ---------------- 弹窗与浮层 ---------------- -->
+    <el-dialog v-model="addOpen" title="新增条目" width="92%" align-center>
+      <div class="grid grid-cols-1 gap-2">
+        <el-text size="small" class="ah-text-muted leading-relaxed">
+          填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，自动认代号并补齐另一个。
+        </el-text>
+
+        <el-input
+          v-model="addText"
+          type="textarea"
+          :rows="5"
+          placeholder="枫原万叶&#10;https://api.lunaris.moe/data/assets/avataricon/UI_AvatarIcon_Anastasya.webp&#10;Anastasya&#10;也可以填 ID（如 26310601）或代号（如 Chimera_OwlPangolin_02）"
+        />
+
+        <!-- 同代号命中多条（一张图被好几条共用）→ 界面挑一条 -->
+        <div v-if="addCandidates.length" class="grid grid-cols-1 gap-2 border-t border-line pt-2">
+          <el-text size="small" class="ah-text-muted">
+            这个代号在源里有 {{ addCandidates.length }} 条，选一条：
+          </el-text>
+          <div class="flex flex-wrap gap-1">
+            <el-button
+              v-for="(c, i) in addCandidates"
+              :key="i"
+              size="small"
+              @click="onPickCandidate(c)"
+            >
+              {{ c.name }}
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="addOpen = false">取消</el-button>
+        <el-button type="primary" @click="onAdd">加入</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="conflictOpen" title="有代号和源对不上" width="92%" align-center>
+      <div class="grid grid-cols-1 gap-2">
+        <el-text size="small" class="ah-text-muted">
+          共 {{ conflicts.length }} 项。勾选 = 用源里的代号，不勾 = 保留你手填的。
+        </el-text>
+
+        <div
+          v-for="(c, i) in conflicts"
+          :key="`${c.rowKey}-${c.slot}`"
+          class="flex min-w-0 items-start gap-2 rounded-ctl border border-line-2 p-2"
+        >
+          <el-checkbox v-model="useSource[i]" />
+          <span class="grid min-w-0 flex-1 grid-cols-1 gap-0.5">
+            <el-text size="small" class="text-ink">{{ c.name || c.rowKey }} · {{ SLOT_LABEL[c.slot] }}</el-text>
+            <el-text size="small" truncated class="ah-text-muted">我的：{{ c.mine }}</el-text>
+            <el-text size="small" truncated class="ah-text-muted">源的：{{ c.theirs }}</el-text>
+          </span>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="conflictOpen = false">取消</el-button>
+        <el-button type="primary" @click="confirmConflicts">应用选择</el-button>
+      </template>
+    </el-dialog>
+
+    <SyncReport v-model="reportOpen" :log="log" />
+  </div>
+</template>
+
+<style scoped>
+/* 星级径向渐变底。
+   starStyle() 只负责把 --star-color / --star-edge 塞进 style，
+   真正画出渐变的是这条规则。
+   几何与 image-loader.js 的 applyBackground 等价：canvas 是 r = 边长 × 0.707
+   的两档径向渐变，而 CSS 的 radial-gradient(circle, …) 默认走 farthest-corner，
+   正方形下正好也是 √2/2 × 边长。
+   圆角不在这里写，在模板的 rounded-ctl 上。 */
+.thumb {
+  background: radial-gradient(
+    circle,
+    var(--star-color, transparent),
+    var(--star-edge, transparent)
+  );
+  overflow: hidden;
+}
+</style>
+
+>>>>
+### src/components/SyncReport.vue
+<<<<
+<script setup>
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+/* 同步报告 / 更新日志 —— 纯展示组件，数据从 useImageDict 来。
+   syncFromAmber() 直接算出 diff，所以旧版那套「从外面猜」的探测全部删掉了。 */
+
+const open = defineModel({ type: Boolean, default: false })
+
+defineProps({
+  /* [{ at, first, kinds }, …]，索引 0 是最近一次，默认展开 */
+  log: { type: Array, default: () => [] },
+})
+
+const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
+const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
+
+const panel = ref(null)
+
+watch(open, async (v) => {
+  if (!v) return
+  await nextTick()
+  panel.value?.focus()
+})
+
+function changedTypes(entry) {
+  return TYPES.filter((t) => {
+    const k = entry.kinds?.[t]
+    return k && (k.added.length || k.renamed.length || k.gone.length)
+  })
+}
+
+function summaryOf(entry) {
+  if (entry.first) return '首次载入'
+  const parts = changedTypes(entry).map((t) => {
+    const k = entry.kinds[t]
+    const bits = []
+    if (k.added.length) bits.push(`+${k.added.length}`)
+    if (k.renamed.length) bits.push(`~${k.renamed.length}`)
+    if (k.gone.length) bits.push(`-${k.gone.length}`)
+    return `${LABELS[t]} ${bits.join(' ')}`
+  })
+  return parts.length ? parts.join(' · ') : '无变化'
+}
+
+function when(ts) {
+  const d = new Date(ts)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function onKey(e) {
+  if (e.key === 'Escape') open.value = false
+}
+
+onMounted(() => document.addEventListener('keydown', onKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+</script>
+
+<template>
+  <Teleport to="body">
+    <Transition name="sr">
+      <div
+        v-if="open"
+        class="fixed inset-0 z-[200] grid place-items-center bg-mask p-4"
+        @mousedown.self="open = false"
+      >
+        <div
+          ref="panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sr-title"
+          tabindex="-1"
+          class="grid max-h-[80dvh] w-full max-w-md grid-rows-[auto_minmax(0,1fr)_auto] gap-3 rounded-panel border border-line bg-surface p-4 shadow-float focus:outline-none"
+        >
+          <div class="flex items-center gap-2">
+            <h2 id="sr-title" class="min-w-0 flex-1 text-sm font-semibold text-ink">同步日志</h2>
+            <button
+              type="button"
+              class="grid size-7 shrink-0 place-items-center rounded-ctl text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              aria-label="关闭"
+              @click="open = false"
+            >
+              <Icon name="ui.close" size="sm" />
+            </button>
+          </div>
+
+          <div class="grid min-h-0 content-start gap-2 overflow-y-auto">
+            <p v-if="!log.length" class="py-6 text-center text-xs text-muted">
+              还没有记录。点上面的「从 Amber 同步」，这里会记下每次的变化。
+            </p>
+
+            <details
+              v-for="(e, i) in log"
+              :key="e.at"
+              :open="i === 0"
+              class="rounded-ctl border border-line bg-surface-2 p-3"
+            >
+              <summary class="flex cursor-pointer items-baseline gap-2 text-xs">
+                <span class="shrink-0 text-muted">{{ when(e.at) }}</span>
+                <span class="min-w-0 flex-1 truncate font-medium text-ink">{{ summaryOf(e) }}</span>
+              </summary>
+
+              <div class="mt-3 grid gap-3">
+                <p v-if="e.first" class="text-xs leading-relaxed text-body">
+                  首次载入：本地还没有字典，这次是从 Amber 拉的全量，不逐条列了。
+                </p>
+
+                <section
+                  v-for="t in changedTypes(e)"
+                  :key="t"
+                  class="grid gap-1.5 border-t border-line pt-3 first:border-t-0 first:pt-0"
+                >
+                  <p class="text-xs font-medium text-ink">
+                    {{ LABELS[t] }}
+                    <span class="font-normal text-muted">
+                      {{ e.kinds[t].from }} → {{ e.kinds[t].to }}
+                    </span>
+                  </p>
+
+                  <template v-if="e.kinds[t].added.length">
+                    <p class="text-xs text-body">新增 {{ e.kinds[t].added.length }}</p>
+                    <ul class="grid gap-1 pl-3">
+                      <li
+                        v-for="r in e.kinds[t].added"
+                        :key="'a' + r.key"
+                        class="flex min-w-0 items-baseline gap-1.5 text-xs"
+                      >
+                        <span class="shrink-0 text-body">{{ r.name || '(未命名)' }}</span>
+                        <span class="min-w-0 truncate text-muted">{{ r.key }}</span>
+                      </li>
+                    </ul>
+                    <p v-if="e.kinds[t].addedMore" class="pl-3 text-xs text-muted">
+                      …还有 {{ e.kinds[t].addedMore }} 条
+                    </p>
+                  </template>
+
+                  <template v-if="e.kinds[t].renamed.length">
+                    <p class="text-xs text-body">改名 {{ e.kinds[t].renamed.length }}</p>
+                    <ul class="grid gap-1 pl-3">
+                      <li
+                        v-for="r in e.kinds[t].renamed"
+                        :key="'r' + r.key"
+                        class="flex min-w-0 items-baseline gap-1.5 text-xs"
+                      >
+                        <span class="shrink-0 text-muted line-through">{{ r.from || '(空)' }}</span>
+                        <span class="shrink-0 text-muted">→</span>
+                        <span class="min-w-0 truncate text-body">{{ r.to || '(空)' }}</span>
+                      </li>
+                    </ul>
+                    <p v-if="e.kinds[t].renamedMore" class="pl-3 text-xs text-muted">
+                      …还有 {{ e.kinds[t].renamedMore }} 条
+                    </p>
+                  </template>
+
+                  <template v-if="e.kinds[t].gone.length">
+                    <p class="text-xs text-body">消失 {{ e.kinds[t].gone.length }}</p>
+                    <ul class="grid gap-1 pl-3">
+                      <li
+                        v-for="r in e.kinds[t].gone"
+                        :key="'g' + r.key"
+                        class="flex min-w-0 items-baseline gap-1.5 text-xs text-muted"
+                      >
+                        <span class="shrink-0">{{ r.name || '(未命名)' }}</span>
+                        <span class="min-w-0 truncate">{{ r.key }}</span>
+                      </li>
+                    </ul>
+                    <p v-if="e.kinds[t].goneMore" class="pl-3 text-xs text-muted">
+                      …还有 {{ e.kinds[t].goneMore }} 条
+                    </p>
+                  </template>
+                </section>
+
+                <p v-if="!e.first && !changedTypes(e).length" class="text-xs text-muted">
+                  这次没有任何变化。
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="grid h-9 shrink-0 place-items-center rounded-ctl border border-line-2 bg-surface px-4 text-sm font-medium text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              @click="open = false"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
+
+<style scoped>
+.sr-enter-active,
+.sr-leave-active {
+  transition: opacity 160ms var(--ease-spring);
+}
+.sr-enter-from,
+.sr-leave-to {
+  opacity: 0;
+}
+</style>
+
 >>>>
 <<<<
-/* 分段菜单：垫色跟它所在的面一致 —— 用卡片色 --color-surface
-   （= 下面 el-card 大框的底：白天亮米白、夜里浅黑灰），并补一条和卡片同样的 1px 描边，
-   否则整块控件落到卡片上就"消失"了。
-   选中项回到 EP 默认（primary 实心 + 白字），与「小字号 / 大字号」那组 el-radio-button 一致 ——
-   不用自造的 accent-soft，那等于给自己多一套「选中」语言。
-   EP 的组件级变量写在 :root 会被遮住，必须盖在组件上。 */
-.el-segmented {
-  --el-segmented-bg-color: var(--color-surface);
-  border: 1px solid var(--el-border-color-light);
+<script setup>
+import { ref } from 'vue'
+
+/* 同步报告 / 更新日志 —— 纯展示组件，数据从 useImageDict 来。
+   外壳走 EP 的 el-dialog（Esc 关闭、焦点、遮罩都由它处理），
+   每一次同步是一条 el-collapse-item，默认展开最近那次。
+   syncFromAmber() 直接算出 diff，所以旧版那套「从外面猜」的探测全部删掉了。 */
+
+const open = defineModel({ type: Boolean, default: false })
+
+defineProps({
+  /* [{ at, first, kinds }, …]，索引 0 是最近一次，默认展开 */
+  log: { type: Array, default: () => [] },
+})
+
+const TYPES = ['characters', 'artifacts', 'weapons', 'monsters']
+const LABELS = { characters: '角色', artifacts: '圣遗物', weapons: '武器', monsters: '怪物' }
+
+/* 默认展开第 0 条（最近一次） */
+const opened = ref([0])
+
+function changedTypes(entry) {
+  return TYPES.filter((t) => {
+    const k = entry.kinds?.[t]
+    return k && (k.added.length || k.renamed.length || k.gone.length)
+  })
 }
+
+function summaryOf(entry) {
+  if (entry.first) return '首次载入'
+  const parts = changedTypes(entry).map((t) => {
+    const k = entry.kinds[t]
+    const bits = []
+    if (k.added.length) bits.push(`+${k.added.length}`)
+    if (k.renamed.length) bits.push(`~${k.renamed.length}`)
+    if (k.gone.length) bits.push(`-${k.gone.length}`)
+    return `${LABELS[t]} ${bits.join(' ')}`
+  })
+  return parts.length ? parts.join(' · ') : '无变化'
+}
+
+function when(ts) {
+  const d = new Date(ts)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+</script>
+
+<template>
+  <el-dialog v-model="open" title="同步日志" width="92%" align-center>
+    <el-empty v-if="!log.length" description="还没有记录。点上面的「从源匹配」，这里会记下每次的变化。" />
+
+    <el-collapse v-else v-model="opened">
+      <el-collapse-item v-for="(e, i) in log" :key="e.at" :name="i">
+        <template #title>
+          <span class="flex min-w-0 items-baseline gap-2 text-xs">
+            <span class="shrink-0 text-muted">{{ when(e.at) }}</span>
+            <span class="min-w-0 flex-1 truncate font-medium text-ink">{{ summaryOf(e) }}</span>
+          </span>
+        </template>
+
+        <div class="grid gap-3">
+          <p v-if="e.first" class="text-xs leading-relaxed text-body">
+            首次载入：本地还没有字典，这次是从 Amber 拉的全量，不逐条列了。
+          </p>
+
+          <section
+            v-for="t in changedTypes(e)"
+            :key="t"
+            class="grid gap-1.5 border-t border-line pt-3 first:border-t-0 first:pt-0"
+          >
+            <p class="text-xs font-medium text-ink">
+              {{ LABELS[t] }}
+              <span class="font-normal text-muted">{{ e.kinds[t].from }} → {{ e.kinds[t].to }}</span>
+            </p>
+
+            <template v-if="e.kinds[t].added.length">
+              <p class="text-xs text-body">新增 {{ e.kinds[t].added.length }}</p>
+              <ul class="grid gap-1 pl-3">
+                <li
+                  v-for="r in e.kinds[t].added"
+                  :key="'a' + r.key"
+                  class="flex min-w-0 items-baseline gap-1.5 text-xs"
+                >
+                  <span class="shrink-0 text-body">{{ r.name || '(未命名)' }}</span>
+                  <span class="min-w-0 truncate text-muted">{{ r.key }}</span>
+                </li>
+              </ul>
+              <p v-if="e.kinds[t].addedMore" class="pl-3 text-xs text-muted">
+                …还有 {{ e.kinds[t].addedMore }} 条
+              </p>
+            </template>
+
+            <template v-if="e.kinds[t].renamed.length">
+              <p class="text-xs text-body">改名 {{ e.kinds[t].renamed.length }}</p>
+              <ul class="grid gap-1 pl-3">
+                <li
+                  v-for="r in e.kinds[t].renamed"
+                  :key="'r' + r.key"
+                  class="flex min-w-0 items-baseline gap-1.5 text-xs"
+                >
+                  <span class="shrink-0 text-muted line-through">{{ r.from || '(空)' }}</span>
+                  <span class="shrink-0 text-muted">→</span>
+                  <span class="min-w-0 truncate text-body">{{ r.to || '(空)' }}</span>
+                </li>
+              </ul>
+              <p v-if="e.kinds[t].renamedMore" class="pl-3 text-xs text-muted">
+                …还有 {{ e.kinds[t].renamedMore }} 条
+              </p>
+            </template>
+
+            <template v-if="e.kinds[t].gone.length">
+              <p class="text-xs text-body">消失 {{ e.kinds[t].gone.length }}</p>
+              <ul class="grid gap-1 pl-3">
+                <li
+                  v-for="r in e.kinds[t].gone"
+                  :key="'g' + r.key"
+                  class="flex min-w-0 items-baseline gap-1.5 text-xs text-muted"
+                >
+                  <span class="shrink-0">{{ r.name || '(未命名)' }}</span>
+                  <span class="min-w-0 truncate">{{ r.key }}</span>
+                </li>
+              </ul>
+              <p v-if="e.kinds[t].goneMore" class="pl-3 text-xs text-muted">
+                …还有 {{ e.kinds[t].goneMore }} 条
+              </p>
+            </template>
+          </section>
+
+          <p v-if="!e.first && !changedTypes(e).length" class="text-xs text-muted">
+            这次没有任何变化。
+          </p>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
+
+    <template #footer>
+      <el-button @click="open = false">关闭</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+>>>>
+### src/composables/useToast.js
+<<<<
+import { reactive, readonly } from 'vue'
+
+/* 模块级单例：任何组件调 useToast() 拿到的是同一份队列 */
+
+const items = reactive([])
+let seq = 0
+
+const KEEP = 3
+const DEFAULT_DURATION = 3200
+const ERROR_DURATION = 5000
+
+export function useToast() {
+  function remove(id) {
+    const i = items.findIndex((t) => t.id === id)
+    if (i < 0) return
+    if (items[i].timer) clearTimeout(items[i].timer)
+    items.splice(i, 1)
+  }
+
+  function push(text, opts = {}) {
+    const type = opts.type ?? 'info'
+    const duration = opts.duration ?? (type === 'error' ? ERROR_DURATION : DEFAULT_DURATION)
+    const id = ++seq
+
+    items.push({
+      id,
+      text,
+      type,
+      timer: duration > 0 ? setTimeout(() => remove(id), duration) : null,
+    })
+
+    /* 超出上限先淘汰最早的，避免连点堆成一屏 */
+    while (items.length > KEEP) remove(items[0].id)
+
+    return id
+  }
+
+  return {
+    toasts: readonly(items),
+    remove,
+    show: push,
+    success: (text, opts) => push(text, { ...opts, type: 'success' }),
+    error: (text, opts) => push(text, { ...opts, type: 'error' }),
+  }
+}
+
+>>>>
+<<<<
+import { ElMessage } from 'element-plus'
+
+/* 全站提示：内部直接交给 EP 的 ElMessage（顶部消息、同样的文案会自动合并、不会连点堆一屏）。
+   调用方仍然写 useToast().success(...) / .error(...)，一处都没改 ——
+   这样 ToastHost 那个自造浮层可以整个删掉。 */
+
+const DEFAULT_DURATION = 3200
+const ERROR_DURATION = 5000
+
+export function useToast() {
+  function push(text, opts = {}) {
+    const type = opts.type ?? 'info'
+    const duration = opts.duration ?? (type === 'error' ? ERROR_DURATION : DEFAULT_DURATION)
+    ElMessage({
+      message: String(text ?? ''),
+      type,
+      duration,
+      /* 同一句连续触发时合并，不叠一堆 */
+      grouping: true,
+      /* 让开顶栏（el-header 56px） */
+      offset: 64,
+    })
+    return 0
+  }
+
+  return {
+    show: push,
+    success: (text, opts) => push(text, { ...opts, type: 'success' }),
+    error: (text, opts) => push(text, { ...opts, type: 'error' }),
+  }
+}
+
+>>>>
+### src/App.vue
+<<<<
+import FrameLayer from './components/FrameLayer.vue'
+import ToastHost from './components/ToastHost.vue'
+
+>>>>
+<<<<
+import FrameLayer from './components/FrameLayer.vue'
+
+>>>>
+### src/App.vue
+<<<<
+      <FrameLayer />
+    </main>
+
+    <ToastHost />
+>>>>
+<<<<
+      <FrameLayer />
+    </main>
+>>>>
+### src/composables/useImageDict.js
+<<<<
+const TRAVELER_ICON = `${BASE}images/game/UI_AvatarIcon_Traveler.webp`
+>>>>
+<<<<
+const TRAVELER_ICON = `${BASE}images/game/旅行者.webp`
+>>>>
+### src/composables/useImageDict.js
+<<<<
+    {
+      key: 'Traveler',
+      name: '旅行者',
+>>>>
+<<<<
+    {
+      key: '旅行者',
+      name: '旅行者',
+>>>>
+### src/composables/useImageDict.js
+<<<<
+  function select(row) {
+    activeKey.value = row ? identOf(tab.value, row) : ''
+    if (row && tab.value === 'characters' && needFill(row)) {
+      hydrate(row, row.key ? 'avatar' : 'name')
+    }
+  }
+>>>>
+<<<<
+  function select(row) {
+    activeKey.value = row ? identOf(tab.value, row) : ''
+    if (row && tab.value === 'characters' && needFill(row)) {
+      hydrate(row, row.key ? 'avatar' : 'name')
+    }
+  }
+
+  /* 让选中重新指到这行。代号（角色）/ 序号（其余分类）一改，身份就变了，
+     activeRow 会按旧身份找不到行、详情栏被 v-if 关掉 ——
+     表现就是「内容一更新，界面弹回列表」。所以每次改完都要 reselect 一次。 */
+  function reselect(row) {
+    if (row) activeKey.value = identOf(tab.value, row)
+  }
+>>>>
+### src/composables/useImageDict.js
+<<<<
+    select,
+    /* 槽位与反查 */
+>>>>
+<<<<
+    select,
+    reselect,
+    /* 槽位与反查 */
+>>>>
+### public/shared/image-dict.js
+<<<<
+    "Traveler": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者.webp" } },
+>>>>
+<<<<
+    "旅行者": { name: "旅行者", star: 5, order: 1, url: "/genshin-guide/images/game/旅行者.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者.webp" } },
+>>>>
+### public/shared/image-dict.js
+<<<<
+    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/images/game/UI_AvatarIcon_Traveler.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者·冰.webp" } },
+>>>>
+<<<<
+    "旅行者·冰": { name: "旅行者·冰", star: 5, order: 1, url: "/genshin-guide/images/game/旅行者.webp", card: { key: "Ysxf6" }, art: { url: "/genshin-guide/images/art/001.旅行者·冰.webp" } },
+>>>>
+### public/shared/image-loader.js
+<<<<
+ *   1. 本地：条目带 local: true，key 是文件名（如 UI_AvatarIcon_Traveler.webp），从 icons/ 根目录加载
+>>>>
+<<<<
+ *   1. 本地：条目带 local: true，key 是文件名（如 旅行者.webp），从 icons/ 根目录加载
 >>>>
 ### AGENTS.md
 <<<<
-- **凹槽类表面**（滑块轨道、`el-segmented` 选中项、卡片 hover、collapse 底）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档（`#2f2b24` vs `#1f1e1b`），否则这些地方整片看不见。
+- **字典约定**：
 >>>>
 <<<<
-- **凹槽类表面**（卡片 hover、`collapse` 底、已完成底色）一律复用 `--color-sunken`，**不要再新造第二个令牌**。暗色下它必须比 `--color-surface` 亮一档，否则这些地方整片看不见。
-- **控件跟它所在的面同色**：卡片里的控件底一律 `--color-surface`（= `el-card` 的底），靠 `--el-border-color*` 那条描边区分，别用凹槽色 `sunken` 当控件的底；滑块轨道也用同一条描边（`--el-slider-runway-bg-color: var(--el-border-color)`）。选中态优先 EP 默认（`primary` 实心 + 白字），与 `el-radio-button` 一致。
+- **字典编辑器的约定**：地址框里显示的**就是这一格已保存的值**（手填地址原样；只有代号就按源拼出完整地址），所以刷新后框里照样有内容；缩略图永远按**已保存的值**算（`slotSrc`），不跟正在输入的草稿走 —— 打字时图不会乱跳。代号 / 序号一变必须 `reselect(row)` 把选中挪过去，否则详情栏的 `v-if` 会把正在编辑的界面关掉（表现就是「改着改着弹回列表」）。列表行仍是原生 `<button>`（EP 没有「可选中行」这种组件），其余全部 EP。
+- **字典约定**：
 >>>>
 ### AGENTS.md
 <<<<
-- **最后合并**：`palette-fix`
+- **最后合并**：`bg-fix`
 >>>>
 <<<<
-- **最后合并**：`bg-fix` —— 「控件跟所在的面同色」：`el-segmented` 的垫色改回卡片色 `--color-surface`（= 所在 `el-card` 大框的底：白天亮米白、夜里浅黑灰）并补一条和卡片一样的 1px 描边；选中项回到 EP 默认（`primary` 实心 + 白字），与「小字号 / 大字号」那组单选框一致。`el-slider` 轨道改用 `--el-border-color`（= 文本框边框那条）。顺手清掉 `app.css` 里所有 `color-mix`（老浏览器无效值 —— 暗色下 `--el-border-color` 因此坏掉，整套输入框没有边框）与过期的 `--el-color-primary-rgb`（还是旧强调色 `204, 120, 92`）。
-- **上一批**：`palette-fix`
+- **最后合并**：`dict-ep` —— 图片字典编辑器全量回归 EP：搜索 / 页签 / 筛选（`el-input` + 两个 `el-segmented`）、5 个 `el-button`、列表 `el-image`（带预览）+ `el-tag` + `el-empty` + `v-loading`、详情 `el-input-number`（序号、星级）、`el-input`、`el-checkbox`；确认改 `ElMessageBox`，两个自造 `Modal` 改 `el-dialog`；`SyncReport` 内部改 `el-dialog` + `el-collapse`；`useToast` 内部换 `ElMessage` 并删掉 `ToastHost`（30+ 个调用点一行没改）。同时修「地址框看不出当前值 / 内容一更新就弹回列表」：框里显示已保存的值（只有代号时按源拼出完整链接），新增 `reselect(row)` 在代号变化后把选中带过去。旅行者头像改名 `旅行者.webp`，字典键 `Traveler` → `旅行者`（`FORCED_LOCAL` 同步，否则会多出一条）。
+- **上一批**：`bg-fix`
 >>>>
 ### CHANGELOG.md
 <<<<
 ### 2026-11-19 · 
 >>>>
 <<<<
-- **补充（同批 · 控件跟所在的面同色）**：视频封面里「切换三个功能」的分段菜单是块灰底，和下面 `el-card` 大框（白天亮米白、夜里浅黑灰）以及「小字号 / 大字号」那组单选框都不一致；拖动条的轨道色也和文本框边框不同。改法：① `el-segmented` 的垫色改回卡片色 `--color-surface`，并补一条和卡片同样的 1px 描边（否则落在卡片上整块控件会"消失"）；选中项回到 EP 默认（`primary` 实心 + 白字），与 `el-radio-button` 完全一致，不再用自造的 `accent-soft`。② `el-slider` 的轨道改用 `--el-border-color`，与文本框 / 单选框同一条描边。③ 顺手把 `app.css` 里所有 `color-mix` 换成写死的混色值 —— 老浏览器（iOS Safari < 16.2）把它算成无效值，暗色下的 `--el-border-color` 因此整条失效，**输入框在夜间根本没有边框**，滑块轨道也跟着塌；同时修掉过期的 `--el-color-primary-rgb`（还是旧的 `204, 120, 92`，会导致 EP 里所有半透明强调色仍是旧橙）。结果：卡片里的控件和卡片同底、只靠一条描边区分，滑块轨道与输入框边框同色，暗色下输入框重新有边框。
+- **补充（同批 · 图片字典编辑器全量回归 EP）**：这是最后一个还带着自造控件的页面（`Btn` / `Field` / `Dropdown` / `Seg` / `Modal` / `SyncReport` + 原生 input）。改法：搜索换 `el-input`（自带清空），页签与筛选换 `el-segmented`，5 个按钮换 `el-button`，列表缩略图换 `el-image`（点图可看大图）、徽标换 `el-tag`、空态换 `el-empty`、载入用 `v-loading`，详情栏序号与星级换 `el-input-number`、名字与地址换 `el-input`、两个勾换 `el-checkbox`，清空确认换 `ElMessageBox`，新增与冲突两个弹窗换 `el-dialog`，日志面板 `SyncReport` 内部改 `el-dialog` + `el-collapse`；`useToast` 内部换成 `ElMessage`、删掉 `ToastHost`（30+ 个调用点一行没改）。同时修两处体验：① 地址框过去提交后就被清空，看不出这一格现在存的是什么、刷新后框里也是空的 —— 现在框里显示**已保存的值**（只有代号时按源拼出完整链接），缩略图始终按已保存的值算；② 过去改代号 / 序号会改变行的身份，`activeRow` 按旧身份找不到行，详情栏被 `v-if` 关掉，表现为「一更新就弹回列表」——新增 `reselect(row)`，每次改完把选中带过去。另外按你的要求，`public/images/game/` 的旅行者头像改名为 `旅行者.webp`，字典第一个角色的键 `Traveler` → `旅行者`（`FORCED_LOCAL` 里的键同步改，否则加载后会多出一条「旅行者」；`旅行者·冰` 的 url 也一并指向新文件）。
 
 ### 2026-11-19 · 
 >>>>
 
 == DELETES ==
+src/components/ToastHost.vue
 
 == CHECKS ==
-! grep -q "color-mix(in" src/styles/app.css
-! grep -q "204, 120, 92" src/styles/app.css
-grep -q "el-color-primary-rgb: 217, 119, 87" src/styles/app.css
-grep -q "el-segmented-bg-color: var(--color-surface)" src/styles/app.css
-! grep -q "el-segmented-item-selected" src/styles/app.css
-grep -q "border: 1px solid var(--el-border-color-light)" src/styles/app.css
-grep -q "el-border-color: #5a564f" src/styles/app.css
-grep -q "2026-11-21" CHANGELOG.md
+[ "$(grep -c '<input' src/views/ImageDict.vue)" -eq 0 ]
+[ "$(grep -c '<el-button' src/views/ImageDict.vue)" -ge 12 ]
+grep -q "<el-segmented" src/views/ImageDict.vue
+grep -q "<el-input-number" src/views/ImageDict.vue
+grep -q "<el-checkbox" src/views/ImageDict.vue
+grep -q "ElMessageBox" src/views/ImageDict.vue
+grep -q "<el-dialog" src/views/ImageDict.vue
+grep -q "el-image" src/views/ImageDict.vue
+grep -q "preview-src-list" src/views/ImageDict.vue
+grep -q "v-loading" src/views/ImageDict.vue
+grep -q "el-empty" src/views/ImageDict.vue
+! grep -q "components/Btn.vue\|components/Field.vue\|components/Dropdown.vue\|components/Seg.vue\|components/Modal.vue" src/views/ImageDict.vue
+! grep -q "onThumbError\|const FIELD\|const DEL" src/views/ImageDict.vue
+! grep -q "ToastHost" src/App.vue
+[ ! -f src/components/ToastHost.vue ]
+grep -q "ElMessage" src/composables/useToast.js
+grep -q "el-collapse" src/components/SyncReport.vue
+grep -q "el-dialog" src/components/SyncReport.vue
+grep -q "function reselect" src/composables/useImageDict.js
+grep -q "images/game/旅行者.webp" src/composables/useImageDict.js
+grep -q "images/game/旅行者.webp" public/shared/image-dict.js
+! grep -rq "UI_AvatarIcon_Traveler" src public
+[ -f "public/images/game/旅行者.webp" ]
+[ ! -f public/images/game/UI_AvatarIcon_Traveler.webp ]
+grep -q '"旅行者": { name: "旅行者"' public/shared/image-dict.js
 [ "$(grep -c '^### 2026-11-21' CHANGELOG.md)" -eq 1 ]
-grep -q "el-slider-runway-bg-color: var(--el-border-color)" src/styles/app.css
