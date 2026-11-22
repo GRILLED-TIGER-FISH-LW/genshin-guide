@@ -1013,7 +1013,7 @@ function clearTeamCore() {
       <!-- ⑧ 命座区 -->
       <section v-show="tab === 'constellation'" class="grid grid-cols-1 gap-3">
         <div :class="PANEL">
-          <h2 class="text-xs font-medium text-muted">核心命座说明（点击圆圈点亮）</h2>
+          <h2 class="text-xs font-medium text-muted">核心命座</h2>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div v-for="(c, i) in s.constellationData" :key="i" class="flex items-center gap-2">
               <button
