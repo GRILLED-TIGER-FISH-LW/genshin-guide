@@ -128,7 +128,6 @@ const filterOptions = computed(() =>
 const AVATAR_META = {
   slot: '',
   title: '头像',
-  hint: '粘链接（或直接填代号）自动认代号。lunaris 的图不对时，粘 Amber 那组的链接会自动改成用备用源。',
 }
 const SLOT_META = computed(() =>
   isCharTab.value
@@ -137,12 +136,10 @@ const SLOT_META = computed(() =>
         {
           slot: 'card',
           title: '名片',
-          hint: '粘名片大图链接只记代号。代号和头像不一样时（绮良良）会自己查源；图不对同样可以切备用源。',
         },
         {
           slot: 'art',
           title: '立绘',
-          hint: '没有自动源，只手填。仓库里的图直接粘仓库路径，会自动转成站点绝对路径。',
         },
       ]
     : [AVATAR_META],
@@ -512,8 +509,6 @@ onMounted(init)
                 </div>
               </div>
             </div>
-
-            <el-text size="small" class="ah-text-muted leading-relaxed">{{ meta.hint }}</el-text>
           </div>
 
           <div class="flex justify-end">
@@ -540,10 +535,6 @@ onMounted(init)
     <!-- ---------------- 弹窗与浮层 ---------------- -->
     <el-dialog v-model="addOpen" title="新增条目" width="92%" align-center>
       <div class="grid grid-cols-1 gap-2">
-        <el-text size="small" class="ah-text-muted leading-relaxed">
-          填中文名 → 去源里查（当前分类：{{ LABELS[tab] }}）；粘链接或代号 → 一行一个，自动认代号并补齐另一个。
-        </el-text>
-
         <el-input
           v-model="addText"
           type="textarea"

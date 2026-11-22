@@ -5,12 +5,12 @@ import SolarIcon from '../components/SolarIcon.vue'
 /* 一句描述（<=1 行）。不写数量 —— 数量随数据会变，改起来容易漏。
    三行结构（图标 / 标题 / 描述）+ 描述锁两行高，是卡片严格等高的前提。 */
 const DESC = {
-  character: '角色培养材料总览',
-  'image-dict': '图片字典维护与查漏',
-  'video-cover': '视频与合集封面排版',
-  'image-tools': '图片批处理与合成',
+  character: '培养材料总览',
+  'image-dict': '维护与查漏',
+  'video-cover': '视频与合集封面',
+  'image-tools': '批处理与合成',
   chart: '雷达图与柱状图',
-  tier: '角色强度分档',
+  tier: '强度分档',
 }
 </script>
 
@@ -62,12 +62,23 @@ const DESC = {
   outline-offset: 2px;
 }
 
-/* 固定高度：卡片不再随标题长短高低不齐 */
+/* 手机：宽:高 严格 3:2；电脑：高度固定成手机端那档（118px）、宽度自适应。
+   行高 / 字号 / 图标 / 内边距一律不动 —— 靠「标题压到 5 字 + 描述压到 6 字」
+   （见 router.js 的 label 与下面的 DESC）把内容装进 3:2。 */
 .ah-home__card {
-  /* 与冒险之证一致：固定 132px，标题与描述各最多两行 */
-  height: 132px;
+  aspect-ratio: 3 / 2;
+  min-height: 108px; /* 只为 320px 级老屏兜底；≥360px 时 3:2 本身已经更高 */
+  overflow: hidden;
   color: inherit;
   transition: background-color var(--el-transition-duration-fast);
+}
+
+@media (min-width: 900px) {
+  .ah-home__card {
+    aspect-ratio: auto;
+    height: 118px;
+    min-height: 0;
+  }
 }
 
 .ah-home__link:hover .ah-home__card,
@@ -79,6 +90,7 @@ const DESC = {
 .ah-home__card :deep(.el-card__body) {
   box-sizing: border-box;
   height: 100%;
+  overflow: hidden; /* EP 默认 auto，3:2 下会冒滚动条 */
 }
 
 .ah-home__inner {

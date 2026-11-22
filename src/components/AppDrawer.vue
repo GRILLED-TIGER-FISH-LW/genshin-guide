@@ -107,11 +107,18 @@ function go(path) {
   background-color: var(--color-canvas);
 }
 
+/* EP 的 header 自带 32px 下边距，和 body 的 20px 上内边距叠成 52px；
+   去掉这 32px，标题到第一行菜单就只剩 EP 的 20px 一层 */
+.ah-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+}
+
 .ah-drawer__nav {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px;
+  /* 不加内边距：左右交给 EP 的 --el-drawer-padding-primary（20px），只留一层间距 */
+  padding: 0;
 }
 
 .ah-drawer__menu {

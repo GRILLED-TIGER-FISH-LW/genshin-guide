@@ -24,7 +24,7 @@ export const TOOLS = [
   },
   {
     key: 'image-dict',
-    label: '图片字典编辑器',
+    label: '图片字典',
     icon: 'solar:book',
     /* 已搬进 SPA：用真组件，不再走 iframe。
        故意不给 frame —— FrameLayer 只认 frame，会自动跳过它 */
