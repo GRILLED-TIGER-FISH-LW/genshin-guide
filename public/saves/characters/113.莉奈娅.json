@@ -1,0 +1,233 @@
+{
+  "charName": "莉奈娅",
+  "version": "7.2",
+  "date": "2026-11",
+  "author": "烤吃虎鱼LW",
+  "theme": "#CC9046",
+  "imgX": -60,
+  "charImg": "",
+  "charImgMeta": null,
+  "charImgDeleted": false,
+  "charImgManual": false,
+  "nameBgImg": "",
+  "nameBgImgMeta": null,
+  "nameBgImgDeleted": false,
+  "nameBgImgManual": false,
+  "bgImg": "",
+  "bgImgDeleted": false,
+  "bgImgManual": false,
+  "sandMain": "防御力%/元素充能效率",
+  "gobMain": "防御力%",
+  "cirMain": "暴击率/暴击伤害/防御力%",
+  "subStats": "暴击率/暴击伤害>防御力%>元素精通≥元素充能效率",
+  "talentA": "1",
+  "talentE": "9+",
+  "talentQ": "6+",
+  "panel": {
+    "primaryKey": "def",
+    "primaryValue": "2200",
+    "cr": "60%",
+    "cd": "210%",
+    "em": "",
+    "er": ""
+  },
+  "weaponData": {
+    "graduate": [
+      {
+        "name": "霜结的誓金枝",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "若水",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "猎人之径",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "冬极白星",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "optional": [
+      {
+        "name": "悬黎千钧",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "霜雪誓约",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "天空之翼",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "弹弓",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "newbie": []
+  },
+  "artifactData": [
+    {
+      "type": "single",
+      "name": "华馆梦醒形骸记",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "晨星与月的晓歌",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "纺月的夜歌",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "double",
+      "name1": "华馆梦醒形骸记",
+      "name2": "晨星与月的晓歌",
+      "displayText": "2防御+2精通",
+      "img1": "",
+      "img1Manual": false,
+      "img2": "",
+      "img2Manual": false,
+      "img": ""
+    }
+  ],
+  "constellationData": [
+    {
+      "active": true,
+      "desc": "元素战技或触发月笼时获层数，消耗层数提升月结晶伤害"
+    },
+    {
+      "active": true,
+      "desc": "触发月笼后提升水、岩角色暴伤，特殊战技额外提升暴伤"
+    },
+    {
+      "active": false,
+      "desc": "元素战技等级+3"
+    },
+    {
+      "active": false,
+      "desc": "触发月笼后提升自身与前台防御力，自身在场可叠加"
+    },
+    {
+      "active": false,
+      "desc": "元素爆发等级+3"
+    },
+    {
+      "active": true,
+      "desc": "战技或月笼直接满层，消耗层数强化增伤，全队月结晶擢升"
+    }
+  ],
+  "teamCoreImg": "",
+  "teamCoreImgManual": false,
+  "teamData": [
+    {
+      "name": "月结晶",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "兹白",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "娜维娅",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "荒泷一斗",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "诺艾尔",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "凝光",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "哥伦比娅",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "爱诺",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "夜兰",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "行秋",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "芙宁娜",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "叶洛亚",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "五郎",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fontData": "",
+  "fontName": "原神补全",
+  "fontFileName": "原神补全.ttf",
+  "bgImgMeta": null
+}

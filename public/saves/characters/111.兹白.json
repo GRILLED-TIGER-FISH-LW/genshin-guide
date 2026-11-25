@@ -1,0 +1,215 @@
+{
+  "charName": "兹白",
+  "version": "7.2",
+  "date": "2026-11",
+  "author": "烤吃虎鱼LW",
+  "theme": "#CC9046",
+  "imgX": -80,
+  "charImg": "",
+  "charImgMeta": null,
+  "charImgDeleted": false,
+  "charImgManual": false,
+  "nameBgImg": "",
+  "nameBgImgMeta": null,
+  "nameBgImgDeleted": false,
+  "nameBgImgManual": false,
+  "bgImg": "",
+  "bgImgDeleted": false,
+  "bgImgManual": false,
+  "sandMain": "防御力%",
+  "gobMain": "防御力%",
+  "cirMain": "暴击率/暴击伤害",
+  "subStats": "暴击率/暴击伤害＞防御力%≥元素精通＞元素充能效率",
+  "talentA": "1",
+  "talentE": "9+",
+  "talentQ": "6+",
+  "panel": {
+    "primaryKey": "def",
+    "primaryValue": "2600",
+    "cr": "45%",
+    "cd": "160%",
+    "em": "",
+    "er": "120%"
+  },
+  "weaponData": {
+    "graduate": [
+      {
+        "name": "朏魄含光",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "有乐御簾切",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "蝶变",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "裁叶萃光",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "optional": [
+      {
+        "name": "黎明神剑",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "新枝",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "息燧之笛",
+        "img": "",
+        "imgManual": false
+      },
+      {
+        "name": "星锋剑",
+        "img": "",
+        "imgManual": false
+      }
+    ],
+    "newbie": []
+  },
+  "artifactData": [
+    {
+      "type": "single",
+      "name": "穹境示现之夜",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "single",
+      "name": "华馆梦醒形骸记",
+      "img": "",
+      "imgManual": false,
+      "img1": "",
+      "img2": ""
+    },
+    {
+      "type": "double",
+      "name1": "华馆梦醒形骸记",
+      "name2": "穹境示现之夜",
+      "displayText": "2防御+2精通",
+      "img1": "",
+      "img1Manual": false,
+      "img2": "",
+      "img2Manual": false,
+      "img": ""
+    }
+  ],
+  "constellationData": [
+    {
+      "active": true,
+      "desc": "施放元素战技积攒浮光，增加特殊战技次数并增伤"
+    },
+    {
+      "active": true,
+      "desc": "特殊状态提升全队月结晶伤害，满辉基于防御力增伤"
+    },
+    {
+      "active": false,
+      "desc": "元素战技等级+3"
+    },
+    {
+      "active": false,
+      "desc": "特殊状态普攻连击不重置，特殊战技命中强化普攻"
+    },
+    {
+      "active": false,
+      "desc": "元素爆发等级+3"
+    },
+    {
+      "active": true,
+      "desc": "加快浮光积攒，消耗超额浮光获得独立增伤"
+    }
+  ],
+  "teamCoreImg": "",
+  "teamCoreImgManual": false,
+  "teamData": [
+    {
+      "name": "月结晶",
+      "chars": [
+        {
+          "name": "",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": []
+        },
+        {
+          "name": "莉奈娅",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "希诺宁",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "钟离",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "哥伦比娅",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "爱诺",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "夜兰",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "行秋",
+              "img": "",
+              "imgManual": false
+            },
+            {
+              "name": "芙宁娜",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        },
+        {
+          "name": "叶洛亚",
+          "img": "",
+          "imgManual": false,
+          "emptyAltText": "暂无备选",
+          "alts": [
+            {
+              "name": "五郎",
+              "img": "",
+              "imgManual": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fontData": "",
+  "fontName": "原神补全",
+  "fontFileName": "原神补全.ttf",
+  "bgImgMeta": null
+}
